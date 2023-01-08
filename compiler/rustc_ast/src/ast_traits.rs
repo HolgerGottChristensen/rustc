@@ -72,7 +72,6 @@ impl_has_node_id!(
     ExprField,
     FieldDef,
     ForeignItem,
-    GenericParam,
     Item,
     Param,
     Pat,
@@ -81,6 +80,19 @@ impl_has_node_id!(
     Ty,
     Variant,
 );
+
+impl HasNodeId for GenericParam {
+    fn node_id(&self) -> NodeId {
+        match &self {
+            GenericParam::Atomic { id, .. } => *id
+        }
+    }
+    fn node_id_mut(&mut self) -> &mut NodeId {
+        match self {
+            GenericParam::Atomic { ref mut id, .. } => id
+        }
+    }
+}
 
 impl<T: AstDeref<Target: HasNodeId>> HasNodeId for T {
     fn node_id(&self) -> NodeId {
@@ -319,12 +331,25 @@ impl_has_attrs!(
     Expr,
     ExprField,
     FieldDef,
-    GenericParam,
     Param,
     PatField,
     Variant,
 );
 impl_has_attrs_none!(Attribute, AttrItem, Block, Pat, Path, Ty, Visibility);
+
+impl HasAttrs for GenericParam {
+    const SUPPORTS_CUSTOM_INNER_ATTRS: bool = false;
+
+    #[inline]
+    fn attrs(&self) -> &[Attribute] {
+        match self { GenericParam::Atomic { attrs,.. } => attrs }
+    }
+
+    fn visit_attrs(&mut self, f: impl FnOnce(&mut AttrVec)) {
+        match self { GenericParam::Atomic { attrs,.. } => f(attrs) }
+
+    }
+}
 
 impl<T: AstDeref<Target: HasAttrs>> HasAttrs for T {
     const SUPPORTS_CUSTOM_INNER_ATTRS: bool = T::Target::SUPPORTS_CUSTOM_INNER_ATTRS;
