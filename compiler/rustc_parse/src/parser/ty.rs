@@ -572,7 +572,10 @@ impl<'a> Parser<'a> {
             .params
             .into_iter()
             .filter(|param| {
-                match param { GenericParam::Atomic { kind, .. } => matches!(kind, ast::GenericParamKind::Lifetime) }
+                match param {
+                    GenericParam::Atomic { kind, .. } => matches!(kind, ast::GenericParamKind::Lifetime),
+                    GenericParam::Composition { .. } => false,
+                }
 
             })
             .collect();
@@ -580,7 +583,12 @@ impl<'a> Parser<'a> {
         let sugg = if !lifetimes.is_empty() {
             let snippet =
                 lifetimes.iter().map(|param| {
-                    match param { GenericParam::Atomic { ident, .. } => {ident.as_str()} }
+                    match param {
+                        GenericParam::Atomic { ident, .. } => {ident.as_str()}
+                        GenericParam::Composition { .. } => {
+                            todo!() // TODO(hoch)
+                        }
+                    }
                 }).intersperse(", ").collect();
 
             let (left, snippet) = if let Some(span) = param_insertion_point {

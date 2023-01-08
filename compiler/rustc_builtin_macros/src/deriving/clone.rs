@@ -42,9 +42,14 @@ pub fn expand_deriving_clone(
                     && !params
                         .iter()
                         .any(|param| {
-                            match param { GenericParam::Atomic { kind, .. } => {
-                                matches!(kind, ast::GenericParamKind::Type { .. })
-                            } }
+                            match param {
+                                GenericParam::Atomic { kind, .. } => {
+                                    matches!(kind, ast::GenericParamKind::Type { .. })
+                                }
+                                GenericParam::Composition { .. } => {
+                                    todo!() // TODO(hoch)
+                                }
+                            }
                         })
                 {
                     bounds = vec![];

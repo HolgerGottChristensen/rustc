@@ -1644,6 +1644,20 @@ impl<'a> State<'a> {
                         }
                     }
                 }
+                GenericParam::Composition { ident, attrs, bounds, params, .. } => {
+                    s.print_outer_attributes_inline(attrs);
+
+                    s.print_ident(*ident);
+
+                    if !params.is_empty() {
+                        s.print_generic_params(&params);
+                    }
+
+                    if !bounds.is_empty() {
+                        s.word_nbsp(":");
+                        s.print_type_bounds(bounds);
+                    }
+                }
             }
 
         });

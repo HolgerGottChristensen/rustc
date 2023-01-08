@@ -200,19 +200,24 @@ impl<'a, 'b> visit::Visitor<'a> for DefCollector<'a, 'b> {
     }
 
     fn visit_generic_param(&mut self, param: &'a GenericParam) {
-        match param { GenericParam::Atomic { is_placeholder, ident, id, kind, .. } => {
-            if *is_placeholder {
-                self.visit_macro_invoc(*id);
-                return;
+        match param {
+            GenericParam::Atomic { is_placeholder, ident, id, kind, .. } => {
+                if *is_placeholder {
+                    self.visit_macro_invoc(*id);
+                    return;
+                }
+                let name = ident.name;
+                let def_path_data = match kind {
+                    GenericParamKind::Lifetime { .. } => DefPathData::LifetimeNs(name),
+                    GenericParamKind::Type { .. } => DefPathData::TypeNs(name),
+                    GenericParamKind::Const { .. } => DefPathData::ValueNs(name),
+                };
+                self.create_def(*id, def_path_data, ident.span);
             }
-            let name = ident.name;
-            let def_path_data = match kind {
-                GenericParamKind::Lifetime { .. } => DefPathData::LifetimeNs(name),
-                GenericParamKind::Type { .. } => DefPathData::TypeNs(name),
-                GenericParamKind::Const { .. } => DefPathData::ValueNs(name),
-            };
-            self.create_def(*id, def_path_data, ident.span);
-        } }
+            GenericParam::Composition { .. } => {
+                todo!() // TODO(hoch)
+            }
+        }
 
 
         // impl-Trait can happen inside generic parameters, like

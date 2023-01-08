@@ -1446,13 +1446,18 @@ impl<'a, 'b> Visitor<'b> for BuildReducedGraphVisitor<'a, 'b> {
     }
 
     fn visit_generic_param(&mut self, param: &'b ast::GenericParam) {
-        match param { GenericParam::Atomic { id, is_placeholder, .. } => {
-            if *is_placeholder {
-                self.visit_invoc(*id);
-            } else {
-                visit::walk_generic_param(self, param);
+        match param {
+            GenericParam::Atomic { id, is_placeholder, .. } => {
+                if *is_placeholder {
+                    self.visit_invoc(*id);
+                } else {
+                    visit::walk_generic_param(self, param);
+                }
             }
-        } }
+            GenericParam::Composition { .. } => {
+                todo!() // TODO(hoch)
+            }
+        }
     }
 
     fn visit_param(&mut self, p: &'b ast::Param) {

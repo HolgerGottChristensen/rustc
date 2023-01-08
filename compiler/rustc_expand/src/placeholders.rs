@@ -231,13 +231,18 @@ impl MutVisitor for PlaceholderExpander {
         &mut self,
         param: ast::GenericParam,
     ) -> SmallVec<[ast::GenericParam; 1]> {
-        match param { GenericParam::Atomic { is_placeholder, id, .. } => {
-            if is_placeholder {
-                self.remove(id).make_generic_params()
-            } else {
-                noop_flat_map_generic_param(param, self)
+        match param {
+            GenericParam::Atomic { is_placeholder, id, .. } => {
+                if is_placeholder {
+                    self.remove(id).make_generic_params()
+                } else {
+                    noop_flat_map_generic_param(param, self)
+                }
             }
-        } }
+            GenericParam::Composition { .. } => {
+                todo!() // TODO(hoch)
+            }
+        }
     }
 
     fn flat_map_param(&mut self, p: ast::Param) -> SmallVec<[ast::Param; 1]> {

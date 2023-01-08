@@ -121,19 +121,24 @@ impl Ty {
                     .params
                     .iter()
                     .map(|param| {
-                        match param { GenericParam::Atomic { id, ident, kind, .. } => {
-                            match kind {
-                                GenericParamKind::Lifetime { .. } => {
-                                    GenericArg::Lifetime(ast::Lifetime { id: *id, ident: *ident })
-                                }
-                                GenericParamKind::Type { .. } => {
-                                    GenericArg::Type(cx.ty_ident(span, *ident))
-                                }
-                                GenericParamKind::Const { .. } => {
-                                    GenericArg::Const(cx.const_ident(span, *ident))
+                        match param {
+                            GenericParam::Atomic { id, ident, kind, .. } => {
+                                match kind {
+                                    GenericParamKind::Lifetime { .. } => {
+                                        GenericArg::Lifetime(ast::Lifetime { id: *id, ident: *ident })
+                                    }
+                                    GenericParamKind::Type { .. } => {
+                                        GenericArg::Type(cx.ty_ident(span, *ident))
+                                    }
+                                    GenericParamKind::Const { .. } => {
+                                        GenericArg::Const(cx.const_ident(span, *ident))
+                                    }
                                 }
                             }
-                        } }
+                            GenericParam::Composition { .. } => {
+                                todo!() // TODO(hoch)
+                            }
+                        }
                     })
                     .collect();
 

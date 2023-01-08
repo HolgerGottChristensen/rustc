@@ -364,20 +364,21 @@ pub enum GenericParam {
         kind: GenericParamKind,
         colon_span: Option<Span>,
     },
-    /*Composition {
+    Composition {
         id: NodeId,
         ident: Ident,
         attrs: AttrVec,
         params: Vec<GenericParam>,
         bounds: GenericBounds,
         colon_span: Option<Span>,
-    }*/
+    }
 }
 
 impl GenericParam {
     pub fn id(&self) -> NodeId {
         match self {
-            GenericParam::Atomic { id, .. } => *id
+            GenericParam::Atomic { id, .. } => *id,
+            GenericParam::Composition { id, .. } => *id
         }
     }
 
@@ -394,6 +395,9 @@ impl GenericParam {
                     }
                     GenericParamKind::Const { kw_span, default: None, ty } => kw_span.to(ty.span),
                 }
+            }
+            GenericParam::Composition { .. } => {
+                Span::default() // TODO(hoch)
             }
         }
 

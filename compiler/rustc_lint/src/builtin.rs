@@ -1118,6 +1118,9 @@ impl EarlyLintPass for UnusedDocComment {
             GenericParam::Atomic { ident, attrs, .. } => {
                 warn_if_doc(cx, ident.span, "generic parameters", attrs);
             }
+            GenericParam::Composition { .. } => {
+                todo!() // TODO(hoch)
+            }
         }
     }
 

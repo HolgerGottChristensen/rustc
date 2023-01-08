@@ -83,13 +83,12 @@ impl_has_node_id!(
 
 impl HasNodeId for GenericParam {
     fn node_id(&self) -> NodeId {
-        match &self {
-            GenericParam::Atomic { id, .. } => *id
-        }
+        self.id()
     }
     fn node_id_mut(&mut self) -> &mut NodeId {
         match self {
-            GenericParam::Atomic { ref mut id, .. } => id
+            GenericParam::Atomic { ref mut id, .. } => id,
+            GenericParam::Composition { ref mut id, .. } => id,
         }
     }
 }
@@ -342,11 +341,15 @@ impl HasAttrs for GenericParam {
 
     #[inline]
     fn attrs(&self) -> &[Attribute] {
-        match self { GenericParam::Atomic { attrs,.. } => attrs }
+        match self { GenericParam::Atomic { attrs,.. } => attrs,
+            GenericParam::Composition { attrs, .. } => attrs,
+        }
     }
 
     fn visit_attrs(&mut self, f: impl FnOnce(&mut AttrVec)) {
-        match self { GenericParam::Atomic { attrs,.. } => f(attrs) }
+        match self { GenericParam::Atomic { attrs,.. } => f(attrs),
+            GenericParam::Composition { attrs, .. } => f(attrs),
+        }
 
     }
 }

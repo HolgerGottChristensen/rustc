@@ -208,11 +208,16 @@ impl EarlyLintPass for NonCamelCaseTypes {
     }
 
     fn check_generic_param(&mut self, cx: &EarlyContext<'_>, param: &ast::GenericParam) {
-        match param { GenericParam::Atomic { kind, ident, .. } => {
-            if let ast::GenericParamKind::Type { .. } = kind {
-                self.check_case(cx, "type parameter", ident);
+        match param {
+            GenericParam::Atomic { kind, ident, .. } => {
+                if let ast::GenericParamKind::Type { .. } = kind {
+                    self.check_case(cx, "type parameter", ident);
+                }
             }
-        } }
+            GenericParam::Composition { .. } => {
+                todo!() // TODO(hoch)
+            }
+        }
     }
 }
 

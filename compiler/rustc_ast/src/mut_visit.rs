@@ -876,25 +876,32 @@ pub fn noop_flat_map_generic_param<T: MutVisitor>(
     mut param: GenericParam,
     vis: &mut T,
 ) -> SmallVec<[GenericParam; 1]> {
-    let GenericParam::Atomic { id, ident, attrs, bounds, kind, colon_span, is_placeholder: _ } = &mut param;
-    vis.visit_id(id);
-    vis.visit_ident(ident);
-    if let Some(colon_span) = colon_span {
-        vis.visit_span(colon_span);
-    }
-    visit_attrs(attrs, vis);
-    visit_vec(bounds, |bound| noop_visit_param_bound(bound, vis));
-    match kind {
-        GenericParamKind::Lifetime => {}
-        GenericParamKind::Type { default } => {
-            visit_opt(default, |default| vis.visit_ty(default));
+    match &mut param {
+        GenericParam::Atomic { id, ident, attrs, bounds, kind, colon_span, is_placeholder: _ } => {
+            vis.visit_id(id);
+            vis.visit_ident(ident);
+            if let Some(colon_span) = colon_span {
+                vis.visit_span(colon_span);
+            }
+            visit_attrs(attrs, vis);
+            visit_vec(bounds, |bound| noop_visit_param_bound(bound, vis));
+            match kind {
+                GenericParamKind::Lifetime => {}
+                GenericParamKind::Type { default } => {
+                    visit_opt(default, |default| vis.visit_ty(default));
+                }
+                GenericParamKind::Const { ty, kw_span: _, default } => {
+                    vis.visit_ty(ty);
+                    visit_opt(default, |default| vis.visit_anon_const(default));
+                }
+            }
+            smallvec![param]
         }
-        GenericParamKind::Const { ty, kw_span: _, default } => {
-            vis.visit_ty(ty);
-            visit_opt(default, |default| vis.visit_anon_const(default));
+        GenericParam::Composition { .. } => {
+            todo!() // TODO(hoch)
         }
     }
-    smallvec![param]
+
 }
 
 pub fn noop_visit_label<T: MutVisitor>(Label { ident }: &mut Label, vis: &mut T) {

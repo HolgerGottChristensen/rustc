@@ -1324,8 +1324,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
                         PredicateOrigin::GenericParam,
                     )
                 }
+                GenericParam::Composition { .. } => {
+                    todo!() // TODO(hoch)
+                }
             }
-
         }));
         predicates.extend(
             generics

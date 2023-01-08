@@ -74,9 +74,14 @@ impl Annotatable {
             Annotatable::ExprField(ref field) => field.span,
             Annotatable::PatField(ref fp) => fp.pat.span,
             Annotatable::GenericParam(ref gp) => {
-                match gp { GenericParam::Atomic { ident, .. } => {
-                    ident.span
-                } }
+                match gp {
+                    GenericParam::Atomic { ident, .. } => {
+                        ident.span
+                    }
+                    GenericParam::Composition { .. } => {
+                        todo!() // TODO(hoch)
+                    }
+                }
             },
             Annotatable::Param(ref p) => p.span,
             Annotatable::FieldDef(ref sf) => sf.span,

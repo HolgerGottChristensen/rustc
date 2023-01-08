@@ -234,12 +234,17 @@ impl<'a, T: EarlyLintPass> ast_visit::Visitor<'a> for EarlyContextAndPass<'a, T>
     }
 
     fn visit_generic_param(&mut self, param: &'a ast::GenericParam) {
-        match param { GenericParam::Atomic { id, attrs, .. } => {
-            self.with_lint_attrs(*id, attrs, |cx| {
-                lint_callback!(cx, check_generic_param, param);
-                ast_visit::walk_generic_param(cx, param);
-            });
-        } }
+        match param {
+            GenericParam::Atomic { id, attrs, .. } => {
+                self.with_lint_attrs(*id, attrs, |cx| {
+                    lint_callback!(cx, check_generic_param, param);
+                    ast_visit::walk_generic_param(cx, param);
+                });
+            }
+            GenericParam::Composition { .. } => {
+                todo!() // TODO(hoch)
+            }
+        }
     }
 
     fn visit_generics(&mut self, g: &'a ast::Generics) {

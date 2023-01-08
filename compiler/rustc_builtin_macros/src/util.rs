@@ -30,9 +30,14 @@ pub fn warn_on_duplicate_attribute(ecx: &ExtCtxt<'_>, item: &Annotatable, name: 
         Annotatable::ExprField(field) => Some(&field.attrs),
         Annotatable::PatField(field) => Some(&field.attrs),
         Annotatable::GenericParam(param) => {
-            match param { GenericParam::Atomic { attrs, .. } => {
-                Some(attrs)
-            } }
+            match param {
+                GenericParam::Atomic { attrs, .. } => {
+                    Some(attrs)
+                }
+                GenericParam::Composition { attrs, .. } => {
+                    Some(attrs)
+                }
+            }
         },
         Annotatable::Param(param) => Some(&param.attrs),
         Annotatable::FieldDef(def) => Some(&def.attrs),
