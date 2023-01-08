@@ -363,7 +363,15 @@ pub enum GenericParam {
         is_placeholder: bool,
         kind: GenericParamKind,
         colon_span: Option<Span>,
-    }
+    },
+    /*Composition {
+        id: NodeId,
+        ident: Ident,
+        attrs: AttrVec,
+        params: Vec<GenericParam>,
+        bounds: GenericBounds,
+        colon_span: Option<Span>,
+    }*/
 }
 
 impl GenericParam {

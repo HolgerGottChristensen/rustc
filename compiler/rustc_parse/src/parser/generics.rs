@@ -25,7 +25,89 @@ impl<'a> Parser<'a> {
         lifetimes
     }
 
+    /// Parsing a higher ranked generic, e.g. I<J,K<L>>
+    fn parse_hkt_param(&mut self, preceding_attrs: AttrVec) -> PResult<'a, GenericParam> {
+        // Parse the outermost identifier
+        let ident = self.parse_ident()?;
+
+        let mut inner = vec![];
+
+        // If we have another < after the ident, parse a list of hkt parameters followed by a
+        // > with possible bounds : BOUND
+        if self.eat_lt() {
+            let mut done = false;
+
+            while !done {
+                if let Ok(param) = self.parse_hkt_param(preceding_attrs.clone()) {
+                    inner.push(param);
+                } else {
+                    break;
+                }
+
+                if !self.eat(&token::Comma) {
+                    done = true;
+                }
+            }
+
+            self.expect_gt()?;
+
+        }
+
+        let mut colon_span = None;
+
+        let bounds = if self.eat(&token::Colon) {
+            colon_span = Some(self.prev_token.span);
+            // recover from `impl Trait` in type param bound
+            if self.token.is_keyword(kw::Impl) {
+                let impl_span = self.token.span;
+                let snapshot = self.create_snapshot_for_diagnostic();
+                match self.parse_ty() {
+                    Ok(p) => {
+                        if let TyKind::ImplTrait(_, bounds) = &(*p).kind {
+                            let span = impl_span.to(self.token.span.shrink_to_lo());
+                            let mut err = self.struct_span_err(
+                                span,
+                                "expected trait bound, found `impl Trait` type",
+                            );
+                            err.span_label(span, "not a trait");
+                            if let [bound, ..] = &bounds[..] {
+                                err.span_suggestion_verbose(
+                                    impl_span.until(bound.span()),
+                                    "use the trait bounds directly",
+                                    String::new(),
+                                    Applicability::MachineApplicable,
+                                );
+                            }
+                            err.emit();
+                            return Err(err);
+                        }
+                    }
+                    Err(err) => {
+                        err.cancel();
+                    }
+                }
+                self.restore_snapshot(snapshot);
+            }
+            self.parse_generic_bounds(colon_span)?
+        } else {
+            Vec::new()
+        };
+
+        debug!("Parsed: {}<{:?}>: {:?}", ident, inner, &bounds);
+
+        Ok(GenericParam::Atomic {
+            ident,
+            id: ast::DUMMY_NODE_ID,
+            attrs: preceding_attrs,
+            bounds,
+            kind: GenericParamKind::Type { default: None },
+            is_placeholder: false,
+            colon_span,
+        })
+    }
+
     /// Matches `typaram = IDENT (`?` unbound)? optbounds ( EQ ty )?`.
+    #[allow(unused)]
     fn parse_ty_param(&mut self, preceding_attrs: AttrVec) -> PResult<'a, GenericParam> {
         let ident = self.parse_ident()?;
 
@@ -108,9 +190,11 @@ impl<'a> Parser<'a> {
 
     /// Parses a (possibly empty) list of lifetime and type parameters, possibly including
     /// a trailing comma and erroneous trailing attributes.
-    pub(super) fn parse_generic_params(&mut self) -> PResult<'a, Vec<ast::GenericParam>> {
+    #[instrument(level = "debug", skip(self))]
+    pub(super) fn parse_generic_params(&mut self) -> PResult<'a, Vec<GenericParam>> {
         let mut params = Vec::new();
         let mut done = false;
+
         while !done {
             let attrs = self.parse_outer_attributes()?;
             let param =
@@ -150,7 +234,7 @@ impl<'a> Parser<'a> {
                         Some(this.parse_const_param(attrs)?)
                     } else if this.check_ident() {
                         // Parse type parameter.
-                        Some(this.parse_ty_param(attrs)?)
+                        Some(this.parse_hkt_param(attrs)?)
                     } else if this.token.can_begin_type() {
                         // Trying to write an associated type bound? (#26271)
                         let snapshot = this.create_snapshot_for_diagnostic();
@@ -210,6 +294,9 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
+
+        debug!("{:#?}", params);
+
         Ok(params)
     }
 
