@@ -354,28 +354,35 @@ pub enum GenericParamKind {
 }
 
 #[derive(Clone, Encodable, Decodable, Debug)]
-pub struct GenericParam {
-    pub id: NodeId,
-    pub ident: Ident,
-    pub attrs: AttrVec,
-    pub bounds: GenericBounds,
-    pub is_placeholder: bool,
-    pub kind: GenericParamKind,
-    pub colon_span: Option<Span>,
+pub enum GenericParam {
+    Atomic {
+        id: NodeId,
+        ident: Ident,
+        attrs: AttrVec,
+        bounds: GenericBounds,
+        is_placeholder: bool,
+        kind: GenericParamKind,
+        colon_span: Option<Span>,
+    }
 }
 
 impl GenericParam {
     pub fn span(&self) -> Span {
-        match &self.kind {
-            GenericParamKind::Lifetime | GenericParamKind::Type { default: None } => {
-                self.ident.span
+        match self {
+            GenericParam::Atomic { ident, kind, .. } => {
+                match &kind {
+                    GenericParamKind::Lifetime | GenericParamKind::Type { default: None } => {
+                        ident.span
+                    }
+                    GenericParamKind::Type { default: Some(ty) } => ident.span.to(ty.span),
+                    GenericParamKind::Const { kw_span, default: Some(default), .. } => {
+                        kw_span.to(default.value.span)
+                    }
+                    GenericParamKind::Const { kw_span, default: None, ty } => kw_span.to(ty.span),
+                }
             }
-            GenericParamKind::Type { default: Some(ty) } => self.ident.span.to(ty.span),
-            GenericParamKind::Const { kw_span, default: Some(default), .. } => {
-                kw_span.to(default.value.span)
-            }
-            GenericParamKind::Const { kw_span, default: None, ty } => kw_span.to(ty.span),
         }
+
     }
 }
 
