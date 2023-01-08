@@ -108,7 +108,7 @@ impl<'a> ExtCtxt<'a> {
         bounds: ast::GenericBounds,
         default: Option<P<ast::Ty>>,
     ) -> ast::GenericParam {
-        ast::GenericParam {
+        ast::GenericParam::Atomic {
             ident: ident.with_span_pos(span),
             id: ast::DUMMY_NODE_ID,
             attrs: AttrVec::new(),

@@ -16,7 +16,7 @@ use crate::{
 use crate::{Resolver, ResolverArenas, Segment, ToNameBinding, VisResolutionError};
 
 use rustc_ast::visit::{self, AssocCtxt, Visitor};
-use rustc_ast::{self as ast, AssocItem, AssocItemKind, MetaItemKind, StmtKind};
+use rustc_ast::{self as ast, AssocItem, AssocItemKind, GenericParam, MetaItemKind, StmtKind};
 use rustc_ast::{Block, Fn, ForeignItem, ForeignItemKind, Impl, Item, ItemKind, NodeId};
 use rustc_attr as attr;
 use rustc_data_structures::sync::Lrc;
@@ -1446,11 +1446,13 @@ impl<'a, 'b> Visitor<'b> for BuildReducedGraphVisitor<'a, 'b> {
     }
 
     fn visit_generic_param(&mut self, param: &'b ast::GenericParam) {
-        if param.is_placeholder {
-            self.visit_invoc(param.id);
-        } else {
-            visit::walk_generic_param(self, param);
-        }
+        match param { GenericParam::Atomic { id, is_placeholder, .. } => {
+            if *is_placeholder {
+                self.visit_invoc(*id);
+            } else {
+                visit::walk_generic_param(self, param);
+            }
+        } }
     }
 
     fn visit_param(&mut self, p: &'b ast::Param) {

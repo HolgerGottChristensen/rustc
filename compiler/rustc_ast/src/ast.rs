@@ -367,6 +367,12 @@ pub enum GenericParam {
 }
 
 impl GenericParam {
+    pub fn id(&self) -> NodeId {
+        match self {
+            GenericParam::Atomic { id, .. } => *id
+        }
+    }
+
     pub fn span(&self) -> Span {
         match self {
             GenericParam::Atomic { ident, kind, .. } => {

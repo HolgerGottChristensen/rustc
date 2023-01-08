@@ -1,7 +1,7 @@
 use crate::deriving::generic::ty::*;
 use crate::deriving::generic::*;
 use crate::deriving::path_std;
-use rustc_ast::{self as ast, Generics, ItemKind, MetaItem, VariantData};
+use rustc_ast::{self as ast, GenericParam, Generics, ItemKind, MetaItem, VariantData};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_expand::base::{Annotatable, ExtCtxt};
 use rustc_span::symbol::{kw, sym, Ident};
@@ -41,7 +41,11 @@ pub fn expand_deriving_clone(
                 if has_derive_copy
                     && !params
                         .iter()
-                        .any(|param| matches!(param.kind, ast::GenericParamKind::Type { .. }))
+                        .any(|param| {
+                            match param { GenericParam::Atomic { kind, .. } => {
+                                matches!(kind, ast::GenericParamKind::Type { .. })
+                            } }
+                        })
                 {
                     bounds = vec![];
                     is_simple = true;

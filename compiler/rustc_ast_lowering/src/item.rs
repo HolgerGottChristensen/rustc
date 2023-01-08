@@ -1288,7 +1288,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                         generics
                             .params
                             .iter()
-                            .any(|p| def_id == self.local_def_id(p.id).to_def_id())
+                            .any(|p| def_id == self.local_def_id(p.id()).to_def_id())
                     }
                     // Either the `bounded_ty` is not a plain type parameter, or
                     // it's not found in the generic type parameters list.
@@ -1311,16 +1311,21 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
         let mut predicates: SmallVec<[hir::WherePredicate<'hir>; 4]> = SmallVec::new();
         predicates.extend(generics.params.iter().filter_map(|param| {
-            self.lower_generic_bound_predicate(
-                param.ident,
-                param.id,
-                &param.kind,
-                &param.bounds,
-                param.colon_span,
-                generics.span,
-                itctx,
-                PredicateOrigin::GenericParam,
-            )
+            match param {
+                GenericParam::Atomic { id, ident, kind, bounds, colon_span, .. } => {
+                    self.lower_generic_bound_predicate(
+                        *ident,
+                        *id,
+                        kind,
+                        bounds,
+                        *colon_span,
+                        generics.span,
+                        itctx,
+                        PredicateOrigin::GenericParam,
+                    )
+                }
+            }
+
         }));
         predicates.extend(
             generics

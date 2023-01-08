@@ -14,7 +14,7 @@ use rustc_ast::ptr::P;
 use rustc_ast::token::{self, Nonterminal};
 use rustc_ast::tokenstream::TokenStream;
 use rustc_ast::visit::{AssocCtxt, Visitor};
-use rustc_ast::{self as ast, AttrVec, Attribute, HasAttrs, Item, NodeId, PatKind};
+use rustc_ast::{self as ast, AttrVec, Attribute, HasAttrs, Item, NodeId, PatKind, GenericParam};
 use rustc_attr::{self as attr, Deprecation, Stability};
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
 use rustc_data_structures::sync::{self, Lrc};
@@ -73,7 +73,11 @@ impl Annotatable {
             Annotatable::Arm(ref arm) => arm.span,
             Annotatable::ExprField(ref field) => field.span,
             Annotatable::PatField(ref fp) => fp.pat.span,
-            Annotatable::GenericParam(ref gp) => gp.ident.span,
+            Annotatable::GenericParam(ref gp) => {
+                match gp { GenericParam::Atomic { ident, .. } => {
+                    ident.span
+                } }
+            },
             Annotatable::Param(ref p) => p.span,
             Annotatable::FieldDef(ref sf) => sf.span,
             Annotatable::Variant(ref v) => v.span,

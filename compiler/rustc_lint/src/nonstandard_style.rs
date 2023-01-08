@@ -1,5 +1,6 @@
 use crate::{EarlyContext, EarlyLintPass, LateContext, LateLintPass, LintContext};
 use rustc_ast as ast;
+use rustc_ast::GenericParam;
 use rustc_attr as attr;
 use rustc_errors::{fluent, Applicability};
 use rustc_hir as hir;
@@ -207,9 +208,11 @@ impl EarlyLintPass for NonCamelCaseTypes {
     }
 
     fn check_generic_param(&mut self, cx: &EarlyContext<'_>, param: &ast::GenericParam) {
-        if let ast::GenericParamKind::Type { .. } = param.kind {
-            self.check_case(cx, "type parameter", &param.ident);
-        }
+        match param { GenericParam::Atomic { kind, ident, .. } => {
+            if let ast::GenericParamKind::Type { .. } = kind {
+                self.check_case(cx, "type parameter", ident);
+            }
+        } }
     }
 }
 

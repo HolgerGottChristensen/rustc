@@ -1292,19 +1292,21 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         let mut forward_ty_ban_rib = Rib::new(ForwardGenericParamBanRibKind);
         let mut forward_const_ban_rib = Rib::new(ForwardGenericParamBanRibKind);
         for param in params.iter() {
-            match param.kind {
-                GenericParamKind::Type { .. } => {
-                    forward_ty_ban_rib
-                        .bindings
-                        .insert(Ident::with_dummy_span(param.ident.name), Res::Err);
+            match param { GenericParam::Atomic { kind, ident, .. } => {
+                match kind {
+                    GenericParamKind::Type { .. } => {
+                        forward_ty_ban_rib
+                            .bindings
+                            .insert(Ident::with_dummy_span(ident.name), Res::Err);
+                    }
+                    GenericParamKind::Const { .. } => {
+                        forward_const_ban_rib
+                            .bindings
+                            .insert(Ident::with_dummy_span(ident.name), Res::Err);
+                    }
+                    GenericParamKind::Lifetime => {}
                 }
-                GenericParamKind::Const { .. } => {
-                    forward_const_ban_rib
-                        .bindings
-                        .insert(Ident::with_dummy_span(param.ident.name), Res::Err);
-                }
-                GenericParamKind::Lifetime => {}
-            }
+            } }
         }
 
         // rust-lang/rust#61631: The type `Self` is essentially
@@ -1323,58 +1325,60 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
 
         self.with_lifetime_rib(LifetimeRibKind::AnonymousReportError, |this| {
             for param in params {
-                match param.kind {
-                    GenericParamKind::Lifetime => {
-                        for bound in &param.bounds {
-                            this.visit_param_bound(bound, BoundKind::Bound);
+                match param { GenericParam::Atomic { kind, bounds, ident, .. } => {
+                    match kind {
+                        GenericParamKind::Lifetime => {
+                            for bound in bounds {
+                                this.visit_param_bound(bound, BoundKind::Bound);
+                            }
                         }
-                    }
-                    GenericParamKind::Type { ref default } => {
-                        for bound in &param.bounds {
-                            this.visit_param_bound(bound, BoundKind::Bound);
+                        GenericParamKind::Type { ref default } => {
+                            for bound in bounds {
+                                this.visit_param_bound(bound, BoundKind::Bound);
+                            }
+
+                            if let Some(ref ty) = default {
+                                this.ribs[TypeNS].push(forward_ty_ban_rib);
+                                this.ribs[ValueNS].push(forward_const_ban_rib);
+                                this.visit_ty(ty);
+                                forward_const_ban_rib = this.ribs[ValueNS].pop().unwrap();
+                                forward_ty_ban_rib = this.ribs[TypeNS].pop().unwrap();
+                            }
+
+                            // Allow all following defaults to refer to this type parameter.
+                            forward_ty_ban_rib
+                                .bindings
+                                .remove(&Ident::with_dummy_span(ident.name));
                         }
+                        GenericParamKind::Const { ref ty, kw_span: _, ref default } => {
+                            // Const parameters can't have param bounds.
+                            assert!(bounds.is_empty());
 
-                        if let Some(ref ty) = default {
-                            this.ribs[TypeNS].push(forward_ty_ban_rib);
-                            this.ribs[ValueNS].push(forward_const_ban_rib);
-                            this.visit_ty(ty);
-                            forward_const_ban_rib = this.ribs[ValueNS].pop().unwrap();
-                            forward_ty_ban_rib = this.ribs[TypeNS].pop().unwrap();
-                        }
-
-                        // Allow all following defaults to refer to this type parameter.
-                        forward_ty_ban_rib
-                            .bindings
-                            .remove(&Ident::with_dummy_span(param.ident.name));
-                    }
-                    GenericParamKind::Const { ref ty, kw_span: _, ref default } => {
-                        // Const parameters can't have param bounds.
-                        assert!(param.bounds.is_empty());
-
-                        this.ribs[TypeNS].push(Rib::new(ConstParamTyRibKind));
-                        this.ribs[ValueNS].push(Rib::new(ConstParamTyRibKind));
-                        this.with_lifetime_rib(LifetimeRibKind::ConstGeneric, |this| {
-                            this.visit_ty(ty)
-                        });
-                        this.ribs[TypeNS].pop().unwrap();
-                        this.ribs[ValueNS].pop().unwrap();
-
-                        if let Some(ref expr) = default {
-                            this.ribs[TypeNS].push(forward_ty_ban_rib);
-                            this.ribs[ValueNS].push(forward_const_ban_rib);
+                            this.ribs[TypeNS].push(Rib::new(ConstParamTyRibKind));
+                            this.ribs[ValueNS].push(Rib::new(ConstParamTyRibKind));
                             this.with_lifetime_rib(LifetimeRibKind::ConstGeneric, |this| {
-                                this.resolve_anon_const(expr, IsRepeatExpr::No)
+                                this.visit_ty(ty)
                             });
-                            forward_const_ban_rib = this.ribs[ValueNS].pop().unwrap();
-                            forward_ty_ban_rib = this.ribs[TypeNS].pop().unwrap();
-                        }
+                            this.ribs[TypeNS].pop().unwrap();
+                            this.ribs[ValueNS].pop().unwrap();
 
-                        // Allow all following defaults to refer to this const parameter.
-                        forward_const_ban_rib
-                            .bindings
-                            .remove(&Ident::with_dummy_span(param.ident.name));
+                            if let Some(ref expr) = default {
+                                this.ribs[TypeNS].push(forward_ty_ban_rib);
+                                this.ribs[ValueNS].push(forward_const_ban_rib);
+                                this.with_lifetime_rib(LifetimeRibKind::ConstGeneric, |this| {
+                                    this.resolve_anon_const(expr, IsRepeatExpr::No)
+                                });
+                                forward_const_ban_rib = this.ribs[ValueNS].pop().unwrap();
+                                forward_ty_ban_rib = this.ribs[TypeNS].pop().unwrap();
+                            }
+
+                            // Allow all following defaults to refer to this const parameter.
+                            forward_const_ban_rib
+                                .bindings
+                                .remove(&Ident::with_dummy_span(ident.name));
+                        }
                     }
-                }
+                } }
             }
         })
     }
@@ -2364,84 +2368,86 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         }
 
         for param in params {
-            let ident = param.ident.normalize_to_macros_2_0();
-            debug!("with_generic_param_rib: {}", param.id);
+            match param { GenericParam::Atomic { kind: param_kind, ident: param_ident, id, .. } => {
+                let ident = param_ident.normalize_to_macros_2_0();
+                debug!("with_generic_param_rib: {}", id);
 
-            if let GenericParamKind::Lifetime = param.kind
-                && let Some(&original) = seen_lifetimes.get(&ident)
-            {
-                diagnostics::signal_lifetime_shadowing(self.r.session, original, param.ident);
-                // Record lifetime res, so lowering knows there is something fishy.
-                self.record_lifetime_param(param.id, LifetimeRes::Error);
-                continue;
-            }
-
-            match seen_bindings.entry(ident) {
-                Entry::Occupied(entry) => {
-                    let span = *entry.get();
-                    let err = ResolutionError::NameAlreadyUsedInParameterList(ident.name, span);
-                    self.report_error(param.ident.span, err);
-                    if let GenericParamKind::Lifetime = param.kind {
-                        // Record lifetime res, so lowering knows there is something fishy.
-                        self.record_lifetime_param(param.id, LifetimeRes::Error);
-                    }
+                if let GenericParamKind::Lifetime = param_kind
+                    && let Some(&original) = seen_lifetimes.get(&ident)
+                {
+                    diagnostics::signal_lifetime_shadowing(self.r.session, original, *param_ident);
+                    // Record lifetime res, so lowering knows there is something fishy.
+                    self.record_lifetime_param(*id, LifetimeRes::Error);
                     continue;
                 }
-                Entry::Vacant(entry) => {
-                    entry.insert(param.ident.span);
-                }
-            }
 
-            if param.ident.name == kw::UnderscoreLifetime {
-                rustc_errors::struct_span_err!(
+                match seen_bindings.entry(ident) {
+                    Entry::Occupied(entry) => {
+                        let span = *entry.get();
+                        let err = ResolutionError::NameAlreadyUsedInParameterList(ident.name, span);
+                        self.report_error(param_ident.span, err);
+                        if let GenericParamKind::Lifetime = param_kind {
+                            // Record lifetime res, so lowering knows there is something fishy.
+                            self.record_lifetime_param(*id, LifetimeRes::Error);
+                        }
+                        continue;
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(param_ident.span);
+                    }
+                }
+
+                if param_ident.name == kw::UnderscoreLifetime {
+                    rustc_errors::struct_span_err!(
                     self.r.session,
-                    param.ident.span,
+                    param_ident.span,
                     E0637,
                     "`'_` cannot be used here"
                 )
-                .span_label(param.ident.span, "`'_` is a reserved lifetime name")
-                .emit();
-                // Record lifetime res, so lowering knows there is something fishy.
-                self.record_lifetime_param(param.id, LifetimeRes::Error);
-                continue;
-            }
-
-            if param.ident.name == kw::StaticLifetime {
-                rustc_errors::struct_span_err!(
-                    self.r.session,
-                    param.ident.span,
-                    E0262,
-                    "invalid lifetime parameter name: `{}`",
-                    param.ident,
-                )
-                .span_label(param.ident.span, "'static is a reserved lifetime name")
-                .emit();
-                // Record lifetime res, so lowering knows there is something fishy.
-                self.record_lifetime_param(param.id, LifetimeRes::Error);
-                continue;
-            }
-
-            let def_id = self.r.local_def_id(param.id);
-
-            // Plain insert (no renaming).
-            let (rib, def_kind) = match param.kind {
-                GenericParamKind::Type { .. } => (&mut function_type_rib, DefKind::TyParam),
-                GenericParamKind::Const { .. } => (&mut function_value_rib, DefKind::ConstParam),
-                GenericParamKind::Lifetime => {
-                    let res = LifetimeRes::Param { param: def_id, binder };
-                    self.record_lifetime_param(param.id, res);
-                    function_lifetime_rib.bindings.insert(ident, (param.id, res));
+                        .span_label(param_ident.span, "`'_` is a reserved lifetime name")
+                        .emit();
+                    // Record lifetime res, so lowering knows there is something fishy.
+                    self.record_lifetime_param(*id, LifetimeRes::Error);
                     continue;
                 }
-            };
 
-            let res = match kind {
-                ItemRibKind(..) | AssocItemRibKind => Res::Def(def_kind, def_id.to_def_id()),
-                NormalRibKind => Res::Err,
-                _ => span_bug!(param.ident.span, "Unexpected rib kind {:?}", kind),
-            };
-            self.r.record_partial_res(param.id, PartialRes::new(res));
-            rib.bindings.insert(ident, res);
+                if param_ident.name == kw::StaticLifetime {
+                    rustc_errors::struct_span_err!(
+                    self.r.session,
+                    param_ident.span,
+                    E0262,
+                    "invalid lifetime parameter name: `{}`",
+                    param_ident,
+                )
+                        .span_label(param_ident.span, "'static is a reserved lifetime name")
+                        .emit();
+                    // Record lifetime res, so lowering knows there is something fishy.
+                    self.record_lifetime_param(*id, LifetimeRes::Error);
+                    continue;
+                }
+
+                let def_id = self.r.local_def_id(*id);
+
+                // Plain insert (no renaming).
+                let (rib, def_kind) = match param_kind {
+                    GenericParamKind::Type { .. } => (&mut function_type_rib, DefKind::TyParam),
+                    GenericParamKind::Const { .. } => (&mut function_value_rib, DefKind::ConstParam),
+                    GenericParamKind::Lifetime => {
+                        let res = LifetimeRes::Param { param: def_id, binder };
+                        self.record_lifetime_param(*id, res);
+                        function_lifetime_rib.bindings.insert(ident, (*id, res));
+                        continue;
+                    }
+                };
+
+                let res = match kind {
+                    ItemRibKind(..) | AssocItemRibKind => Res::Def(def_kind, def_id.to_def_id()),
+                    NormalRibKind => Res::Err,
+                    _ => span_bug!(param_ident.span, "Unexpected rib kind {:?}", kind),
+                };
+                self.r.record_partial_res(*id, PartialRes::new(res));
+                rib.bindings.insert(ident, res);
+            } }
         }
 
         self.lifetime_ribs.push(function_lifetime_rib);
@@ -4139,7 +4145,11 @@ impl<'ast> Visitor<'ast> for LifetimeCountVisitor<'_, '_> {
                 let count = generics
                     .params
                     .iter()
-                    .filter(|param| matches!(param.kind, ast::GenericParamKind::Lifetime { .. }))
+                    .filter(|param| {
+                        match param { GenericParam::Atomic { kind, .. } => {
+                            matches!(kind, ast::GenericParamKind::Lifetime { .. })
+                        } }
+                    })
                     .count();
                 self.r.item_generics_num_lifetimes.insert(def_id, count);
             }

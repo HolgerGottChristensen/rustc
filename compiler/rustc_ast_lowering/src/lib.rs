@@ -2140,58 +2140,64 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     fn lower_generic_param(&mut self, param: &GenericParam) -> hir::GenericParam<'hir> {
         let (name, kind) = self.lower_generic_param_kind(param);
 
-        let hir_id = self.lower_node_id(param.id);
-        self.lower_attrs(hir_id, &param.attrs);
-        hir::GenericParam {
-            hir_id,
-            def_id: self.local_def_id(param.id),
-            name,
-            span: self.lower_span(param.span()),
-            pure_wrt_drop: self.tcx.sess.contains_name(&param.attrs, sym::may_dangle),
-            kind,
-            colon_span: param.colon_span.map(|s| self.lower_span(s)),
-        }
+        let hir_id = self.lower_node_id(param.id());
+
+        match param { GenericParam::Atomic { attrs, id, colon_span, .. } => {
+            self.lower_attrs(hir_id, attrs);
+            hir::GenericParam {
+                hir_id,
+                def_id: self.local_def_id(*id),
+                name,
+                span: self.lower_span(param.span()),
+                pure_wrt_drop: self.tcx.sess.contains_name(&attrs, sym::may_dangle),
+                kind,
+                colon_span: colon_span.map(|s| self.lower_span(s)),
+            }
+        } }
+
     }
 
     fn lower_generic_param_kind(
         &mut self,
         param: &GenericParam,
     ) -> (hir::ParamName, hir::GenericParamKind<'hir>) {
-        match &param.kind {
-            GenericParamKind::Lifetime => {
-                // AST resolution emitted an error on those parameters, so we lower them using
-                // `ParamName::Error`.
-                let param_name =
-                    if let Some(LifetimeRes::Error) = self.resolver.get_lifetime_res(param.id) {
-                        ParamName::Error
-                    } else {
-                        let ident = self.lower_ident(param.ident);
-                        ParamName::Plain(ident)
+        match param { GenericParam::Atomic { id, kind, ident: param_ident, .. } => {
+            match kind {
+                GenericParamKind::Lifetime => {
+                    // AST resolution emitted an error on those parameters, so we lower them using
+                    // `ParamName::Error`.
+                    let param_name =
+                        if let Some(LifetimeRes::Error) = self.resolver.get_lifetime_res(*id) {
+                            ParamName::Error
+                        } else {
+                            let ident = self.lower_ident(*param_ident);
+                            ParamName::Plain(ident)
+                        };
+                    let kind =
+                        hir::GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit };
+
+                    (param_name, kind)
+                }
+                GenericParamKind::Type { default, .. } => {
+                    let kind = hir::GenericParamKind::Type {
+                        default: default.as_ref().map(|x| {
+                            self.lower_ty(x, &ImplTraitContext::Disallowed(ImplTraitPosition::Type))
+                        }),
+                        synthetic: false,
                     };
-                let kind =
-                    hir::GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit };
 
-                (param_name, kind)
+                    (hir::ParamName::Plain(self.lower_ident(*param_ident)), kind)
+                }
+                GenericParamKind::Const { ty, kw_span: _, default } => {
+                    let ty = self.lower_ty(&ty, &ImplTraitContext::Disallowed(ImplTraitPosition::Type));
+                    let default = default.as_ref().map(|def| self.lower_anon_const(def));
+                    (
+                        hir::ParamName::Plain(self.lower_ident(*param_ident)),
+                        hir::GenericParamKind::Const { ty, default },
+                    )
+                }
             }
-            GenericParamKind::Type { default, .. } => {
-                let kind = hir::GenericParamKind::Type {
-                    default: default.as_ref().map(|x| {
-                        self.lower_ty(x, &ImplTraitContext::Disallowed(ImplTraitPosition::Type))
-                    }),
-                    synthetic: false,
-                };
-
-                (hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
-            }
-            GenericParamKind::Const { ty, kw_span: _, default } => {
-                let ty = self.lower_ty(&ty, &ImplTraitContext::Disallowed(ImplTraitPosition::Type));
-                let default = default.as_ref().map(|def| self.lower_anon_const(def));
-                (
-                    hir::ParamName::Plain(self.lower_ident(param.ident)),
-                    hir::GenericParamKind::Const { ty, default },
-                )
-            }
-        }
+        } }
     }
 
     fn lower_trait_ref(&mut self, p: &TraitRef, itctx: &ImplTraitContext) -> hir::TraitRef<'hir> {

@@ -4,7 +4,7 @@
 pub use Ty::*;
 
 use rustc_ast::ptr::P;
-use rustc_ast::{self as ast, Expr, GenericArg, GenericParamKind, Generics, SelfKind};
+use rustc_ast::{self as ast, Expr, GenericArg, GenericParam, GenericParamKind, Generics, SelfKind};
 use rustc_expand::base::ExtCtxt;
 use rustc_span::source_map::{respan, DUMMY_SP};
 use rustc_span::symbol::{kw, Ident, Symbol};
@@ -120,16 +120,20 @@ impl Ty {
                 let params: Vec<_> = generics
                     .params
                     .iter()
-                    .map(|param| match param.kind {
-                        GenericParamKind::Lifetime { .. } => {
-                            GenericArg::Lifetime(ast::Lifetime { id: param.id, ident: param.ident })
-                        }
-                        GenericParamKind::Type { .. } => {
-                            GenericArg::Type(cx.ty_ident(span, param.ident))
-                        }
-                        GenericParamKind::Const { .. } => {
-                            GenericArg::Const(cx.const_ident(span, param.ident))
-                        }
+                    .map(|param| {
+                        match param { GenericParam::Atomic { id, ident, kind, .. } => {
+                            match kind {
+                                GenericParamKind::Lifetime { .. } => {
+                                    GenericArg::Lifetime(ast::Lifetime { id: *id, ident: *ident })
+                                }
+                                GenericParamKind::Type { .. } => {
+                                    GenericArg::Type(cx.ty_ident(span, *ident))
+                                }
+                                GenericParamKind::Const { .. } => {
+                                    GenericArg::Const(cx.const_ident(span, *ident))
+                                }
+                            }
+                        } }
                     })
                     .collect();
 

@@ -23,11 +23,7 @@ use rustc_ast as ast;
 use rustc_ast::ptr::P;
 use rustc_ast::token::{self, Delimiter, Lit, LitKind, TokenKind};
 use rustc_ast::util::parser::AssocOp;
-use rustc_ast::{
-    AngleBracketedArg, AngleBracketedArgs, AnonConst, AttrVec, BinOpKind, BindingAnnotation, Block,
-    BlockCheckMode, Expr, ExprKind, GenericArg, Generics, Item, ItemKind, Param, Pat, PatKind,
-    Path, PathSegment, QSelf, Ty, TyKind,
-};
+use rustc_ast::{AngleBracketedArg, AngleBracketedArgs, AnonConst, AttrVec, BinOpKind, BindingAnnotation, Block, BlockCheckMode, Expr, ExprKind, GenericArg, Generics, Item, ItemKind, Param, Pat, PatKind, Path, PathSegment, QSelf, Ty, TyKind, GenericParam};
 use rustc_ast_pretty::pprust;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_errors::{
@@ -2193,30 +2189,32 @@ impl<'a> Parser<'a> {
             }
         };
 
-        let ident = param.ident.to_string();
-        let sugg = match (ty_generics, self.sess.source_map().span_to_snippet(param.span())) {
-            (Some(Generics { params, span: impl_generics, .. }), Ok(snippet)) => {
-                Some(match &params[..] {
-                    [] => UnexpectedConstParamDeclarationSugg::AddParam {
-                        impl_generics: *impl_generics,
-                        incorrect_decl: param.span(),
-                        snippet,
-                        ident,
-                    },
-                    [.., generic] => UnexpectedConstParamDeclarationSugg::AppendParam {
-                        impl_generics_end: generic.span().shrink_to_hi(),
-                        incorrect_decl: param.span(),
-                        snippet,
-                        ident,
-                    },
-                })
-            }
-            _ => None,
-        };
-        self.sess.emit_err(UnexpectedConstParamDeclaration { span: param.span(), sugg });
+        match param { GenericParam::Atomic { ident, .. } => {
+            let ident = ident.to_string();
+            let sugg = match (ty_generics, self.sess.source_map().span_to_snippet(param.span())) {
+                (Some(Generics { params, span: impl_generics, .. }), Ok(snippet)) => {
+                    Some(match &params[..] {
+                        [] => UnexpectedConstParamDeclarationSugg::AddParam {
+                            impl_generics: *impl_generics,
+                            incorrect_decl: param.span(),
+                            snippet,
+                            ident,
+                        },
+                        [.., generic] => UnexpectedConstParamDeclarationSugg::AppendParam {
+                            impl_generics_end: generic.span().shrink_to_hi(),
+                            incorrect_decl: param.span(),
+                            snippet,
+                            ident,
+                        },
+                    })
+                }
+                _ => None,
+            };
+            self.sess.emit_err(UnexpectedConstParamDeclaration { span: param.span(), sugg });
 
-        let value = self.mk_expr_err(param.span());
-        Some(GenericArg::Const(AnonConst { id: ast::DUMMY_NODE_ID, value }))
+            let value = self.mk_expr_err(param.span());
+            Some(GenericArg::Const(AnonConst { id: ast::DUMMY_NODE_ID, value }))
+        } }
     }
 
     pub fn recover_const_param_declaration(

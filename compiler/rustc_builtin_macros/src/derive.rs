@@ -92,7 +92,7 @@ impl MultiItemModifier for Expander {
 
 // The cheapest `Annotatable` to construct.
 fn dummy_annotatable() -> Annotatable {
-    Annotatable::GenericParam(ast::GenericParam {
+    Annotatable::GenericParam(ast::GenericParam::Atomic {
         id: ast::DUMMY_NODE_ID,
         ident: Ident::empty(),
         attrs: Default::default(),

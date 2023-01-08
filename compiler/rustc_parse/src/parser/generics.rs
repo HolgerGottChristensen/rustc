@@ -70,7 +70,7 @@ impl<'a> Parser<'a> {
         };
 
         let default = if self.eat(&token::Eq) { Some(self.parse_ty()?) } else { None };
-        Ok(GenericParam {
+        Ok(GenericParam::Atomic {
             ident,
             id: ast::DUMMY_NODE_ID,
             attrs: preceding_attrs,
@@ -95,7 +95,7 @@ impl<'a> Parser<'a> {
         // Parse optional const generics default value.
         let default = if self.eat(&token::Eq) { Some(self.parse_const_arg()?) } else { None };
 
-        Ok(GenericParam {
+        Ok(GenericParam::Atomic {
             ident,
             id: ast::DUMMY_NODE_ID,
             attrs: preceding_attrs,
@@ -136,12 +136,12 @@ impl<'a> Parser<'a> {
                         } else {
                             (None, Vec::new())
                         };
-                        Some(ast::GenericParam {
+                        Some(GenericParam::Atomic {
                             ident: lifetime.ident,
                             id: lifetime.id,
                             attrs,
                             bounds,
-                            kind: ast::GenericParamKind::Lifetime,
+                            kind: GenericParamKind::Lifetime,
                             is_placeholder: false,
                             colon_span,
                         })

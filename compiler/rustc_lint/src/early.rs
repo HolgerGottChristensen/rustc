@@ -18,7 +18,7 @@ use crate::context::{EarlyContext, LintContext, LintStore};
 use crate::passes::{EarlyLintPass, EarlyLintPassObject};
 use rustc_ast::ptr::P;
 use rustc_ast::visit::{self as ast_visit, Visitor};
-use rustc_ast::{self as ast, walk_list, HasAttrs};
+use rustc_ast::{self as ast, walk_list, HasAttrs, GenericParam};
 use rustc_middle::ty::RegisteredTools;
 use rustc_session::lint::{BufferedEarlyLint, LintBuffer, LintPass};
 use rustc_session::Session;
@@ -234,10 +234,12 @@ impl<'a, T: EarlyLintPass> ast_visit::Visitor<'a> for EarlyContextAndPass<'a, T>
     }
 
     fn visit_generic_param(&mut self, param: &'a ast::GenericParam) {
-        self.with_lint_attrs(param.id, &param.attrs, |cx| {
-            lint_callback!(cx, check_generic_param, param);
-            ast_visit::walk_generic_param(cx, param);
-        });
+        match param { GenericParam::Atomic { id, attrs, .. } => {
+            self.with_lint_attrs(*id, attrs, |cx| {
+                lint_callback!(cx, check_generic_param, param);
+                ast_visit::walk_generic_param(cx, param);
+            });
+        } }
     }
 
     fn visit_generics(&mut self, g: &'a ast::Generics) {

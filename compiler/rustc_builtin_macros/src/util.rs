@@ -1,4 +1,4 @@
-use rustc_ast::{AttrStyle, Attribute, MetaItem};
+use rustc_ast::{AttrStyle, Attribute, MetaItem, GenericParam};
 use rustc_expand::base::{Annotatable, ExtCtxt};
 use rustc_feature::AttributeTemplate;
 use rustc_lint_defs::builtin::DUPLICATE_MACRO_ATTRIBUTES;
@@ -29,7 +29,11 @@ pub fn warn_on_duplicate_attribute(ecx: &ExtCtxt<'_>, item: &Annotatable, name: 
         Annotatable::Arm(arm) => Some(&arm.attrs),
         Annotatable::ExprField(field) => Some(&field.attrs),
         Annotatable::PatField(field) => Some(&field.attrs),
-        Annotatable::GenericParam(param) => Some(&param.attrs),
+        Annotatable::GenericParam(param) => {
+            match param { GenericParam::Atomic { attrs, .. } => {
+                Some(attrs)
+            } }
+        },
         Annotatable::Param(param) => Some(&param.attrs),
         Annotatable::FieldDef(def) => Some(&def.attrs),
         Annotatable::Variant(variant) => Some(&variant.attrs),

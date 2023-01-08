@@ -7,6 +7,7 @@ use rustc_span::source_map::DUMMY_SP;
 use rustc_span::symbol::Ident;
 use smallvec::{smallvec, SmallVec};
 use thin_vec::ThinVec;
+use rustc_ast::GenericParam;
 
 pub fn placeholder(
     kind: AstFragmentKind,
@@ -145,7 +146,7 @@ pub fn placeholder(
             is_placeholder: true,
         }]),
         AstFragmentKind::GenericParams => AstFragment::GenericParams(smallvec![{
-            ast::GenericParam {
+            ast::GenericParam::Atomic {
                 attrs: Default::default(),
                 bounds: Default::default(),
                 id,
@@ -230,11 +231,13 @@ impl MutVisitor for PlaceholderExpander {
         &mut self,
         param: ast::GenericParam,
     ) -> SmallVec<[ast::GenericParam; 1]> {
-        if param.is_placeholder {
-            self.remove(param.id).make_generic_params()
-        } else {
-            noop_flat_map_generic_param(param, self)
-        }
+        match param { GenericParam::Atomic { is_placeholder, id, .. } => {
+            if is_placeholder {
+                self.remove(id).make_generic_params()
+            } else {
+                noop_flat_map_generic_param(param, self)
+            }
+        } }
     }
 
     fn flat_map_param(&mut self, p: ast::Param) -> SmallVec<[ast::Param; 1]> {

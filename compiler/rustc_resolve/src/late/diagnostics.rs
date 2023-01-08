@@ -2098,16 +2098,18 @@ impl<'a: 'ast, 'ast> LateResolutionVisitor<'a, '_, 'ast> {
                     }
                     let msg = "you might be missing a type parameter";
                     let (span, sugg) = if let [.., param] = &generics.params[..] {
-                        let span = if let [.., bound] = &param.bounds[..] {
-                            bound.span()
-                        } else if let GenericParam {
-                            kind: GenericParamKind::Const { ty, kw_span: _, default  }, ..
-                        } = param {
-                            default.as_ref().map(|def| def.value.span).unwrap_or(ty.span)
-                        } else {
-                            param.ident.span
-                        };
-                        (span, format!(", {}", ident))
+                        match param { GenericParam::Atomic { bounds, ident, .. } => {
+                            let span = if let [.., bound] = &bounds[..] {
+                                bound.span()
+                            } else if let GenericParam::Atomic {
+                                kind: GenericParamKind::Const { ty, kw_span: _, default  }, ..
+                            } = param {
+                                default.as_ref().map(|def| def.value.span).unwrap_or(ty.span)
+                            } else {
+                                ident.span
+                            };
+                            (span, format!(", {}", ident))
+                        } }
                     } else {
                         (generics.span, format!("<{}>", ident))
                     };
@@ -2160,67 +2162,69 @@ impl<'a: 'ast, 'ast> LateResolutionVisitor<'a, '_, 'ast> {
         params: &[ast::GenericParam],
     ) {
         for (param_index, param) in params.iter().enumerate() {
-            let GenericParamKind::Lifetime = param.kind else { continue };
+            match param { GenericParam::Atomic { kind, id, ident, .. } => {
+                let GenericParamKind::Lifetime = kind else { continue };
 
-            let def_id = self.r.local_def_id(param.id);
+                let def_id = self.r.local_def_id(*id);
 
-            let use_set = self.lifetime_uses.remove(&def_id);
-            debug!(
+                let use_set = self.lifetime_uses.remove(&def_id);
+                debug!(
                 "Use set for {:?}({:?} at {:?}) is {:?}",
-                def_id, param.ident, param.ident.span, use_set
+                def_id, ident, ident.span, use_set
             );
 
-            let deletion_span = || {
-                if params.len() == 1 {
-                    // if sole lifetime, remove the entire `<>` brackets
-                    generics_span
-                } else if param_index == 0 {
-                    // if removing within `<>` brackets, we also want to
-                    // delete a leading or trailing comma as appropriate
-                    param.span().to(params[param_index + 1].span().shrink_to_lo())
-                } else {
-                    // if removing within `<>` brackets, we also want to
-                    // delete a leading or trailing comma as appropriate
-                    params[param_index - 1].span().shrink_to_hi().to(param.span())
-                }
-            };
-            match use_set {
-                Some(LifetimeUseSet::Many) => {}
-                Some(LifetimeUseSet::One { use_span, use_ctxt }) => {
-                    debug!(?param.ident, ?param.ident.span, ?use_span);
+                let deletion_span = || {
+                    if params.len() == 1 {
+                        // if sole lifetime, remove the entire `<>` brackets
+                        generics_span
+                    } else if param_index == 0 {
+                        // if removing within `<>` brackets, we also want to
+                        // delete a leading or trailing comma as appropriate
+                        param.span().to(params[param_index + 1].span().shrink_to_lo())
+                    } else {
+                        // if removing within `<>` brackets, we also want to
+                        // delete a leading or trailing comma as appropriate
+                        params[param_index - 1].span().shrink_to_hi().to(param.span())
+                    }
+                };
+                match use_set {
+                    Some(LifetimeUseSet::Many) => {}
+                    Some(LifetimeUseSet::One { use_span, use_ctxt }) => {
+                        debug!(?ident, ?ident.span, ?use_span);
 
-                    let elidable = matches!(use_ctxt, LifetimeCtxt::Ref);
+                        let elidable = matches!(use_ctxt, LifetimeCtxt::Ref);
 
-                    let deletion_span = deletion_span();
-                    self.r.lint_buffer.buffer_lint_with_diagnostic(
-                        lint::builtin::SINGLE_USE_LIFETIMES,
-                        param.id,
-                        param.ident.span,
-                        &format!("lifetime parameter `{}` only used once", param.ident),
-                        lint::BuiltinLintDiagnostics::SingleUseLifetime {
-                            param_span: param.ident.span,
-                            use_span: Some((use_span, elidable)),
-                            deletion_span,
-                        },
-                    );
-                }
-                None => {
-                    debug!(?param.ident, ?param.ident.span);
+                        let deletion_span = deletion_span();
+                        self.r.lint_buffer.buffer_lint_with_diagnostic(
+                            lint::builtin::SINGLE_USE_LIFETIMES,
+                            *id,
+                            ident.span,
+                            &format!("lifetime parameter `{}` only used once", ident),
+                            lint::BuiltinLintDiagnostics::SingleUseLifetime {
+                                param_span: ident.span,
+                                use_span: Some((use_span, elidable)),
+                                deletion_span,
+                            },
+                        );
+                    }
+                    None => {
+                        debug!(?ident, ?ident.span);
 
-                    let deletion_span = deletion_span();
-                    self.r.lint_buffer.buffer_lint_with_diagnostic(
-                        lint::builtin::UNUSED_LIFETIMES,
-                        param.id,
-                        param.ident.span,
-                        &format!("lifetime parameter `{}` never used", param.ident),
-                        lint::BuiltinLintDiagnostics::SingleUseLifetime {
-                            param_span: param.ident.span,
-                            use_span: None,
-                            deletion_span,
-                        },
-                    );
+                        let deletion_span = deletion_span();
+                        self.r.lint_buffer.buffer_lint_with_diagnostic(
+                            lint::builtin::UNUSED_LIFETIMES,
+                            *id,
+                            ident.span,
+                            &format!("lifetime parameter `{}` never used", ident),
+                            lint::BuiltinLintDiagnostics::SingleUseLifetime {
+                                param_span: ident.span,
+                                use_span: None,
+                                deletion_span,
+                            },
+                        );
+                    }
                 }
-            }
+            } }
         }
     }
 

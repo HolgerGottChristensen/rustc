@@ -1114,7 +1114,11 @@ impl EarlyLintPass for UnusedDocComment {
     }
 
     fn check_generic_param(&mut self, cx: &EarlyContext<'_>, param: &ast::GenericParam) {
-        warn_if_doc(cx, param.ident.span, "generic parameters", &param.attrs);
+        match param {
+            GenericParam::Atomic { ident, attrs, .. } => {
+                warn_if_doc(cx, ident.span, "generic parameters", attrs);
+            }
+        }
     }
 
     fn check_block(&mut self, cx: &EarlyContext<'_>, block: &ast::Block) {
