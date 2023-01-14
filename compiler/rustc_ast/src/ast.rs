@@ -382,8 +382,8 @@ impl GenericParam {
             return self.bounds.last().unwrap().span();
         }
 
-        if let GenericParamKind::Const {ty, default, ..} = &self.kind {
-            return default.as_ref().map(|def| def.value.span).unwrap_or(ty.span);
+        if let GenericParamKind::Const {ty, default, kw_span} = &self.kind {
+            return kw_span.to(default.as_ref().map(|def| def.value.span).unwrap_or(ty.span));
         }
 
 
@@ -415,16 +415,36 @@ impl GenericParam {
     }
 
     pub fn span(&self) -> Span {
-        match &self.kind {
-            GenericParamKind::HKT(_)  | GenericParamKind::Lifetime | GenericParamKind::Type { default: None } => {
-                self.ident.span
-            }
-            GenericParamKind::Type { default: Some(ty) } => self.ident.span.to(ty.span),
-            GenericParamKind::Const { kw_span, default: Some(default), .. } => {
-                kw_span.to(default.value.span)
-            }
-            GenericParamKind::Const { kw_span, default: None, ty } => kw_span.to(ty.span),
+        if let GenericParamKind::Const {ty, default, kw_span} = &self.kind {
+            return kw_span.to(default.as_ref().map(|def| def.value.span).unwrap_or(ty.span));
         }
+
+
+        if let GenericParamKind::HKT (nested) = &self.kind {
+            let mut gts = 1;
+            let mut current = nested.last();
+
+            while let Some(kind) = current {
+                match kind {
+                    HKTKind::Atomic(i) => {
+                        return self.ident.span.to(
+                            Span::new(
+                                i.span.lo(),
+                                BytePos(i.span.hi().0 + gts),
+                                i.span.ctxt(),
+                                i.span.parent()
+                            ));
+                    }
+                    HKTKind::Composition(_, n) => {
+                        gts += 1;
+                        current = n.last();
+                    }
+                }
+            }
+        }
+
+
+        self.ident.span
     }
 }
 

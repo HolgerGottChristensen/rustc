@@ -1429,7 +1429,28 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 }))
             }
             GenericParamKind::HKT(_) => {
-                todo!() // TODO(hoch)
+                // TODO(hoch)
+                let def_id = self.local_def_id(id).to_def_id();
+                let hir_id = self.next_id();
+                let res = Res::Def(DefKind::TyParam, def_id);
+                let ty_path = self.arena.alloc(hir::Path {
+                    span: param_span,
+                    res,
+                    segments: self
+                        .arena
+                        .alloc_from_iter([hir::PathSegment::new(ident, hir_id, res)]),
+                });
+                let ty_id = self.next_id();
+                let bounded_ty =
+                    self.ty_path(ty_id, param_span, hir::QPath::Resolved(None, ty_path));
+                Some(hir::WherePredicate::BoundPredicate(hir::WhereBoundPredicate {
+                    hir_id: self.next_id(),
+                    bounded_ty: self.arena.alloc(bounded_ty),
+                    bounds,
+                    span,
+                    bound_generic_params: &[],
+                    origin,
+                }))
             }
         }
     }
