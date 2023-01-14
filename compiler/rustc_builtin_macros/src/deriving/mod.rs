@@ -2,7 +2,7 @@
 
 use rustc_ast as ast;
 use rustc_ast::ptr::P;
-use rustc_ast::{GenericArg, GenericParam, Impl, ItemKind, MetaItem};
+use rustc_ast::{GenericArg, GenericParamKind, Impl, ItemKind, MetaItem};
 use rustc_expand::base::{Annotatable, ExpandResult, ExtCtxt, MultiItemModifier};
 use rustc_span::symbol::{sym, Ident, Symbol};
 use rustc_span::Span;
@@ -149,25 +149,21 @@ fn inject_impl_of_structural_trait(
         .params
         .iter_mut()
         .map(|param| {
-            match param {
-                GenericParam::Atomic { kind, ident, .. } => {
-                    match kind {
-                        ast::GenericParamKind::Lifetime => ast::GenericArg::Lifetime(
-                            cx.lifetime(ident.span.with_ctxt(ctxt), *ident),
-                        ),
-                        ast::GenericParamKind::Type { default } => {
-                            *default = None;
-                            ast::GenericArg::Type(cx.ty_ident(ident.span.with_ctxt(ctxt), *ident))
-                        }
-                        ast::GenericParamKind::Const { ty: _, kw_span: _, default } => {
-                            *default = None;
-                            ast::GenericArg::Const(
-                                cx.const_ident(ident.span.with_ctxt(ctxt), *ident),
-                            )
-                        }
-                    }
+            match &mut param.kind {
+                ast::GenericParamKind::Lifetime => ast::GenericArg::Lifetime(
+                    cx.lifetime(param.ident.span.with_ctxt(ctxt), param.ident),
+                ),
+                ast::GenericParamKind::Type { default } => {
+                    *default = None;
+                    ast::GenericArg::Type(cx.ty_ident(param.ident.span.with_ctxt(ctxt), param.ident))
                 }
-                GenericParam::Composition { .. } => {
+                ast::GenericParamKind::Const { ty: _, kw_span: _, default } => {
+                    *default = None;
+                    ast::GenericArg::Const(
+                        cx.const_ident(param.ident.span.with_ctxt(ctxt), param.ident),
+                    )
+                }
+                GenericParamKind::HKT(_) => {
                     todo!() // TODO(hoch)
                 }
             }

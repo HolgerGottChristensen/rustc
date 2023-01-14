@@ -1311,23 +1311,16 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
         let mut predicates: SmallVec<[hir::WherePredicate<'hir>; 4]> = SmallVec::new();
         predicates.extend(generics.params.iter().filter_map(|param| {
-            match param {
-                GenericParam::Atomic { id, ident, kind, bounds, colon_span, .. } => {
-                    self.lower_generic_bound_predicate(
-                        *ident,
-                        *id,
-                        kind,
-                        bounds,
-                        *colon_span,
-                        generics.span,
-                        itctx,
-                        PredicateOrigin::GenericParam,
-                    )
-                }
-                GenericParam::Composition { .. } => {
-                    todo!() // TODO(hoch)
-                }
-            }
+            self.lower_generic_bound_predicate(
+                param.ident,
+                param.id,
+                &param.kind,
+                &param.bounds,
+                param.colon_span,
+                generics.span,
+                itctx,
+                PredicateOrigin::GenericParam,
+            )
         }));
         predicates.extend(
             generics
@@ -1434,6 +1427,9 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     bounds,
                     in_where_clause: false,
                 }))
+            }
+            GenericParamKind::HKT(_) => {
+                todo!() // TODO(hoch)
             }
         }
     }

@@ -572,23 +572,14 @@ impl<'a> Parser<'a> {
             .params
             .into_iter()
             .filter(|param| {
-                match param {
-                    GenericParam::Atomic { kind, .. } => matches!(kind, ast::GenericParamKind::Lifetime),
-                    GenericParam::Composition { .. } => false,
-                }
-
+                matches!(param.kind, ast::GenericParamKind::Lifetime)
             })
             .collect();
 
         let sugg = if !lifetimes.is_empty() {
             let snippet =
                 lifetimes.iter().map(|param| {
-                    match param {
-                        GenericParam::Atomic { ident, .. } => {ident.as_str()}
-                        GenericParam::Composition { .. } => {
-                            todo!() // TODO(hoch)
-                        }
-                    }
+                    param.ident.as_str()
                 }).intersperse(", ").collect();
 
             let (left, snippet) = if let Some(span) = param_insertion_point {
@@ -1091,7 +1082,7 @@ impl<'a> Parser<'a> {
         // Convert parsed `<'a>` in `Fn<'a>` into `for<'a>`.
         let mut generic_params = lifetimes
             .iter()
-            .map(|lt| GenericParam::Atomic {
+            .map(|lt| GenericParam {
                 id: lt.id,
                 ident: lt.ident,
                 attrs: ast::AttrVec::new(),

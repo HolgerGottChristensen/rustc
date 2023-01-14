@@ -32,7 +32,7 @@ use rustc_macros::HashStable_Generic;
 use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
 use rustc_span::source_map::{respan, Spanned};
 use rustc_span::symbol::{kw, sym, Ident, Symbol};
-use rustc_span::{Span, DUMMY_SP};
+use rustc_span::{Span, DUMMY_SP, BytePos};
 use std::fmt;
 use std::mem;
 use thin_vec::{thin_vec, ThinVec};
@@ -338,6 +338,12 @@ impl fmt::Display for ParamKindOrd {
 }
 
 #[derive(Clone, Encodable, Decodable, Debug)]
+pub enum HKTKind {
+    Atomic(Ident),
+    Composition(Ident, Vec<HKTKind>),
+}
+
+#[derive(Clone, Encodable, Decodable, Debug)]
 pub enum GenericParamKind {
     /// A lifetime definition (e.g., `'a: 'b + 'c + 'd`).
     Lifetime,
@@ -351,56 +357,74 @@ pub enum GenericParamKind {
         /// Optional default value for the const generic param
         default: Option<AnonConst>,
     },
+    HKT(Vec<HKTKind>),
 }
 
 #[derive(Clone, Encodable, Decodable, Debug)]
-pub enum GenericParam {
-    Atomic {
-        id: NodeId,
-        ident: Ident,
-        attrs: AttrVec,
-        bounds: GenericBounds,
-        is_placeholder: bool,
-        kind: GenericParamKind,
-        colon_span: Option<Span>,
-    },
-    Composition {
-        id: NodeId,
-        ident: Ident,
-        attrs: AttrVec,
-        params: Vec<GenericParam>,
-        bounds: GenericBounds,
-        colon_span: Option<Span>,
-    }
+pub struct GenericParam {
+    pub id: NodeId,
+    pub ident: Ident,
+    pub attrs: AttrVec,
+    pub bounds: GenericBounds,
+    pub is_placeholder: bool,
+    pub kind: GenericParamKind,
+    pub colon_span: Option<Span>,
 }
 
 impl GenericParam {
+
     pub fn id(&self) -> NodeId {
-        match self {
-            GenericParam::Atomic { id, .. } => *id,
-            GenericParam::Composition { id, .. } => *id
+        self.id
+    }
+
+    pub fn last_span(&self) -> Span {
+        if !self.bounds.is_empty() {
+            return self.bounds.last().unwrap().span();
         }
+
+        if let GenericParamKind::Const {ty, default, ..} = &self.kind {
+            return default.as_ref().map(|def| def.value.span).unwrap_or(ty.span);
+        }
+
+
+        if let GenericParamKind::HKT (nested) = &self.kind {
+            let mut gts = 1;
+            let mut current = nested.last();
+
+            while let Some(kind) = current {
+                match kind {
+                    HKTKind::Atomic(i) => {
+                        return self.ident.span.to(
+                            Span::new(
+                                i.span.lo(),
+                                BytePos(i.span.hi().0 + gts),
+                                i.span.ctxt(),
+                                i.span.parent()
+                            ));
+                    }
+                    HKTKind::Composition(_, n) => {
+                        gts += 1;
+                        current = n.last();
+                    }
+                }
+            }
+        }
+
+
+        self.ident.span
     }
 
     pub fn span(&self) -> Span {
-        match self {
-            GenericParam::Atomic { ident, kind, .. } => {
-                match &kind {
-                    GenericParamKind::Lifetime | GenericParamKind::Type { default: None } => {
-                        ident.span
-                    }
-                    GenericParamKind::Type { default: Some(ty) } => ident.span.to(ty.span),
-                    GenericParamKind::Const { kw_span, default: Some(default), .. } => {
-                        kw_span.to(default.value.span)
-                    }
-                    GenericParamKind::Const { kw_span, default: None, ty } => kw_span.to(ty.span),
-                }
+        match &self.kind {
+            GenericParamKind::HKT(_)  | GenericParamKind::Lifetime | GenericParamKind::Type { default: None } => {
+                self.ident.span
             }
-            GenericParam::Composition { .. } => {
-                Span::default() // TODO(hoch)
+            GenericParamKind::Type { default: Some(ty) } => self.ident.span.to(ty.span),
+            GenericParamKind::Const { kw_span, default: Some(default), .. } => {
+                kw_span.to(default.value.span)
             }
+            GenericParamKind::Const { kw_span, default: None, ty } => kw_span.to(ty.span),
         }
-
     }
 }
 

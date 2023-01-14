@@ -11,7 +11,7 @@ use rustc_ast::tokenstream::{TokenStream, TokenTree};
 use rustc_ast::util::classify;
 use rustc_ast::util::comments::{gather_comments, Comment, CommentStyle};
 use rustc_ast::util::parser;
-use rustc_ast::{self as ast, AttrArgs, AttrArgsEq, BlockCheckMode, GenericParam, PatKind};
+use rustc_ast::{self as ast, AttrArgs, AttrArgsEq, BlockCheckMode, GenericParamKind, HKTKind, PatKind};
 use rustc_ast::{attr, BindingAnnotation, ByRef, DelimArgs, RangeEnd, RangeSyntax, Term};
 use rustc_ast::{GenericArg, GenericBound, SelfKind, TraitBoundModifier};
 use rustc_ast::{InlineAsmOperand, InlineAsmRegOrRegClass};
@@ -1593,6 +1593,25 @@ impl<'a> State<'a> {
         }
     }
 
+    pub(crate) fn print_hkt_kind(&mut self, kinds: &[HKTKind]) {
+
+        self.commasep(Inconsistent, kinds, |s, kind| {
+            match kind {
+                HKTKind::Atomic(ident) => {
+                    s.word("?");
+                    s.print_ident(*ident);
+                }
+                HKTKind::Composition(ident, nested) => {
+                    s.word("?");
+                    s.print_ident(*ident);
+                    s.word("<");
+                    s.print_hkt_kind(nested);
+                    s.word(">");
+                }
+            }
+        });
+    }
+
     pub(crate) fn print_generic_params(&mut self, generic_params: &[ast::GenericParam]) {
         if generic_params.is_empty() {
             return;
@@ -1601,65 +1620,52 @@ impl<'a> State<'a> {
         self.word("<");
 
         self.commasep(Inconsistent, generic_params, |s, param| {
-            match param {
-                GenericParam::Atomic { id, ident, attrs, bounds, kind, .. } => {
-                    s.print_outer_attributes_inline(attrs);
+            s.print_outer_attributes_inline(&param.attrs);
 
-                    match kind {
-                        ast::GenericParamKind::Lifetime => {
-                            let lt = ast::Lifetime { id: *id, ident: *ident };
-                            s.print_lifetime(lt);
-                            if !bounds.is_empty() {
-                                s.word_nbsp(":");
-                                s.print_lifetime_bounds(bounds)
-                            }
-                        }
-                        ast::GenericParamKind::Type { default } => {
-                            s.print_ident(*ident);
-                            if !bounds.is_empty() {
-                                s.word_nbsp(":");
-                                s.print_type_bounds(bounds);
-                            }
-                            if let Some(default) = default {
-                                s.space();
-                                s.word_space("=");
-                                s.print_type(default)
-                            }
-                        }
-                        ast::GenericParamKind::Const { ty, default, .. } => {
-                            s.word_space("const");
-                            s.print_ident(*ident);
-                            s.space();
-                            s.word_space(":");
-                            s.print_type(ty);
-                            if !bounds.is_empty() {
-                                s.word_nbsp(":");
-                                s.print_type_bounds(bounds);
-                            }
-                            if let Some(default) = default {
-                                s.space();
-                                s.word_space("=");
-                                s.print_expr(&default.value);
-                            }
-                        }
+            match &param.kind {
+                GenericParamKind::Lifetime => {
+                    let lt = ast::Lifetime { id: param.id, ident: param.ident };
+                    s.print_lifetime(lt);
+                    if !param.bounds.is_empty() {
+                        s.word_nbsp(":");
+                        s.print_lifetime_bounds(&param.bounds)
                     }
                 }
-                GenericParam::Composition { ident, attrs, bounds, params, .. } => {
-                    s.print_outer_attributes_inline(attrs);
-
-                    s.print_ident(*ident);
-
-                    if !params.is_empty() {
-                        s.print_generic_params(&params);
-                    }
-
-                    if !bounds.is_empty() {
+                GenericParamKind::Type { default } => {
+                    s.print_ident(param.ident);
+                    if !param.bounds.is_empty() {
                         s.word_nbsp(":");
-                        s.print_type_bounds(bounds);
+                        s.print_type_bounds(&param.bounds);
                     }
+                    if let Some(default) = default {
+                        s.space();
+                        s.word_space("=");
+                        s.print_type(default)
+                    }
+                }
+                GenericParamKind::Const { ty, default, .. } => {
+                    s.word_space("const");
+                    s.print_ident(param.ident);
+                    s.space();
+                    s.word_space(":");
+                    s.print_type(ty);
+                    if !param.bounds.is_empty() {
+                        s.word_nbsp(":");
+                        s.print_type_bounds(&param.bounds);
+                    }
+                    if let Some(default) = default {
+                        s.space();
+                        s.word_space("=");
+                        s.print_expr(&default.value);
+                    }
+                }
+                GenericParamKind::HKT(nested) => {
+                    s.print_ident(param.ident);
+                    s.word("<");
+                    s.print_hkt_kind(nested);
+                    s.word(">");
                 }
             }
-
         });
 
         self.word(">");

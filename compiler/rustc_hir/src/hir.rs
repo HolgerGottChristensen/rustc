@@ -473,6 +473,12 @@ pub enum LifetimeParamKind {
 }
 
 #[derive(Debug, HashStable_Generic)]
+pub enum HKTKind {
+    Atomic(Ident),
+    Composition(Ident, Vec<HKTKind>),
+}
+
+#[derive(Debug, HashStable_Generic)]
 pub enum GenericParamKind<'hir> {
     /// A lifetime definition (e.g., `'a: 'b + 'c + 'd`).
     Lifetime {
@@ -487,6 +493,7 @@ pub enum GenericParamKind<'hir> {
         /// Optional default value for the const generic param
         default: Option<AnonConst>,
     },
+    HKT (Vec<HKTKind>),
 }
 
 #[derive(Debug, HashStable_Generic)]

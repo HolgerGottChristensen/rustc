@@ -67,7 +67,7 @@ use rustc_span::source_map::DesugaringKind;
 use rustc_span::symbol::{kw, sym, Ident, Symbol};
 use rustc_span::{Span, DUMMY_SP};
 
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use std::collections::hash_map::Entry;
 
 macro_rules! arena_vec {
@@ -2129,7 +2129,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         &'s mut self,
         params: &'s [GenericParam],
     ) -> impl Iterator<Item = hir::GenericParam<'hir>> + Captures<'a> + Captures<'s> {
-        params.iter().map(move |param| self.lower_generic_param(param))
+        params.iter().flat_map(move |param| self.lower_generic_param(param))
     }
 
     fn lower_generic_params(&mut self, params: &[GenericParam]) -> &'hir [hir::GenericParam<'hir>] {
@@ -2137,28 +2137,21 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     }
 
     #[instrument(level = "trace", skip(self))]
-    fn lower_generic_param(&mut self, param: &GenericParam) -> hir::GenericParam<'hir> {
+    fn lower_generic_param(&mut self, param: &GenericParam) -> SmallVec<[hir::GenericParam<'hir>; 4]> {
         let (name, kind) = self.lower_generic_param_kind(param);
 
         let hir_id = self.lower_node_id(param.id());
 
-        match param {
-            GenericParam::Atomic { attrs, id, colon_span, .. } => {
-                self.lower_attrs(hir_id, attrs);
-                hir::GenericParam {
-                    hir_id,
-                    def_id: self.local_def_id(*id),
-                    name,
-                    span: self.lower_span(param.span()),
-                    pure_wrt_drop: self.tcx.sess.contains_name(&attrs, sym::may_dangle),
-                    kind,
-                    colon_span: colon_span.map(|s| self.lower_span(s)),
-                }
-            }
-            GenericParam::Composition { .. } => {
-                todo!() // TODO(hoch)
-            }
-        }
+        self.lower_attrs(hir_id, &param.attrs);
+        smallvec![hir::GenericParam {
+            hir_id,
+            def_id: self.local_def_id(param.id),
+            name,
+            span: self.lower_span(param.span()),
+            pure_wrt_drop: self.tcx.sess.contains_name(&param.attrs, sym::may_dangle),
+            kind,
+            colon_span: param.colon_span.map(|s| self.lower_span(s)),
+        }]
 
     }
 
@@ -2166,46 +2159,63 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         &mut self,
         param: &GenericParam,
     ) -> (hir::ParamName, hir::GenericParamKind<'hir>) {
-        match param {
-            GenericParam::Atomic { id, kind, ident: param_ident, .. } => {
-                match kind {
-                    GenericParamKind::Lifetime => {
-                        // AST resolution emitted an error on those parameters, so we lower them using
-                        // `ParamName::Error`.
-                        let param_name =
-                            if let Some(LifetimeRes::Error) = self.resolver.get_lifetime_res(*id) {
-                                ParamName::Error
-                            } else {
-                                let ident = self.lower_ident(*param_ident);
-                                ParamName::Plain(ident)
-                            };
-                        let kind =
-                            hir::GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit };
+        match &param.kind {
+            GenericParamKind::Lifetime => {
+                // AST resolution emitted an error on those parameters, so we lower them using
+                // `ParamName::Error`.
+                let param_name =
+                    if let Some(LifetimeRes::Error) = self.resolver.get_lifetime_res(param.id) {
+                        ParamName::Error
+                    } else {
+                        let ident = self.lower_ident(param.ident);
+                        ParamName::Plain(ident)
+                    };
+                let kind =
+                    hir::GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit };
 
-                        (param_name, kind)
-                    }
-                    GenericParamKind::Type { default, .. } => {
-                        let kind = hir::GenericParamKind::Type {
-                            default: default.as_ref().map(|x| {
-                                self.lower_ty(x, &ImplTraitContext::Disallowed(ImplTraitPosition::Type))
-                            }),
-                            synthetic: false,
-                        };
-
-                        (hir::ParamName::Plain(self.lower_ident(*param_ident)), kind)
-                    }
-                    GenericParamKind::Const { ty, kw_span: _, default } => {
-                        let ty = self.lower_ty(&ty, &ImplTraitContext::Disallowed(ImplTraitPosition::Type));
-                        let default = default.as_ref().map(|def| self.lower_anon_const(def));
-                        (
-                            hir::ParamName::Plain(self.lower_ident(*param_ident)),
-                            hir::GenericParamKind::Const { ty, default },
-                        )
-                    }
-                }
+                (param_name, kind)
             }
-            GenericParam::Composition { .. } => {
-                todo!() // TODO(hoch)
+            GenericParamKind::Type { default, .. } => {
+                let kind = hir::GenericParamKind::Type {
+                    default: default.as_ref().map(|x| {
+                        self.lower_ty(x, &ImplTraitContext::Disallowed(ImplTraitPosition::Type))
+                    }),
+                    synthetic: false,
+                };
+
+                (hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
+            }
+            GenericParamKind::Const { ty, kw_span: _, default } => {
+                let ty = self.lower_ty(&ty, &ImplTraitContext::Disallowed(ImplTraitPosition::Type));
+                let default = default.as_ref().map(|def| self.lower_anon_const(def));
+                (
+                    hir::ParamName::Plain(self.lower_ident(param.ident)),
+                    hir::GenericParamKind::Const { ty, default },
+                )
+            }
+            GenericParamKind::HKT(kinds) => {
+                // TODO(hoch)
+                let kind = hir::GenericParamKind::HKT(
+                    kinds.iter().map(|a| self.lower_hkt_kind(a)).collect()
+                );
+
+                (hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
+            }
+        }
+    }
+
+    fn lower_hkt_kind(&mut self, kind: &HKTKind) -> hir::HKTKind {
+        match kind {
+            HKTKind::Atomic(ident) => {
+                hir::HKTKind::Atomic(self.lower_ident(*ident))
+            }
+            HKTKind::Composition(ident, nested) => {
+                hir::HKTKind::Composition(
+                    self.lower_ident(*ident),
+                    nested.iter()
+                        .map(|a| self.lower_hkt_kind(a))
+                        .collect()
+                )
             }
         }
     }

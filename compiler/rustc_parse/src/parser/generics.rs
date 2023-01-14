@@ -1,6 +1,6 @@
 use super::{ForceCollect, Parser, TrailingToken};
 
-use rustc_ast::token;
+use rustc_ast::{HKTKind, token};
 use rustc_ast::{
     self as ast, AttrVec, GenericBounds, GenericParam, GenericParamKind, TyKind, WhereClause,
 };
@@ -25,33 +25,59 @@ impl<'a> Parser<'a> {
         lifetimes
     }
 
-    /// Parsing a higher ranked generic, e.g. I<J,K<L>>
+    fn parse_hkt_param_helper1(&mut self) -> PResult<'a, HKTKind> {
+        let _ = self.expect(&token::Question)?;
+
+        let ident = self.parse_ident()?;
+
+        if self.eat_lt() {
+
+            let params = self.parse_hkt_param_helper()?;
+
+            self.expect_gt()?;
+
+            Ok(HKTKind::Composition(ident, params))
+        } else {
+            Ok(HKTKind::Atomic(ident))
+        }
+    }
+
+    fn parse_hkt_param_helper(&mut self) -> PResult<'a, Vec<HKTKind>> {
+        let mut inner = vec![];
+        let mut done = false;
+
+        while !done {
+            if let Ok(params) = self.parse_hkt_param_helper1() {
+                inner.push(params)
+            } else {
+                break;
+            }
+
+            if !self.eat(&token::Comma) {
+                done = true;
+            }
+        }
+
+        return Ok(inner)
+    }
+
+    /// Parsing a higher ranked generic, e.g. I<...>
     fn parse_hkt_param(&mut self, preceding_attrs: AttrVec) -> PResult<'a, GenericParam> {
         // Parse the outermost identifier
         let ident = self.parse_ident()?;
 
-        let mut inner = vec![];
-
         // If we have another < after the ident, parse a list of hkt parameters followed by a
         // > with possible bounds : BOUND
-        if self.eat_lt() {
-            let mut done = false;
 
-            while !done {
-                if let Ok(param) = self.parse_hkt_param(preceding_attrs.clone()) {
-                    inner.push(param);
-                } else {
-                    break;
-                }
-
-                if !self.eat(&token::Comma) {
-                    done = true;
-                }
-            }
+        let mut kind = if self.eat_lt() {
+            let p = self.parse_hkt_param_helper()?;
 
             self.expect_gt()?;
 
-        }
+            GenericParamKind::HKT(p)
+        } else {
+            GenericParamKind::Type { default: None }
+        };
 
         let mut colon_span = None;
 
@@ -93,14 +119,16 @@ impl<'a> Parser<'a> {
             Vec::new()
         };
 
-        debug!("Parsed: {}<{:?}>: {:?}", ident, inner, &bounds);
+        if let GenericParamKind::Type{ default } = &mut kind {
+            *default = if self.eat(&token::Eq) { Some(self.parse_ty()?) } else { None };
+        }
 
-        Ok(GenericParam::Atomic {
+        Ok(GenericParam {
             ident,
             id: ast::DUMMY_NODE_ID,
             attrs: preceding_attrs,
             bounds,
-            kind: GenericParamKind::Type { default: None },
+            kind,
             is_placeholder: false,
             colon_span,
         })
@@ -152,7 +180,7 @@ impl<'a> Parser<'a> {
         };
 
         let default = if self.eat(&token::Eq) { Some(self.parse_ty()?) } else { None };
-        Ok(GenericParam::Atomic {
+        Ok(GenericParam {
             ident,
             id: ast::DUMMY_NODE_ID,
             attrs: preceding_attrs,
@@ -177,7 +205,7 @@ impl<'a> Parser<'a> {
         // Parse optional const generics default value.
         let default = if self.eat(&token::Eq) { Some(self.parse_const_arg()?) } else { None };
 
-        Ok(GenericParam::Atomic {
+        Ok(GenericParam {
             ident,
             id: ast::DUMMY_NODE_ID,
             attrs: preceding_attrs,
@@ -220,7 +248,7 @@ impl<'a> Parser<'a> {
                         } else {
                             (None, Vec::new())
                         };
-                        Some(GenericParam::Atomic {
+                        Some(GenericParam {
                             ident: lifetime.ident,
                             id: lifetime.id,
                             attrs,
@@ -295,7 +323,8 @@ impl<'a> Parser<'a> {
             }
         }
 
-        debug!("{:#?}", params);
+        use rustc_ast_pretty::pprust::PrintState;
+        info!("{}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
 
         Ok(params)
     }
@@ -307,6 +336,7 @@ impl<'a> Parser<'a> {
     /// matches generics = ( ) | ( < > ) | ( < typaramseq ( , )? > ) | ( < lifetimes ( , )? > )
     ///                  | ( < lifetimes , typaramseq ( , )? > )
     /// where   typaramseq = ( typaram ) | ( typaram , typaramseq )
+    #[instrument(level = "debug", skip(self))]
     pub(super) fn parse_generics(&mut self) -> PResult<'a, ast::Generics> {
         let span_lo = self.token.span;
         let (params, span) = if self.eat_lt() {
@@ -316,6 +346,11 @@ impl<'a> Parser<'a> {
         } else {
             (vec![], self.prev_token.span.shrink_to_hi())
         };
+
+        use rustc_ast_pretty::pprust::PrintState;
+        info!("Parsed: {}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
+
+
         Ok(ast::Generics {
             params,
             where_clause: WhereClause {

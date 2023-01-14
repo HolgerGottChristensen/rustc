@@ -177,6 +177,25 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                 // Bounds on const parameters are currently not possible.
                 index += 1;
             }
+            GenericParamKind::HKT(_) => {
+                // TODO(hoch)
+                let name = param.name.ident().name;
+                let param_ty = ty::ParamTy::new(index, name).to_ty(tcx);
+                index += 1;
+
+                let mut bounds = Bounds::default();
+                // Params are implicitly sized unless a `?Sized` bound is found
+                <dyn AstConv<'_>>::add_implicitly_sized(
+                    &icx,
+                    &mut bounds,
+                    &[],
+                    Some((param.def_id, ast_generics.predicates)),
+                    param.span,
+                );
+                trace!(?bounds);
+                predicates.extend(bounds.predicates(tcx, param_ty));
+                trace!(?predicates);
+            }
         }
     }
 

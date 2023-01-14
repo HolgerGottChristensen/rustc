@@ -1114,14 +1114,7 @@ impl EarlyLintPass for UnusedDocComment {
     }
 
     fn check_generic_param(&mut self, cx: &EarlyContext<'_>, param: &ast::GenericParam) {
-        match param {
-            GenericParam::Atomic { ident, attrs, .. } => {
-                warn_if_doc(cx, ident.span, "generic parameters", attrs);
-            }
-            GenericParam::Composition { .. } => {
-                todo!() // TODO(hoch)
-            }
-        }
+        warn_if_doc(cx, param.ident.span, "generic parameters", &param.attrs);
     }
 
     fn check_block(&mut self, cx: &EarlyContext<'_>, block: &ast::Block) {
@@ -1220,6 +1213,9 @@ impl<'tcx> LateLintPass<'tcx> for InvalidNoMangleItems {
                             },
                         );
                         break;
+                    }
+                    GenericParamKind::HKT(_) => {
+                        todo!("hoch")
                     }
                 }
             }

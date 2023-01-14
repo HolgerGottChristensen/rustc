@@ -156,6 +156,7 @@ fn mark_used_by_default_parameters<'tcx>(
         | DefKind::TraitAlias
         | DefKind::AssocTy
         | DefKind::TyParam
+        | DefKind::HKTParam
         | DefKind::Fn
         | DefKind::Const
         | DefKind::ConstParam

@@ -15,6 +15,7 @@ pub enum GenericParamKind {
     Type,
     Lifetime,
     Const,
+    HKT,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -149,6 +150,7 @@ impl Target {
                 Target::GenericParam(GenericParamKind::Lifetime)
             }
             hir::GenericParamKind::Const { .. } => Target::GenericParam(GenericParamKind::Const),
+            hir::GenericParamKind::HKT(_) => Target::GenericParam(GenericParamKind::HKT)
         }
     }
 
@@ -191,6 +193,7 @@ impl Target {
                 GenericParamKind::Type => "type parameter",
                 GenericParamKind::Lifetime => "lifetime parameter",
                 GenericParamKind::Const => "const parameter",
+                GenericParamKind::HKT => "higher kinded type parameter",
             },
             Target::MacroDef => "macro def",
             Target::Param => "function param",

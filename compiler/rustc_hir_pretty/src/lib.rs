@@ -8,7 +8,7 @@ use rustc_ast_pretty::pp::Breaks::{Consistent, Inconsistent};
 use rustc_ast_pretty::pp::{self, Breaks};
 use rustc_ast_pretty::pprust::{Comments, PrintState};
 use rustc_hir as hir;
-use rustc_hir::LifetimeParamKind;
+use rustc_hir::{HKTKind, LifetimeParamKind};
 use rustc_hir::{
     BindingAnnotation, ByRef, GenericArg, GenericParam, GenericParamKind, Mutability, Node, Term,
 };
@@ -2144,7 +2144,30 @@ impl<'a> State<'a> {
                     self.print_anon_const(default);
                 }
             }
+            GenericParamKind::HKT(ref nested) => {
+                self.word("<");
+                self.print_hkt_kind(nested);
+                self.word(">");
+            }
         }
+    }
+
+    pub fn print_hkt_kind(&mut self, kinds: &[HKTKind]) {
+        self.commasep(Inconsistent, kinds, |s, kind| {
+            match kind {
+                HKTKind::Atomic(ident) => {
+                    s.word("?");
+                    s.print_ident(*ident);
+                }
+                HKTKind::Composition(ident, nested) => {
+                    s.word("?");
+                    s.print_ident(*ident);
+                    s.word("<");
+                    s.print_hkt_kind(nested);
+                    s.word(">");
+                }
+            }
+        });
     }
 
     pub fn print_lifetime(&mut self, lifetime: &hir::Lifetime) {

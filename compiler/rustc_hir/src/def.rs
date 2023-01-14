@@ -68,6 +68,7 @@ pub enum DefKind {
     AssocTy,
     /// Type parameter: the `T` in `struct Vec<T> { ... }`
     TyParam,
+    HKTParam,
 
     // Value namespace
     Fn,
@@ -145,6 +146,7 @@ impl DefKind {
             DefKind::Const => "constant",
             DefKind::AssocConst => "associated constant",
             DefKind::TyParam => "type parameter",
+            DefKind::HKTParam => "hkt parameter",
             DefKind::ConstParam => "const parameter",
             DefKind::Macro(macro_kind) => macro_kind.descr(),
             DefKind::LifetimeParam => "lifetime parameter",
@@ -191,6 +193,7 @@ impl DefKind {
             | DefKind::ForeignTy
             | DefKind::TraitAlias
             | DefKind::AssocTy
+            | DefKind::HKTParam
             | DefKind::TyParam => Some(Namespace::TypeNS),
 
             DefKind::Fn
@@ -256,6 +259,7 @@ impl DefKind {
             | DefKind::Impl
             | DefKind::Field
             | DefKind::TyParam
+            | DefKind::HKTParam
             | DefKind::ConstParam
             | DefKind::LifetimeParam
             | DefKind::AnonConst

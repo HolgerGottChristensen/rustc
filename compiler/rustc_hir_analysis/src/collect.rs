@@ -285,6 +285,7 @@ impl<'tcx> Visitor<'tcx> for CollectItemTypesVisitor<'tcx> {
                 hir::GenericParamKind::Type { default: Some(_), .. } => {
                     self.tcx.ensure().type_of(param.def_id);
                 }
+                hir::GenericParamKind::HKT (_) => {}
                 hir::GenericParamKind::Type { .. } => {}
                 hir::GenericParamKind::Const { default, .. } => {
                     self.tcx.ensure().type_of(param.def_id);

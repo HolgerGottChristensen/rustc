@@ -164,7 +164,7 @@ pub use SubstructureFields::*;
 
 use crate::deriving;
 use rustc_ast::ptr::P;
-use rustc_ast::{self as ast, BindingAnnotation, ByRef, EnumDef, Expr, GenericParam, Generics, Mutability, PatKind};
+use rustc_ast::{self as ast, BindingAnnotation, ByRef, EnumDef, Expr, Generics, Mutability, PatKind};
 use rustc_ast::{GenericArg, GenericParamKind, VariantData};
 use rustc_attr as attr;
 use rustc_expand::base::{Annotatable, ExtCtxt};
@@ -442,14 +442,7 @@ impl<'a> TraitDef<'a> {
                         .params
                         .iter()
                         .any(|param| {
-                            match param {
-                                GenericParam::Atomic { kind, .. } => {
-                                    matches!(kind, ast::GenericParamKind::Type { .. })
-                                }
-                                GenericParam::Composition { .. } => {
-                                    todo!() // TODO(hoch)
-                                }
-                            }
+                            matches!(param.kind, ast::GenericParamKind::Type { .. })
                         }),
                     _ => unreachable!(),
                 };
@@ -594,50 +587,39 @@ impl<'a> TraitDef<'a> {
             .params
             .iter()
             .map(|param| {
-                match param {
-                    GenericParam::Atomic { kind, bounds, ident, .. } => {
-                        match kind {
-                            GenericParamKind::Lifetime { .. } => param.clone(),
-                            GenericParamKind::Type { .. } => {
-                                // I don't think this can be moved out of the loop, since
-                                // a GenericBound requires an ast id
-                                let bounds: Vec<_> =
-                                    // extra restrictions on the generics parameters to the
-                                    // type being derived upon
-                                    self.additional_bounds.iter().map(|p| {
-                                        cx.trait_bound(p.to_path(cx, self.span, type_ident, generics))
-                                    }).chain(
-                                        // require the current trait
-                                        self.skip_path_as_bound.not().then(|| cx.trait_bound(trait_path.clone()))
-                                    ).chain(
-                                        // also add in any bounds from the declaration
-                                        bounds.iter().cloned()
-                                    ).collect();
+                match &param.kind {
+                    GenericParamKind::Lifetime { .. } => param.clone(),
+                    GenericParamKind::Type { .. } => {
+                        // I don't think this can be moved out of the loop, since
+                        // a GenericBound requires an ast id
+                        let bounds: Vec<_> =
+                            // extra restrictions on the generics parameters to the
+                            // type being derived upon
+                            self.additional_bounds.iter().map(|p| {
+                                cx.trait_bound(p.to_path(cx, self.span, type_ident, generics))
+                            }).chain(
+                                // require the current trait
+                                self.skip_path_as_bound.not().then(|| cx.trait_bound(trait_path.clone()))
+                            ).chain(
+                                // also add in any bounds from the declaration
+                                param.bounds.iter().cloned()
+                            ).collect();
 
-                                cx.typaram(ident.span.with_ctxt(ctxt), *ident, bounds, None)
-                            }
-                            GenericParamKind::Const { ty, kw_span, .. } => {
-                                let const_nodefault_kind = GenericParamKind::Const {
-                                    ty: ty.clone(),
-                                    kw_span: kw_span.with_ctxt(ctxt),
-
-                                    // We can't have default values inside impl block
-                                    default: None,
-                                };
-                                let mut param_clone = param.clone();
-                                match param_clone {
-                                    GenericParam::Atomic { ref mut kind, .. } => {
-                                        *kind = const_nodefault_kind;
-                                    }
-                                    GenericParam::Composition { .. } => {
-                                        todo!() // TODO(hoch)
-                                    }
-                                }
-                                param_clone
-                            }
-                        }
+                        cx.typaram(param.ident.span.with_ctxt(ctxt), param.ident, bounds, None)
                     }
-                    GenericParam::Composition { .. } => {
+                    GenericParamKind::Const { ty, kw_span, .. } => {
+                        let const_nodefault_kind = GenericParamKind::Const {
+                            ty: ty.clone(),
+                            kw_span: kw_span.with_ctxt(ctxt),
+
+                            // We can't have default values inside impl block
+                            default: None,
+                        };
+                        let mut param_clone = param.clone();
+                        param_clone.kind = const_nodefault_kind;
+                        param_clone
+                    }
+                    GenericParamKind::HKT(_) => {
                         todo!() // TODO(hoch)
                     }
                 }
@@ -674,14 +656,7 @@ impl<'a> TraitDef<'a> {
             let mut ty_params = params
                 .iter()
                 .filter(|param| {
-                    match param {
-                        GenericParam::Atomic { kind, .. } => {
-                            matches!(kind, ast::GenericParamKind::Type { .. })
-                        }
-                        GenericParam::Composition { .. } => {
-                            todo!() // TODO(hoch)
-                        }
-                    }
+                    matches!(param.kind, ast::GenericParamKind::Type { .. })
 
                 })
                 .peekable();
@@ -689,12 +664,7 @@ impl<'a> TraitDef<'a> {
             if ty_params.peek().is_some() {
                 let ty_param_names: Vec<Symbol> =
                     ty_params.map(|ty_param| {
-                        match ty_param {
-                            GenericParam::Atomic { ident, .. } => {ident.name}
-                            GenericParam::Composition { .. } => {
-                                todo!() // TODO(hoch)
-                            }
-                        }
+                        ty_param.ident.name
                     }).collect();
 
                 for field_ty in field_tys {
@@ -740,21 +710,17 @@ impl<'a> TraitDef<'a> {
             .params
             .iter()
             .map(|param| {
-                match param {
-                    GenericParam::Atomic { kind, ident, .. } => {
-                        match kind {
-                            GenericParamKind::Lifetime { .. } => {
-                                GenericArg::Lifetime(cx.lifetime(ident.span.with_ctxt(ctxt), *ident))
-                            }
-                            GenericParamKind::Type { .. } => {
-                                GenericArg::Type(cx.ty_ident(ident.span.with_ctxt(ctxt), *ident))
-                            }
-                            GenericParamKind::Const { .. } => {
-                                GenericArg::Const(cx.const_ident(ident.span.with_ctxt(ctxt), *ident))
-                            }
-                        }
+                match param.kind {
+                    GenericParamKind::Lifetime { .. } => {
+                        GenericArg::Lifetime(cx.lifetime(param.ident.span.with_ctxt(ctxt), param.ident))
                     }
-                    GenericParam::Composition { .. } => {
+                    GenericParamKind::Type { .. } => {
+                        GenericArg::Type(cx.ty_ident(param.ident.span.with_ctxt(ctxt), param.ident))
+                    }
+                    GenericParamKind::Const { .. } => {
+                        GenericArg::Const(cx.const_ident(param.ident.span.with_ctxt(ctxt), param.ident))
+                    }
+                    GenericParamKind::HKT(_) => {
                         todo!() // TODO(hoch)
                     }
                 }

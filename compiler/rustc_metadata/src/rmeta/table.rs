@@ -78,6 +78,7 @@ fixed_size_enum! {
         ( TraitAlias                               )
         ( AssocTy                                  )
         ( TyParam                                  )
+        ( HKTParam                                 )
         ( Fn                                       )
         ( Const                                    )
         ( ConstParam                               )

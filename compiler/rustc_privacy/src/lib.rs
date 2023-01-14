@@ -579,6 +579,7 @@ impl<'tcx> EmbargoVisitor<'tcx> {
             | DefKind::AssocFn
             | DefKind::Trait
             | DefKind::TyParam
+            | DefKind::HKTParam
             | DefKind::Variant
             | DefKind::LifetimeParam
             | DefKind::ExternCrate

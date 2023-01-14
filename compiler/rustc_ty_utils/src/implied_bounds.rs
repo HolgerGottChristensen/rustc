@@ -40,6 +40,7 @@ fn assumed_wf_types(tcx: TyCtxt<'_>, def_id: DefId) -> &ty::List<Ty<'_>> {
         | DefKind::ForeignTy
         | DefKind::TraitAlias
         | DefKind::TyParam
+        | DefKind::HKTParam
         | DefKind::Const
         | DefKind::ConstParam
         | DefKind::Static(_)

@@ -748,6 +748,7 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
         self.diagnostic_metadata.current_trait_object = prev;
         self.diagnostic_metadata.current_type_path = prev_ty;
     }
+
     fn visit_poly_trait_ref(&mut self, tref: &'ast PolyTraitRef) {
         let span = tref.span.shrink_to_lo().to(tref.trait_ref.path.span.shrink_to_lo());
         self.with_generic_param_rib(
@@ -1292,24 +1293,22 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         let mut forward_ty_ban_rib = Rib::new(ForwardGenericParamBanRibKind);
         let mut forward_const_ban_rib = Rib::new(ForwardGenericParamBanRibKind);
         for param in params.iter() {
-            match param {
-                GenericParam::Atomic { kind, ident, .. } => {
-                    match kind {
-                        GenericParamKind::Type { .. } => {
-                            forward_ty_ban_rib
-                                .bindings
-                                .insert(Ident::with_dummy_span(ident.name), Res::Err);
-                        }
-                        GenericParamKind::Const { .. } => {
-                            forward_const_ban_rib
-                                .bindings
-                                .insert(Ident::with_dummy_span(ident.name), Res::Err);
-                        }
-                        GenericParamKind::Lifetime => {}
-                    }
+            match param.kind {
+                GenericParamKind::Type { .. } => {
+                    forward_ty_ban_rib
+                        .bindings
+                        .insert(Ident::with_dummy_span(param.ident.name), Res::Err);
                 }
-                GenericParam::Composition { .. } => {
-                    todo!() // TODO(hoch)
+                GenericParamKind::Const { .. } => {
+                    forward_const_ban_rib
+                        .bindings
+                        .insert(Ident::with_dummy_span(param.ident.name), Res::Err);
+                }
+                GenericParamKind::Lifetime => {}
+                GenericParamKind::HKT(_) => {
+                    forward_ty_ban_rib
+                        .bindings
+                        .insert(Ident::with_dummy_span(param.ident.name), Res::Err);
                 }
             }
         }
@@ -1330,63 +1329,65 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
 
         self.with_lifetime_rib(LifetimeRibKind::AnonymousReportError, |this| {
             for param in params {
-                match param {
-                    GenericParam::Atomic { kind, bounds, ident, .. } => {
-                        match kind {
-                            GenericParamKind::Lifetime => {
-                                for bound in bounds {
-                                    this.visit_param_bound(bound, BoundKind::Bound);
-                                }
-                            }
-                            GenericParamKind::Type { ref default } => {
-                                for bound in bounds {
-                                    this.visit_param_bound(bound, BoundKind::Bound);
-                                }
-
-                                if let Some(ref ty) = default {
-                                    this.ribs[TypeNS].push(forward_ty_ban_rib);
-                                    this.ribs[ValueNS].push(forward_const_ban_rib);
-                                    this.visit_ty(ty);
-                                    forward_const_ban_rib = this.ribs[ValueNS].pop().unwrap();
-                                    forward_ty_ban_rib = this.ribs[TypeNS].pop().unwrap();
-                                }
-
-                                // Allow all following defaults to refer to this type parameter.
-                                forward_ty_ban_rib
-                                    .bindings
-                                    .remove(&Ident::with_dummy_span(ident.name));
-                            }
-                            GenericParamKind::Const { ref ty, kw_span: _, ref default } => {
-                                // Const parameters can't have param bounds.
-                                assert!(bounds.is_empty());
-
-                                this.ribs[TypeNS].push(Rib::new(ConstParamTyRibKind));
-                                this.ribs[ValueNS].push(Rib::new(ConstParamTyRibKind));
-                                this.with_lifetime_rib(LifetimeRibKind::ConstGeneric, |this| {
-                                    this.visit_ty(ty)
-                                });
-                                this.ribs[TypeNS].pop().unwrap();
-                                this.ribs[ValueNS].pop().unwrap();
-
-                                if let Some(ref expr) = default {
-                                    this.ribs[TypeNS].push(forward_ty_ban_rib);
-                                    this.ribs[ValueNS].push(forward_const_ban_rib);
-                                    this.with_lifetime_rib(LifetimeRibKind::ConstGeneric, |this| {
-                                        this.resolve_anon_const(expr, IsRepeatExpr::No)
-                                    });
-                                    forward_const_ban_rib = this.ribs[ValueNS].pop().unwrap();
-                                    forward_ty_ban_rib = this.ribs[TypeNS].pop().unwrap();
-                                }
-
-                                // Allow all following defaults to refer to this const parameter.
-                                forward_const_ban_rib
-                                    .bindings
-                                    .remove(&Ident::with_dummy_span(ident.name));
-                            }
+                match param.kind {
+                    GenericParamKind::Lifetime => {
+                        for bound in &param.bounds {
+                            this.visit_param_bound(bound, BoundKind::Bound);
                         }
                     }
-                    GenericParam::Composition { .. } => {
-                        todo!() // TODO(hoch)
+                    GenericParamKind::Type { ref default } => {
+                        for bound in &param.bounds {
+                            this.visit_param_bound(bound, BoundKind::Bound);
+                        }
+
+                        if let Some(ref ty) = default {
+                            this.ribs[TypeNS].push(forward_ty_ban_rib);
+                            this.ribs[ValueNS].push(forward_const_ban_rib);
+                            this.visit_ty(ty);
+                            forward_const_ban_rib = this.ribs[ValueNS].pop().unwrap();
+                            forward_ty_ban_rib = this.ribs[TypeNS].pop().unwrap();
+                        }
+
+                        // Allow all following defaults to refer to this type parameter.
+                        forward_ty_ban_rib
+                            .bindings
+                            .remove(&Ident::with_dummy_span(param.ident.name));
+                    }
+                    GenericParamKind::Const { ref ty, kw_span: _, ref default } => {
+                        // Const parameters can't have param bounds.
+                        assert!(param.bounds.is_empty());
+
+                        this.ribs[TypeNS].push(Rib::new(ConstParamTyRibKind));
+                        this.ribs[ValueNS].push(Rib::new(ConstParamTyRibKind));
+                        this.with_lifetime_rib(LifetimeRibKind::ConstGeneric, |this| {
+                            this.visit_ty(ty)
+                        });
+                        this.ribs[TypeNS].pop().unwrap();
+                        this.ribs[ValueNS].pop().unwrap();
+
+                        if let Some(ref expr) = default {
+                            this.ribs[TypeNS].push(forward_ty_ban_rib);
+                            this.ribs[ValueNS].push(forward_const_ban_rib);
+                            this.with_lifetime_rib(LifetimeRibKind::ConstGeneric, |this| {
+                                this.resolve_anon_const(expr, IsRepeatExpr::No)
+                            });
+                            forward_const_ban_rib = this.ribs[ValueNS].pop().unwrap();
+                            forward_ty_ban_rib = this.ribs[TypeNS].pop().unwrap();
+                        }
+
+                        // Allow all following defaults to refer to this const parameter.
+                        forward_const_ban_rib
+                            .bindings
+                            .remove(&Ident::with_dummy_span(param.ident.name));
+                    }
+                    GenericParamKind::HKT(_) => {
+                        for bound in &param.bounds {
+                            this.visit_param_bound(bound, BoundKind::Bound);
+                        }
+
+                        forward_ty_ban_rib
+                            .bindings
+                            .remove(&Ident::with_dummy_span(param.ident.name));
                     }
                 }
             }
@@ -2378,91 +2379,88 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         }
 
         for param in params {
-            match param {
-                GenericParam::Atomic { kind: param_kind, ident: param_ident, id, .. } => {
-                    let ident = param_ident.normalize_to_macros_2_0();
-                    debug!("with_generic_param_rib: {}", id);
+            let ident = param.ident.normalize_to_macros_2_0();
+            debug!("with_generic_param_rib: {}", param.id);
 
-                    if let GenericParamKind::Lifetime = param_kind
-                        && let Some(&original) = seen_lifetimes.get(&ident)
-                    {
-                        diagnostics::signal_lifetime_shadowing(self.r.session, original, *param_ident);
+            if let GenericParamKind::Lifetime = param.kind
+                && let Some(&original) = seen_lifetimes.get(&ident)
+            {
+                diagnostics::signal_lifetime_shadowing(self.r.session, original, param.ident);
+                // Record lifetime res, so lowering knows there is something fishy.
+                self.record_lifetime_param(param.id, LifetimeRes::Error);
+                continue;
+            }
+
+            match seen_bindings.entry(ident) {
+                Entry::Occupied(entry) => {
+                    let span = *entry.get();
+                    let err = ResolutionError::NameAlreadyUsedInParameterList(ident.name, span);
+                    self.report_error(param.ident.span, err);
+                    if let GenericParamKind::Lifetime = param.kind {
                         // Record lifetime res, so lowering knows there is something fishy.
-                        self.record_lifetime_param(*id, LifetimeRes::Error);
-                        continue;
+                        self.record_lifetime_param(param.id, LifetimeRes::Error);
                     }
+                    continue;
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(param.ident.span);
+                }
+            }
 
-                    match seen_bindings.entry(ident) {
-                        Entry::Occupied(entry) => {
-                            let span = *entry.get();
-                            let err = ResolutionError::NameAlreadyUsedInParameterList(ident.name, span);
-                            self.report_error(param_ident.span, err);
-                            if let GenericParamKind::Lifetime = param_kind {
-                                // Record lifetime res, so lowering knows there is something fishy.
-                                self.record_lifetime_param(*id, LifetimeRes::Error);
-                            }
-                            continue;
-                        }
-                        Entry::Vacant(entry) => {
-                            entry.insert(param_ident.span);
-                        }
-                    }
-
-                    if param_ident.name == kw::UnderscoreLifetime {
-                        rustc_errors::struct_span_err!(
+            if param.ident.name == kw::UnderscoreLifetime {
+                rustc_errors::struct_span_err!(
                         self.r.session,
-                        param_ident.span,
+                        param.ident.span,
                         E0637,
                         "`'_` cannot be used here"
                     )
-                            .span_label(param_ident.span, "`'_` is a reserved lifetime name")
-                            .emit();
-                        // Record lifetime res, so lowering knows there is something fishy.
-                        self.record_lifetime_param(*id, LifetimeRes::Error);
-                        continue;
-                    }
+                    .span_label(param.ident.span, "`'_` is a reserved lifetime name")
+                    .emit();
+                // Record lifetime res, so lowering knows there is something fishy.
+                self.record_lifetime_param(param.id, LifetimeRes::Error);
+                continue;
+            }
 
-                    if param_ident.name == kw::StaticLifetime {
-                        rustc_errors::struct_span_err!(
+            if param.ident.name == kw::StaticLifetime {
+                rustc_errors::struct_span_err!(
                         self.r.session,
-                        param_ident.span,
+                        param.ident.span,
                         E0262,
                         "invalid lifetime parameter name: `{}`",
-                        param_ident,
+                        param.ident,
                     )
-                            .span_label(param_ident.span, "'static is a reserved lifetime name")
-                            .emit();
-                        // Record lifetime res, so lowering knows there is something fishy.
-                        self.record_lifetime_param(*id, LifetimeRes::Error);
-                        continue;
-                    }
-
-                    let def_id = self.r.local_def_id(*id);
-
-                    // Plain insert (no renaming).
-                    let (rib, def_kind) = match param_kind {
-                        GenericParamKind::Type { .. } => (&mut function_type_rib, DefKind::TyParam),
-                        GenericParamKind::Const { .. } => (&mut function_value_rib, DefKind::ConstParam),
-                        GenericParamKind::Lifetime => {
-                            let res = LifetimeRes::Param { param: def_id, binder };
-                            self.record_lifetime_param(*id, res);
-                            function_lifetime_rib.bindings.insert(ident, (*id, res));
-                            continue;
-                        }
-                    };
-
-                    let res = match kind {
-                        ItemRibKind(..) | AssocItemRibKind => Res::Def(def_kind, def_id.to_def_id()),
-                        NormalRibKind => Res::Err,
-                        _ => span_bug!(param_ident.span, "Unexpected rib kind {:?}", kind),
-                    };
-                    self.r.record_partial_res(*id, PartialRes::new(res));
-                    rib.bindings.insert(ident, res);
-                }
-                GenericParam::Composition { .. } => {
-                    todo!() // TODO(hoch)
-                }
+                    .span_label(param.ident.span, "'static is a reserved lifetime name")
+                    .emit();
+                // Record lifetime res, so lowering knows there is something fishy.
+                self.record_lifetime_param(param.id, LifetimeRes::Error);
+                continue;
             }
+
+            let def_id = self.r.local_def_id(param.id);
+
+            // Plain insert (no renaming).
+            let (rib, def_kind) = match &param.kind {
+                GenericParamKind::Type { .. } => (&mut function_type_rib, DefKind::TyParam),
+                GenericParamKind::Const { .. } => (&mut function_value_rib, DefKind::ConstParam),
+                GenericParamKind::Lifetime => {
+                    let res = LifetimeRes::Param { param: def_id, binder };
+                    self.record_lifetime_param(param.id, res);
+                    function_lifetime_rib.bindings.insert(ident, (param.id, res));
+                    continue;
+                }
+                GenericParamKind::HKT(_) => {
+                    // TODO(hoch): Maybe another defkind?
+                    (&mut function_type_rib, DefKind::TyParam)
+                }
+            };
+
+            let res = match kind {
+                ItemRibKind(..) | AssocItemRibKind => Res::Def(def_kind, def_id.to_def_id()),
+                NormalRibKind => Res::Err,
+                _ => span_bug!(param.ident.span, "Unexpected rib kind {:?}", kind),
+            };
+            self.r.record_partial_res(param.id, PartialRes::new(res));
+            rib.bindings.insert(ident, res);
         }
 
         self.lifetime_ribs.push(function_lifetime_rib);
@@ -3369,6 +3367,8 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
     ) -> PartialRes {
         let ns = source.namespace();
 
+        info!("{:?}", ns);
+
         let Finalize { node_id, path_span, .. } = finalize;
         let report_errors = |this: &mut Self, res: Option<Res>| {
             if this.should_report_errs() {
@@ -3515,14 +3515,16 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
             None
         };
 
-        let partial_res = match self.resolve_qpath_anywhere(
+        let resolved_qpath = self.resolve_qpath_anywhere(
             qself,
             path,
             ns,
             path_span,
             source.defer_to_typeck(),
             finalize,
-        ) {
+        );
+
+        let partial_res = match resolved_qpath {
             Ok(Some(partial_res)) if let Some(res) = partial_res.full_res() => {
                 if source.is_expected(res) || res == Res::Err {
                     partial_res
@@ -3530,7 +3532,6 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
                     report_errors(self, Some(res))
                 }
             }
-
             Ok(Some(partial_res)) if source.defer_to_typeck() => {
                 // Not fully resolved associated item `T::A::B` or `<T as Tr>::A::B`
                 // or `<T>::A::B`. If `B` should be resolved in value namespace then
@@ -3560,7 +3561,6 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
 
                 partial_res
             }
-
             Err(err) => {
                 if let Some(err) = report_errors_for_call(self, err) {
                     self.report_error(err.span, err.node);
@@ -3623,9 +3623,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         for (i, &ns) in [primary_ns, TypeNS, ValueNS].iter().enumerate() {
             if i == 0 || ns != primary_ns {
                 match self.resolve_qpath(qself, path, ns, finalize)? {
-                    Some(partial_res)
-                        if partial_res.unresolved_segments() == 0 || defer_to_typeck =>
-                    {
+                    Some(partial_res) if partial_res.unresolved_segments() == 0 || defer_to_typeck => {
                         return Ok(Some(partial_res));
                     }
                     partial_res => {
@@ -3660,7 +3658,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         ns: Namespace,
         finalize: Finalize,
     ) -> Result<Option<PartialRes>, Spanned<ResolutionError<'a>>> {
-        debug!(
+        info!(
             "resolve_qpath(qself={:?}, path={:?}, ns={:?}, finalize={:?})",
             qself, path, ns, finalize,
         );
@@ -3730,7 +3728,11 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
             PathResult::Failed { is_error_from_last_segment: false, span, label, suggestion } => {
                 return Err(respan(span, ResolutionError::FailedToResolve { label, suggestion }));
             }
-            PathResult::Module(..) | PathResult::Failed { .. } => return Ok(None),
+            PathResult::Module(..) |
+            PathResult::Failed { .. } => {
+                info!("Here failed");
+                return Ok(None)
+            },
             PathResult::Indeterminate => bug!("indeterminate path result in resolve_qpath"),
         };
 
@@ -4161,12 +4163,7 @@ impl<'ast> Visitor<'ast> for LifetimeCountVisitor<'_, '_> {
                     .params
                     .iter()
                     .filter(|param| {
-                        match param {
-                            GenericParam::Atomic { kind, .. } => {
-                                matches!(kind, ast::GenericParamKind::Lifetime { .. })
-                            }
-                            GenericParam::Composition { .. } => false,
-                        }
+                        matches!(param.kind, ast::GenericParamKind::Lifetime { .. })
                     })
                     .count();
                 self.r.item_generics_num_lifetimes.insert(def_id, count);

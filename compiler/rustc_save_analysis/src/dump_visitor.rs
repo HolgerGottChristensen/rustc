@@ -43,6 +43,7 @@ use rls_data::{
     CompilationOptions, CratePreludeData, Def, DefKind, GlobalCrateId, Import, ImportKind, Ref,
     RefKind, Relation, RelationKind, SpanData,
 };
+use rustc_hir::GenericParamKind;
 
 #[rustfmt::skip] // https://github.com/rust-lang/rustfmt/issues/5213
 macro_rules! down_cast_data {
@@ -330,6 +331,9 @@ impl<'tcx> DumpVisitor<'tcx> {
                     }
                 }
                 hir::GenericParamKind::Const { .. } => {}
+                GenericParamKind::HKT(_) => {
+                    todo!() // TODO(hoch)
+                }
             }
         }
 
@@ -1275,6 +1279,9 @@ impl<'tcx> Visitor<'tcx> for DumpVisitor<'tcx> {
                     if let Some(default) = default {
                         self.visit_anon_const(default);
                     }
+                }
+                GenericParamKind::HKT(_) => {
+                    todo!() // TODO(hoch)
                 }
             }
         }

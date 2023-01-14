@@ -583,27 +583,22 @@ pub fn walk_param_bound<'a, V: Visitor<'a>>(visitor: &mut V, bound: &'a GenericB
 }
 
 pub fn walk_generic_param<'a, V: Visitor<'a>>(visitor: &mut V, param: &'a GenericParam) {
-    match param {
-        GenericParam::Atomic { ident, attrs, bounds, kind, .. } => {
-            visitor.visit_ident(*ident);
-            walk_list!(visitor, visit_attribute, attrs.iter());
-            walk_list!(visitor, visit_param_bound, bounds, BoundKind::Bound);
-            match &kind {
-                GenericParamKind::Lifetime => (),
-                GenericParamKind::Type { default } => walk_list!(visitor, visit_ty, default),
-                GenericParamKind::Const { ty, default, .. } => {
-                    visitor.visit_ty(ty);
-                    if let Some(default) = default {
-                        visitor.visit_anon_const(default);
-                    }
-                }
+    visitor.visit_ident(param.ident);
+    walk_list!(visitor, visit_attribute, param.attrs.iter());
+    walk_list!(visitor, visit_param_bound, &param.bounds, BoundKind::Bound);
+    match &param.kind {
+        GenericParamKind::Lifetime => (),
+        GenericParamKind::Type { default } => walk_list!(visitor, visit_ty, default),
+        GenericParamKind::Const { ty, default, .. } => {
+            visitor.visit_ty(ty);
+            if let Some(default) = default {
+                visitor.visit_anon_const(default);
             }
         }
-        GenericParam::Composition { .. } => {
-            todo!() // TODO(hoch)
+        GenericParamKind::HKT(_) => {
+            // TODO(hoch)
         }
     }
-
 }
 
 pub fn walk_generics<'a, V: Visitor<'a>>(visitor: &mut V, generics: &'a Generics) {

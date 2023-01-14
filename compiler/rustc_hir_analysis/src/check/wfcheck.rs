@@ -852,7 +852,7 @@ fn check_impl_item(tcx: TyCtxt<'_>, impl_item: &hir::ImplItem<'_>) {
 fn check_param_wf(tcx: TyCtxt<'_>, param: &hir::GenericParam<'_>) {
     match param.kind {
         // We currently only check wf of const params here.
-        hir::GenericParamKind::Lifetime { .. } | hir::GenericParamKind::Type { .. } => (),
+        hir::GenericParamKind::Lifetime { .. } | hir::GenericParamKind::Type { .. } | hir::GenericParamKind::HKT(_) => (),
 
         // Const parameters are well formed if their type is structural match.
         hir::GenericParamKind::Const { ty: hir_ty, default: _ } => {

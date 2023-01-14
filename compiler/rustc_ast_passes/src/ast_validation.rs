@@ -300,22 +300,15 @@ impl<'a> AstValidator<'a> {
         let non_lt_param_spans: Vec<_> = params
             .iter()
             .filter_map(|param| {
-                match param {
-                    GenericParam::Atomic { kind, bounds, ident, .. } => {
-                        match kind {
-                            GenericParamKind::Lifetime { .. } => {
-                                if !bounds.is_empty() {
-                                    let spans: Vec<_> = bounds.iter().map(|b| b.span()).collect();
-                                    self.session.emit_err(ForbiddenLifetimeBound { spans });
-                                }
-                                None
-                            }
-                            _ => Some(ident.span),
+                match param.kind {
+                    GenericParamKind::Lifetime { .. } => {
+                        if !param.bounds.is_empty() {
+                            let spans: Vec<_> = param.bounds.iter().map(|b| b.span()).collect();
+                            self.session.emit_err(ForbiddenLifetimeBound { spans });
                         }
+                        None
                     }
-                    GenericParam::Composition { .. } => {
-                        todo!() // TODO(hoch)
-                    }
+                    _ => Some(param.ident.span),
                 }
             })
             .collect();
@@ -842,31 +835,24 @@ fn validate_generic_param_order(
     let mut param_idents = Vec::with_capacity(generics.len());
 
     for (idx, param) in generics.iter().enumerate() {
-        match param {
-            GenericParam::Atomic { ident, kind, bounds, .. } => {
-                let ident = *ident;
-                let (kind, bounds, span) = (kind, bounds, ident.span);
-                let (ord_kind, ident) = match kind {
-                    GenericParamKind::Lifetime => (ParamKindOrd::Lifetime, ident.to_string()),
-                    GenericParamKind::Type { .. } => (ParamKindOrd::TypeOrConst, ident.to_string()),
-                    GenericParamKind::Const { ty, .. } => {
-                        let ty = pprust::ty_to_string(ty);
-                        (ParamKindOrd::TypeOrConst, format!("const {}: {}", ident, ty))
-                    }
-                };
-                param_idents.push((kind, ord_kind, bounds, idx, ident));
-                match max_param {
-                    Some(max_param) if max_param > ord_kind => {
-                        let entry = out_of_order.entry(ord_kind).or_insert((max_param, vec![]));
-                        entry.1.push(span);
-                    }
-                    Some(_) | None => max_param = Some(ord_kind),
-                };
+        let ident = param.ident;
+        let (kind, bounds, span) = (&param.kind, &param.bounds, ident.span);
+        let (ord_kind, ident) = match kind {
+            GenericParamKind::Lifetime => (ParamKindOrd::Lifetime, ident.to_string()),
+            GenericParamKind::HKT(_) | GenericParamKind::Type { .. } => (ParamKindOrd::TypeOrConst, ident.to_string()),
+            GenericParamKind::Const { ty, .. } => {
+                let ty = pprust::ty_to_string(ty);
+                (ParamKindOrd::TypeOrConst, format!("const {}: {}", ident, ty))
             }
-            GenericParam::Composition { .. } => {
-                todo!() // TODO(hoch)
+        };
+        param_idents.push((kind, ord_kind, bounds, idx, ident));
+        match max_param {
+            Some(max_param) if max_param > ord_kind => {
+                let entry = out_of_order.entry(ord_kind).or_insert((max_param, vec![]));
+                entry.1.push(span);
             }
-        }
+            Some(_) | None => max_param = Some(ord_kind),
+        };
     }
 
     if !out_of_order.is_empty() {
@@ -896,6 +882,9 @@ fn validate_generic_param_order(
                     ordered_params += &pprust::expr_to_string(&*default.value);
                 }
                 GenericParamKind::Const { ty: _, kw_span: _, default: None } => (),
+                GenericParamKind::HKT(_) => {
+                    todo!() //TODO(hoch)
+                }
             }
             first = false;
         }
@@ -1303,28 +1292,21 @@ impl<'a> Visitor<'a> for AstValidator<'a> {
     fn visit_generics(&mut self, generics: &'a Generics) {
         let mut prev_param_default = None;
         for param in &generics.params {
-            match param {
-                GenericParam::Atomic { kind, ident, .. } => {
-                    match kind {
-                        GenericParamKind::Lifetime => (),
-                        GenericParamKind::Type { default: Some(_), .. }
-                        | GenericParamKind::Const { default: Some(_), .. } => {
-                            prev_param_default = Some(ident.span);
-                        }
-                        GenericParamKind::Type { .. } | GenericParamKind::Const { .. } => {
-                            if let Some(span) = prev_param_default {
-                                let mut err = self.err_handler().struct_span_err(
-                                    span,
-                                    "generic parameters with a default must be trailing",
-                                );
-                                err.emit();
-                                break;
-                            }
-                        }
-                    }
+            match param.kind {
+                GenericParamKind::Lifetime => (),
+                GenericParamKind::Type { default: Some(_), .. }
+                | GenericParamKind::Const { default: Some(_), .. } => {
+                    prev_param_default = Some(param.ident.span);
                 }
-                GenericParam::Composition { .. } => {
-                    todo!() // TODO(hoch)
+                GenericParamKind::HKT(_) | GenericParamKind::Type { .. } | GenericParamKind::Const { .. } => {
+                    if let Some(span) = prev_param_default {
+                        let mut err = self.err_handler().struct_span_err(
+                            span,
+                            "generic parameters with a default must be trailing",
+                        );
+                        err.emit();
+                        break;
+                    }
                 }
             }
         }
@@ -1374,18 +1356,10 @@ impl<'a> Visitor<'a> for AstValidator<'a> {
     }
 
     fn visit_generic_param(&mut self, param: &'a GenericParam) {
-        match param {
-            GenericParam::Atomic { kind, ident, .. } => {
-                if let GenericParamKind::Lifetime { .. } = kind {
-                    self.check_lifetime(*ident);
-                }
-                visit::walk_generic_param(self, param);
-            }
-            GenericParam::Composition { .. } => {
-                todo!() // TODO(hoch)
-            }
+        if let GenericParamKind::Lifetime { .. } = param.kind {
+            self.check_lifetime(param.ident);
         }
-
+        visit::walk_generic_param(self, param);
     }
 
     fn visit_param_bound(&mut self, bound: &'a GenericBound, ctxt: BoundKind) {
@@ -1648,66 +1622,59 @@ fn deny_equality_constraints(
             match &path.segments[..] {
                 [PathSegment { ident, args: None, .. }] => {
                     for param in &generics.params {
-                        match param {
-                            GenericParam::Atomic { ident: param_ident, .. } => {
-                                if *param_ident == *ident {
-                                    let param = ident;
-                                    match &full_path.segments[qself.position..] {
-                                        [PathSegment { ident, args, .. }] => {
-                                            // Make a new `Path` from `foo::Bar` to `Foo<Bar = RhsTy>`.
-                                            let mut assoc_path = full_path.clone();
-                                            // Remove `Bar` from `Foo::Bar`.
-                                            assoc_path.segments.pop();
-                                            let len = assoc_path.segments.len() - 1;
-                                            let gen_args = args.as_deref().cloned();
-                                            // Build `<Bar = RhsTy>`.
-                                            let arg = AngleBracketedArg::Constraint(AssocConstraint {
-                                                id: rustc_ast::node_id::DUMMY_NODE_ID,
-                                                ident: *ident,
-                                                gen_args,
-                                                kind: AssocConstraintKind::Equality {
-                                                    term: predicate.rhs_ty.clone().into(),
-                                                },
-                                                span: ident.span,
-                                            });
-                                            // Add `<Bar = RhsTy>` to `Foo`.
-                                            match &mut assoc_path.segments[len].args {
-                                                Some(args) => match args.deref_mut() {
-                                                    GenericArgs::Parenthesized(_) => continue,
-                                                    GenericArgs::AngleBracketed(args) => {
-                                                        args.args.push(arg);
-                                                    }
-                                                },
-                                                empty_args => {
-                                                    *empty_args = AngleBracketedArgs {
-                                                        span: ident.span,
-                                                        args: vec![arg],
-                                                    }
-                                                        .into();
-                                                }
+                        if param.ident == *ident {
+                            let param = ident;
+                            match &full_path.segments[qself.position..] {
+                                [PathSegment { ident, args, .. }] => {
+                                    // Make a new `Path` from `foo::Bar` to `Foo<Bar = RhsTy>`.
+                                    let mut assoc_path = full_path.clone();
+                                    // Remove `Bar` from `Foo::Bar`.
+                                    assoc_path.segments.pop();
+                                    let len = assoc_path.segments.len() - 1;
+                                    let gen_args = args.as_deref().cloned();
+                                    // Build `<Bar = RhsTy>`.
+                                    let arg = AngleBracketedArg::Constraint(AssocConstraint {
+                                        id: rustc_ast::node_id::DUMMY_NODE_ID,
+                                        ident: *ident,
+                                        gen_args,
+                                        kind: AssocConstraintKind::Equality {
+                                            term: predicate.rhs_ty.clone().into(),
+                                        },
+                                        span: ident.span,
+                                    });
+                                    // Add `<Bar = RhsTy>` to `Foo`.
+                                    match &mut assoc_path.segments[len].args {
+                                        Some(args) => match args.deref_mut() {
+                                            GenericArgs::Parenthesized(_) => continue,
+                                            GenericArgs::AngleBracketed(args) => {
+                                                args.args.push(arg);
                                             }
-                                            err.span_suggestion_verbose(
-                                                predicate.span,
-                                                &format!(
-                                                    "if `{}` is an associated type you're trying to set, \
-                                                use the associated type binding syntax",
-                                                    ident
-                                                ),
-                                                format!(
-                                                    "{}: {}",
-                                                    param,
-                                                    pprust::path_to_string(&assoc_path)
-                                                ),
-                                                Applicability::MaybeIncorrect,
-                                            );
+                                        },
+                                        empty_args => {
+                                            *empty_args = AngleBracketedArgs {
+                                                span: ident.span,
+                                                args: vec![arg],
+                                            }
+                                                .into();
                                         }
-                                        _ => {}
-                                    };
+                                    }
+                                    err.span_suggestion_verbose(
+                                        predicate.span,
+                                        &format!(
+                                            "if `{}` is an associated type you're trying to set, \
+                                                use the associated type binding syntax",
+                                            ident
+                                        ),
+                                        format!(
+                                            "{}: {}",
+                                            param,
+                                            pprust::path_to_string(&assoc_path)
+                                        ),
+                                        Applicability::MaybeIncorrect,
+                                    );
                                 }
-                            }
-                            GenericParam::Composition { .. } => {
-                                todo!() // TODO(hoch)
-                            }
+                                _ => {}
+                            };
                         }
                     }
                 }
@@ -1719,51 +1686,43 @@ fn deny_equality_constraints(
     if let TyKind::Path(None, full_path) = &predicate.lhs_ty.kind {
         if let [potential_param, potential_assoc] = &full_path.segments[..] {
             for param in &generics.params {
-                match param {
-                    GenericParam::Atomic { ident: param_ident, bounds, .. } => {
-                        if *param_ident == potential_param.ident {
-                            for bound in bounds {
-                                if let ast::GenericBound::Trait(trait_ref, TraitBoundModifier::None) = bound
-                                {
-                                    if let [trait_segment] = &trait_ref.trait_ref.path.segments[..] {
-                                        let assoc = pprust::path_to_string(&ast::Path::from_ident(
-                                            potential_assoc.ident,
-                                        ));
-                                        let ty = pprust::ty_to_string(&predicate.rhs_ty);
-                                        let (args, span) = match &trait_segment.args {
-                                            Some(args) => match args.deref() {
-                                                ast::GenericArgs::AngleBracketed(args) => {
-                                                    let Some(arg) = args.args.last() else {
-                                                        continue;
-                                                    };
-                                                    (
-                                                        format!(", {} = {}", assoc, ty),
-                                                        arg.span().shrink_to_hi(),
-                                                    )
-                                                }
-                                                _ => continue,
-                                            },
-                                            None => (
-                                                format!("<{} = {}>", assoc, ty),
-                                                trait_segment.span().shrink_to_hi(),
-                                            ),
-                                        };
-                                        err.multipart_suggestion(
-                                            &format!(
-                                                "if `{}::{}` is an associated type you're trying to set, \
+                if param.ident == potential_param.ident {
+                    for bound in &param.bounds {
+                        if let GenericBound::Trait(trait_ref, TraitBoundModifier::None) = bound {
+                            if let [trait_segment] = &trait_ref.trait_ref.path.segments[..] {
+                                let assoc = pprust::path_to_string(&Path::from_ident(
+                                    potential_assoc.ident,
+                                ));
+                                let ty = pprust::ty_to_string(&predicate.rhs_ty);
+                                let (args, span) = match &trait_segment.args {
+                                    Some(args) => match args.deref() {
+                                        AngleBracketed(args) => {
+                                            let Some(arg) = args.args.last() else {
+                                                continue;
+                                            };
+                                            (
+                                                format!(", {} = {}", assoc, ty),
+                                                arg.span().shrink_to_hi(),
+                                            )
+                                        }
+                                        _ => continue,
+                                    },
+                                    None => (
+                                        format!("<{} = {}>", assoc, ty),
+                                        trait_segment.span().shrink_to_hi(),
+                                    ),
+                                };
+                                err.multipart_suggestion(
+                                    &format!(
+                                        "if `{}::{}` is an associated type you're trying to set, \
                                             use the associated type binding syntax",
-                                                trait_segment.ident, potential_assoc.ident,
-                                            ),
-                                            vec![(span, args), (predicate.span, String::new())],
-                                            Applicability::MaybeIncorrect,
-                                        );
-                                    }
-                                }
+                                        trait_segment.ident, potential_assoc.ident,
+                                    ),
+                                    vec![(span, args), (predicate.span, String::new())],
+                                    Applicability::MaybeIncorrect,
+                                );
                             }
                         }
-                    }
-                    GenericParam::Composition { .. } => {
-                        todo!() // TODO(hoch)
                     }
                 }
             }

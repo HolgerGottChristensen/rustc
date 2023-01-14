@@ -492,7 +492,7 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                             let (def_id, reg) = Region::early(&param);
                             lifetimes.insert(def_id, reg);
                         }
-                        GenericParamKind::Type { .. } | GenericParamKind::Const { .. } => {}
+                        GenericParamKind::HKT(_) | GenericParamKind::Type { .. } | GenericParamKind::Const { .. } => {}
                     }
                 }
 
@@ -521,7 +521,9 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                     .iter()
                     .filter_map(|param| match param.kind {
                         GenericParamKind::Lifetime { .. } => Some(Region::early(param)),
-                        GenericParamKind::Type { .. } | GenericParamKind::Const { .. } => None,
+                        GenericParamKind::HKT(_)
+                        | GenericParamKind::Type { .. }
+                        | GenericParamKind::Const { .. } => None,
                     })
                     .collect();
                 self.record_late_bound_vars(item.hir_id(), vec![]);
@@ -727,7 +729,9 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                     .iter()
                     .filter_map(|param| match param.kind {
                         GenericParamKind::Lifetime { .. } => Some(Region::early(param)),
-                        GenericParamKind::Type { .. } | GenericParamKind::Const { .. } => None,
+                        GenericParamKind::Type { .. }
+                        | GenericParamKind::HKT (_)
+                        | GenericParamKind::Const { .. } => None,
                     })
                     .collect();
                 self.record_late_bound_vars(trait_item.hir_id(), vec![]);
@@ -773,7 +777,9 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                     .iter()
                     .filter_map(|param| match param.kind {
                         GenericParamKind::Lifetime { .. } => Some(Region::early(param)),
-                        GenericParamKind::Const { .. } | GenericParamKind::Type { .. } => None,
+                        GenericParamKind::Const { .. }
+                        | GenericParamKind::HKT (_)
+                        | GenericParamKind::Type { .. } => None,
                     })
                     .collect();
                 self.record_late_bound_vars(impl_item.hir_id(), vec![]);
@@ -856,6 +862,9 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                         if let Some(default) = default {
                             this.visit_body(this.tcx.hir().body(default.body));
                         }
+                    }
+                    GenericParamKind::HKT(_) => {
+                        // TODO(hoch)
                     }
                 }
             }
@@ -1126,7 +1135,9 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
                         Some(Region::early(param))
                     }
                 }
-                GenericParamKind::Type { .. } | GenericParamKind::Const { .. } => None,
+                GenericParamKind::Type { .. }
+                | GenericParamKind::HKT (_)
+                | GenericParamKind::Const { .. } => None,
             })
             .collect();
 
@@ -1692,7 +1703,7 @@ fn is_late_bound_map(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Option<&FxIndexSet<
             hir::GenericParamKind::Lifetime { .. } => { /* fall through */ }
 
             // Neither types nor consts are late-bound.
-            hir::GenericParamKind::Type { .. } | hir::GenericParamKind::Const { .. } => continue,
+            hir::GenericParamKind::HKT { .. } | hir::GenericParamKind::Type { .. } | hir::GenericParamKind::Const { .. } => continue,
         }
 
         let param_def_id = tcx.hir().local_def_id(param.hir_id);

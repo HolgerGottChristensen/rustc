@@ -200,6 +200,7 @@ use rustc_span::source_map::{dummy_spanned, respan, Span, Spanned, DUMMY_SP};
 use rustc_target::abi::Size;
 use std::ops::Range;
 use std::path::PathBuf;
+use rustc_hir::GenericParamKind;
 
 use crate::errors::{LargeAssignmentsLint, RecursionLimit, TypeLengthLimit};
 
@@ -1342,6 +1343,9 @@ fn create_mono_items_for_default_impls<'tcx>(
                     hir::GenericParamKind::Lifetime { .. } => {}
                     hir::GenericParamKind::Type { .. } | hir::GenericParamKind::Const { .. } => {
                         return;
+                    }
+                    GenericParamKind::HKT(_) => {
+                        todo!() // TODO (hoch)
                     }
                 }
             }

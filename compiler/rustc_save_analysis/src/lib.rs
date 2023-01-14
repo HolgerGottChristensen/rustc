@@ -686,7 +686,8 @@ impl<'tcx> SaveContext<'tcx> {
                 | HirDefKind::Trait
                 | HirDefKind::OpaqueTy
                 | HirDefKind::ImplTraitPlaceholder
-                | HirDefKind::TyParam,
+                | HirDefKind::TyParam
+                | HirDefKind::HKTParam,
                 def_id,
             ) => Some(Ref { kind: RefKind::Type, span, ref_id: id_from_def_id(def_id) }),
             Res::Def(HirDefKind::ConstParam, def_id) => {

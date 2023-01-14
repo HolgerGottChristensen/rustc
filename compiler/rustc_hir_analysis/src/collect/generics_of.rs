@@ -293,6 +293,18 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
                 kind: ty::GenericParamDefKind::Const { has_default: default.is_some() },
             })
         }
+        GenericParamKind::HKT(_) => {
+            // TODO(hoch)
+            let kind = ty::GenericParamDefKind::Type { has_default: false, synthetic: false };
+
+            Some(ty::GenericParamDef {
+                index: next_index(),
+                name: param.name.ident().name,
+                def_id: param.def_id.to_def_id(),
+                pure_wrt_drop: param.pure_wrt_drop,
+                kind,
+            })
+        }
     }));
 
     // provide junk type parameter defs - the only place that

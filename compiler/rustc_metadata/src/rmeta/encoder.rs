@@ -819,6 +819,7 @@ fn should_encode_visibility(def_kind: DefKind) -> bool {
         | DefKind::Field => true,
         DefKind::TyParam
         | DefKind::ConstParam
+        | DefKind::HKTParam
         | DefKind::LifetimeParam
         | DefKind::AnonConst
         | DefKind::InlineConst
@@ -840,6 +841,7 @@ fn should_encode_stability(def_kind: DefKind) -> bool {
         | DefKind::AssocFn
         | DefKind::AssocConst
         | DefKind::TyParam
+        | DefKind::HKTParam
         | DefKind::ConstParam
         | DefKind::Static(..)
         | DefKind::Const
@@ -932,6 +934,7 @@ fn should_encode_variances(def_kind: DefKind) -> bool {
         | DefKind::AssocTy
         | DefKind::AssocConst
         | DefKind::TyParam
+        | DefKind::HKTParam
         | DefKind::ConstParam
         | DefKind::Static(..)
         | DefKind::Const
@@ -977,6 +980,7 @@ fn should_encode_generics(def_kind: DefKind) -> bool {
         | DefKind::Impl
         | DefKind::Field
         | DefKind::TyParam
+        | DefKind::HKTParam
         | DefKind::Closure
         | DefKind::Generator => true,
         DefKind::Mod
@@ -1046,6 +1050,7 @@ fn should_encode_type(tcx: TyCtxt<'_>, def_id: LocalDefId, def_kind: DefKind) ->
         | DefKind::Macro(..)
         | DefKind::Use
         | DefKind::LifetimeParam
+        | DefKind::HKTParam
         | DefKind::GlobalAsm
         | DefKind::ExternCrate => false,
     }
@@ -1075,6 +1080,7 @@ fn should_encode_const(def_kind: DefKind) -> bool {
         | DefKind::InlineConst
         | DefKind::AssocTy
         | DefKind::TyParam
+        | DefKind::HKTParam
         | DefKind::Trait
         | DefKind::TraitAlias
         | DefKind::Mod
@@ -2064,7 +2070,9 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
     fn encode_info_for_generics(&mut self, generics: &hir::Generics<'tcx>) {
         for param in generics.params {
             match param.kind {
-                hir::GenericParamKind::Lifetime { .. } | hir::GenericParamKind::Type { .. } => {}
+                hir::GenericParamKind::HKT(_)
+                | hir::GenericParamKind::Lifetime { .. }
+                | hir::GenericParamKind::Type { .. } => {}
                 hir::GenericParamKind::Const { ref default, .. } => {
                     let def_id = param.def_id.to_def_id();
                     if default.is_some() {
