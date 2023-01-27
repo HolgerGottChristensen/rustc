@@ -276,6 +276,7 @@ fn characteristic_def_id_of_type_cached<'a>(
         | ty::Alias(..)
         | ty::Placeholder(..)
         | ty::Param(_)
+        | ty::HKT(_, _)
         | ty::Infer(_)
         | ty::Bound(..)
         | ty::Error(_)

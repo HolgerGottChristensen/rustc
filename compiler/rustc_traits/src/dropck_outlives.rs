@@ -109,6 +109,7 @@ fn dropck_outlives<'tcx>(
                     // All parameters live for the duration of the
                     // function.
                     ty::Param(..) => {}
+                    ty::HKT(..) => {}
 
                     // A projection that we couldn't resolve - it
                     // might have a destructor.
@@ -265,6 +266,10 @@ fn dtorck_constraint_for_ty<'tcx>(
         // to be called.
         ty::Dynamic(..) => {
             constraints.outlives.push(ty.into());
+        }
+
+        ty::HKT(..) => {
+            todo!("hoch")
         }
 
         // Types that can't be resolved. Pass them forward.

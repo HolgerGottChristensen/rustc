@@ -156,7 +156,9 @@ impl<'tcx> TypeFolder<'tcx> for ReverseMapper<'tcx> {
 
                 self.tcx.mk_generator(def_id, substs, movability)
             }
-
+            ty::HKT(..) => {
+                todo!("hoch")
+            }
             ty::Param(param) => {
                 // Look it up in the substitution list.
                 match self.map.get(&ty.into()).map(|k| k.unpack()) {

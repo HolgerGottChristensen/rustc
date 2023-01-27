@@ -86,6 +86,11 @@ pub(crate) fn eval_nullary_intrinsic<'tcx>(
                 throw_inval!(TooGeneric)
             }
             ty::Bound(_, _) => bug!("bound ty during ctfe"),
+
+            ty::HKT(..) => {
+                todo!("hoch")
+            }
+
             ty::Bool
             | ty::Char
             | ty::Int(_)

@@ -422,13 +422,13 @@ pub fn super_relate_tys<'tcx, R: TypeRelation<'tcx>>(
         | (&ty::Int(_), _)
         | (&ty::Uint(_), _)
         | (&ty::Float(_), _)
-        | (&ty::Str, _)
-            if a == b =>
-        {
+        | (&ty::Str, _) if a == b => {
             Ok(a)
         }
 
         (ty::Param(a_p), ty::Param(b_p)) if a_p.index == b_p.index => Ok(a),
+
+        (ty::HKT(a_p, _), ty::HKT(b_p, _)) if a_p.index == b_p.index => Ok(a), // TODO(hoch): Handle substs like adt
 
         (ty::Placeholder(p1), ty::Placeholder(p2)) if p1 == p2 => Ok(a),
 

@@ -365,7 +365,7 @@ fn check_opaque_type_parameter_valid(
     let mut seen_params: FxHashMap<_, Vec<_>> = FxHashMap::default();
     for (i, arg) in opaque_type_key.substs.iter().enumerate() {
         let arg_is_param = match arg.unpack() {
-            GenericArgKind::Type(ty) => matches!(ty.kind(), ty::Param(_)),
+            GenericArgKind::Type(ty) => matches!(ty.kind(), ty::Param(_)) || matches!(ty.kind(), ty::HKT(..)),
             GenericArgKind::Lifetime(lt) if lt.is_static() => {
                 tcx.sess
                     .struct_span_err(span, "non-defining opaque type use in defining scope")

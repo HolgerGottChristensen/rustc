@@ -86,6 +86,9 @@ impl<'tcx> TypeVisitor<'tcx> for Search<'tcx> {
 
         let (adt_def, substs) = match *ty.kind() {
             ty::Adt(adt_def, substs) => (adt_def, substs),
+            ty::HKT(..) => {
+                todo!("hoch")
+            }
             ty::Param(_) => {
                 return ControlFlow::Break(ty);
             }

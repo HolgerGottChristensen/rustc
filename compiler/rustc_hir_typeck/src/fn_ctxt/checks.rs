@@ -1761,6 +1761,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let find_param_matching = |matches: &dyn Fn(&ty::ParamTy) -> bool| {
             predicate_substs.types().find_map(|ty| {
                 ty.walk().find_map(|arg| {
+                    // TODO(hoch)
                     if let ty::GenericArgKind::Type(ty) = arg.unpack()
                         && let ty::Param(param_ty) = ty.kind()
                         && matches(param_ty)
@@ -2111,6 +2112,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         {
             let callee_ty = callee_ty.peel_refs();
             match *callee_ty.kind() {
+                // TODO(hoch)
                 ty::Param(param) => {
                     let param =
                         self.tcx.generics_of(self.body_id.owner).type_param(&param, self.tcx);

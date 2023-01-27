@@ -123,6 +123,10 @@ fn compute_components<'tcx>(
                 out.push(Component::Param(p));
             }
 
+            ty::HKT(..) => {
+                todo!("hoch")
+            }
+
             // Ignore lifetimes found in opaque types. Opaque types can
             // have lifetimes in their substs which their hidden type doesn't
             // actually use. If we inferred that an opaque type is outlived by

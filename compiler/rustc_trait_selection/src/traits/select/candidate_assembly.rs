@@ -394,7 +394,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                     // still be provided by a manual implementation for
                     // this trait and type.
                 }
-                ty::Param(..) | ty::Alias(ty::Projection, ..) => {
+                ty::HKT(..) | ty::Param(..) | ty::Alias(ty::Projection, ..) => {
                     // In these cases, we don't know what the actual
                     // type is.  Therefore, we cannot break it down
                     // into its constituent types. So we don't
@@ -739,6 +739,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Error(_)
             | ty::Bound(..)
             | ty::Param(_)
+            | ty::HKT(..) // TODO(hoch)
             | ty::Placeholder(_) => {
                 // We don't know if these are `~const Destruct`, at least
                 // not structurally... so don't push a candidate.
@@ -827,6 +828,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Never
             | ty::Alias(..)
             | ty::Param(_)
+            | ty::HKT(..)
             | ty::Bound(_, _)
             | ty::Error(_)
             | ty::Infer(_)

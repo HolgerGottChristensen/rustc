@@ -43,6 +43,9 @@ fn sized_constraint_for_ty<'tcx>(
             // FIXME: consider special-casing always-Sized projections
             vec![ty]
         }
+        HKT(..) => {
+            todo!("hoch")
+        }
 
         Param(..) => {
             // perf hack: if there is a `T: Sized` bound, then

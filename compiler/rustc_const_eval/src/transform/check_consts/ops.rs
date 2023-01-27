@@ -13,7 +13,7 @@ use rustc_middle::mir;
 use rustc_middle::ty::print::with_no_trimmed_paths;
 use rustc_middle::ty::subst::{GenericArgKind, SubstsRef};
 use rustc_middle::ty::{
-    suggest_constraining_type_param, Adt, Closure, DefIdTree, FnDef, FnPtr, Param, Ty,
+    suggest_constraining_type_param, Adt, Closure, DefIdTree, FnDef, FnPtr, Param, Ty, HKT,
 };
 use rustc_middle::ty::{Binder, TraitRef};
 use rustc_session::parse::feature_err;
@@ -126,6 +126,9 @@ impl<'tcx> NonConstOp<'tcx> for FnCallNonConst<'tcx> {
             let trait_ref = TraitRef::from_method(tcx, trait_id, substs);
 
             match self_ty.kind() {
+                HKT(..) => {
+                    todo!("hoch")
+                }
                 Param(param_ty) => {
                     debug!(?param_ty);
                     let caller_hir_id = tcx.hir().local_def_id_to_hir_id(caller);

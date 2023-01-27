@@ -223,6 +223,9 @@ impl<'tcx> InherentCollect<'tcx> {
             | ty::Tuple(..) => {
                 self.check_primitive_impl(item.owner_id.def_id, self_ty, items, ty.span)
             }
+            ty::HKT(..) => {
+                todo!("hoch")
+            }
             ty::Alias(..) | ty::Param(_) => {
                 let mut err = struct_span_err!(
                     self.tcx.sess,

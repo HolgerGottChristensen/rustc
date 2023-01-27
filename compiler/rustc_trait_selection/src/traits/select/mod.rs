@@ -2062,7 +2062,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }))
             }
 
-            ty::Alias(..) | ty::Param(_) => None,
+            ty::Alias(..) | ty::Param(_) | ty::HKT(..) => None,
             ty::Infer(ty::TyVar(_)) => Ambiguous,
 
             ty::Placeholder(..)
@@ -2162,7 +2162,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }
             }
 
-            ty::Adt(..) | ty::Alias(..) | ty::Param(..) => {
+            ty::Adt(..) | ty::Alias(..) | ty::Param(..) | ty::HKT(..) => { // TODO(hoch)
                 // Fallback to whatever user-defined impls exist in this case.
                 None
             }
@@ -2214,6 +2214,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             ty::Placeholder(..)
             | ty::Dynamic(..)
             | ty::Param(..)
+            | ty::HKT(..) // TODO(hoch)
             | ty::Foreign(..)
             | ty::Alias(ty::Projection, ..)
             | ty::Bound(..)

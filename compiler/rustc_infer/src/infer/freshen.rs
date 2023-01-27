@@ -208,6 +208,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for TypeFreshener<'a, 'tcx> {
             | ty::Alias(..)
             | ty::Foreign(..)
             | ty::Param(..)
+            | ty::HKT(..)
             | ty::Closure(..)
             | ty::GeneratorWitness(..) => t.super_fold_with(self),
 

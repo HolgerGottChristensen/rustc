@@ -218,6 +218,8 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                         // trivially WF, but also we *should*, to avoid exposing
                         // users who never wrote `where Type:,` themselves, to
                         // compiler/tooling bugs from not handling WF predicates.
+                    } else if let ty::HKT(..) = ty.kind() {
+                        // TODO(hoch)
                     } else {
                         let span = bound_pred.bounded_ty.span;
                         let predicate = ty::Binder::bind_with_vars(

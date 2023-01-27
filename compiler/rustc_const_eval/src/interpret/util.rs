@@ -31,6 +31,7 @@ where
 
             match *ty.kind() {
                 ty::Param(_) => ControlFlow::Break(FoundParam),
+                ty::HKT(..) => ControlFlow::Break(FoundParam),
                 ty::Closure(def_id, substs)
                 | ty::Generator(def_id, substs, ..)
                 | ty::FnDef(def_id, substs) => {

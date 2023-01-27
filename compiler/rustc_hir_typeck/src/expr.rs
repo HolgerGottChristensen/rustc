@@ -2390,6 +2390,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ty::Param(param_ty) => {
                 self.point_at_param_definition(&mut err, param_ty);
             }
+            ty::HKT(param_ty, ..) => {
+                self.point_at_param_definition(&mut err, param_ty);
+            }
             ty::Alias(ty::Opaque, _) => {
                 self.suggest_await_on_field_access(&mut err, ident, base, base_ty.peel_refs());
             }

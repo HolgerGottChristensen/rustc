@@ -145,6 +145,7 @@ fn push_inner<'tcx>(stack: &mut TypeWalkerStack<'tcx>, parent: GenericArg<'tcx>)
             | ty::Str
             | ty::Infer(_)
             | ty::Param(_)
+            | ty::HKT(_, _) // TODO(here we are not pushing substs as adt do.)
             | ty::Never
             | ty::Error(_)
             | ty::Placeholder(..)

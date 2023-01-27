@@ -145,6 +145,7 @@ pub(crate) fn const_to_valtree_inner<'tcx>(
         // FIXME(oli-obk): we could look behind opaque types
         | ty::Alias(..)
         | ty::Param(_)
+        | ty::HKT(..)
         | ty::Bound(..)
         | ty::Placeholder(..)
         | ty::Infer(_)
@@ -308,6 +309,7 @@ pub fn valtree_to_const_value<'tcx>(
         | ty::Infer(ty::FreshFloatTy(_))
         | ty::Alias(..)
         | ty::Param(_)
+        | ty::HKT(..)
         | ty::Bound(..)
         | ty::Placeholder(..)
         | ty::Infer(_)

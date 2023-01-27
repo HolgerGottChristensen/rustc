@@ -1348,6 +1348,13 @@ pub(super) fn check_type_params_are_used<'tcx>(
             debug!("found use of ty param {:?}", param);
             params_used.insert(param.index);
         }
+
+        if let GenericArgKind::Type(leaf_ty) = leaf.unpack()
+            && let ty::HKT(param, ..) = leaf_ty.kind()
+        {
+            debug!("found use of ty param {:?}", param);
+            params_used.insert(param.index);
+        }
     }
 
     for param in &generics.params {

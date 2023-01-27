@@ -424,6 +424,7 @@ impl<'a> PathSource<'a> {
                         | DefKind::TyAlias
                         | DefKind::AssocTy
                         | DefKind::TyParam
+                        | DefKind::HKTParam
                         | DefKind::OpaqueTy
                         | DefKind::ForeignTy,
                     _,
@@ -2449,8 +2450,8 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
                     continue;
                 }
                 GenericParamKind::HKT(_) => {
-                    // TODO(hoch): Maybe another defkind?
-                    (&mut function_type_rib, DefKind::TyParam)
+                    // TODO(hoch)
+                    (&mut function_type_rib, DefKind::HKTParam)
                 }
             };
 

@@ -117,6 +117,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // We should really try to normalize here.
             ty::Alias(_, pi) => Some(PointerKind::OfAlias(pi)),
             ty::Param(p) => Some(PointerKind::OfParam(p)),
+            ty::HKT(..) => {
+                todo!("hoch")
+            },
             // Insufficient type information.
             ty::Placeholder(..) | ty::Bound(..) | ty::Infer(_) => None,
 

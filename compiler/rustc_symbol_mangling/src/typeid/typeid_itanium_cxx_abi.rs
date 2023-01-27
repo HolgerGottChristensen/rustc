@@ -643,6 +643,7 @@ fn encode_ty<'tcx>(
         | ty::Infer(..)
         | ty::Alias(..)
         | ty::Param(..)
+        | ty::HKT(..) // TODO(hoch)
         | ty::Placeholder(..) => {
             bug!("encode_ty: unexpected `{:?}`", ty.kind());
         }
@@ -796,6 +797,7 @@ fn transform_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, options: TransformTyOptio
         | ty::Infer(..)
         | ty::Alias(..)
         | ty::Param(..)
+        | ty::HKT(..) // TODO(hoch)
         | ty::Placeholder(..) => {
             bug!("transform_ty: unexpected `{:?}`", ty.kind());
         }

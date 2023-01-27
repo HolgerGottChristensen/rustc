@@ -2195,7 +2195,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             }
             GenericParamKind::HKT(kinds) => {
                 // TODO(hoch)
-                let kind = hir::GenericParamKind::HKT(
+                let kind = hir::GenericParamKind::HKT (
                     kinds.iter().map(|a| self.lower_hkt_kind(a)).collect()
                 );
 

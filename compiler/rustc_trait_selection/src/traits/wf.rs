@@ -525,6 +525,7 @@ impl<'tcx> WfPredicates<'tcx> {
                 | ty::GeneratorWitness(..)
                 | ty::Never
                 | ty::Param(_)
+                | ty::HKT(..)
                 | ty::Bound(..)
                 | ty::Placeholder(..)
                 | ty::Foreign(..) => {

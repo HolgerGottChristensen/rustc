@@ -116,6 +116,11 @@ pub fn simplify_type<'tcx>(
             TreatParams::AsPlaceholder => Some(PlaceholderSimplifiedType),
             TreatParams::AsInfer => None,
         },
+        // TODO(hoch)
+        ty::HKT(_, _) => match treat_params {
+            TreatParams::AsPlaceholder => Some(PlaceholderSimplifiedType),
+            TreatParams::AsInfer => None,
+        },
         ty::Alias(..) => match treat_params {
             // When treating `ty::Param` as a placeholder, projections also
             // don't unify with anything else as long as they are fully normalized.
@@ -185,7 +190,7 @@ impl DeepRejectCtxt {
         match impl_ty.kind() {
             // Start by checking whether the type in the impl may unify with
             // pretty much everything. Just return `true` in that case.
-            ty::Param(_) | ty::Error(_) | ty::Alias(..) => return true,
+            ty::HKT(_, _) | ty::Param(_) | ty::Error(_) | ty::Alias(..) => return true,
             // These types only unify with inference variables or their own
             // variant.
             ty::Bool
@@ -291,6 +296,11 @@ impl DeepRejectCtxt {
             // Depending on the value of `treat_obligation_params`, we either
             // treat generic parameters like placeholders or like inference variables.
             ty::Param(_) => match self.treat_obligation_params {
+                TreatParams::AsPlaceholder => false,
+                TreatParams::AsInfer => true,
+            },
+
+            ty::HKT(_, _) => match self.treat_obligation_params {
                 TreatParams::AsPlaceholder => false,
                 TreatParams::AsInfer => true,
             },

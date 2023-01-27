@@ -1710,6 +1710,7 @@ impl<'tcx> Ty<'tcx> {
     pub fn is_param(self, index: u32) -> bool {
         match self.kind() {
             ty::Param(ref data) => data.index == index,
+            ty::HKT(ref data, ..) => data.index == index,
             _ => false,
         }
     }
@@ -1916,7 +1917,7 @@ impl<'tcx> Ty<'tcx> {
 
     #[inline]
     pub fn has_concrete_skeleton(self) -> bool {
-        !matches!(self.kind(), Param(_) | Infer(_) | Error(_))
+        !matches!(self.kind(), Param(_) | Infer(_) | Error(_) | HKT(..))
     }
 
     /// Checks whether a type recursively contains another type
@@ -2054,7 +2055,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Adt(adt, _) if adt.is_enum() => adt.repr().discr_type().to_ty(tcx),
             ty::Generator(_, substs, _) => substs.as_generator().discr_ty(tcx),
 
-            ty::Param(_) | ty::Alias(..) | ty::Infer(ty::TyVar(_)) => {
+            ty::HKT(..) | ty::Param(_) | ty::Alias(..) | ty::Infer(ty::TyVar(_)) => {
                 let assoc_items = tcx.associated_item_def_ids(
                     tcx.require_lang_item(hir::LangItem::DiscriminantKind, None),
                 );
@@ -2134,7 +2135,7 @@ impl<'tcx> Ty<'tcx> {
 
             // type parameters only have unit metadata if they're sized, so return true
             // to make sure we double check this during confirmation
-            ty::Param(_) |  ty::Alias(..) => (tcx.types.unit, true),
+            ty::HKT(..) | ty::Param(_) |  ty::Alias(..) => (tcx.types.unit, true), // TODO(hoch)
 
             ty::Infer(ty::TyVar(_))
             | ty::Bound(..)
@@ -2210,7 +2211,7 @@ impl<'tcx> Ty<'tcx> {
 
             ty::Adt(def, _substs) => def.sized_constraint(tcx).0.is_empty(),
 
-            ty::Alias(..) | ty::Param(_) => false,
+            ty::Alias(..) | ty::Param(_) | ty::HKT(..) => false,
 
             ty::Infer(ty::TyVar(_)) => false,
 
@@ -2271,7 +2272,7 @@ impl<'tcx> Ty<'tcx> {
             // Needs normalization or revealing to determine, so no is the safe answer.
             ty::Alias(..) => false,
 
-            ty::Param(..) | ty::Infer(..) | ty::Error(..) => false,
+            ty::HKT(..) | ty::Param(..) | ty::Infer(..) | ty::Error(..) => false,
 
             ty::Bound(..) | ty::Placeholder(..) => {
                 bug!("`is_trivially_pure_clone_copy` applied to unexpected type: {:?}", self);

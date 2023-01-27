@@ -333,6 +333,7 @@ fn bounds_from_generic_predicates<'tcx>(
                 .keys()
                 .filter_map(|t| match t.kind() {
                     ty::Param(_) => Some(t.to_string()),
+                    ty::HKT(..) => Some(t.to_string()),
                     // Avoid suggesting the following:
                     // fn foo<T, <T as Trait>::Bar>(_: T) where T: Trait, <T as Trait>::Bar: Other {}
                     _ => None,
@@ -377,6 +378,7 @@ fn fn_sig_suggestion<'tcx>(
         .map(|(i, ty)| {
             Some(match ty.kind() {
                 ty::Param(_) if assoc.fn_has_self_parameter && i == 0 => "self".to_string(),
+                ty::HKT(..) if assoc.fn_has_self_parameter && i == 0 => "self".to_string(),
                 ty::Ref(reg, ref_ty, mutability) if i == 0 => {
                     let reg = format!("{reg} ");
                     let reg = match &reg[..] {

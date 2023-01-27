@@ -1961,6 +1961,11 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 &ty::Param(_),
                 Res::SelfTyParam { trait_: param_did } | Res::Def(DefKind::TyParam, param_did),
             ) => self.find_bound_for_assoc_item(param_did.expect_local(), assoc_ident, span)?,
+            // TODO(hoch)
+            (
+                &ty::HKT(..),
+                Res::SelfTyParam { trait_: param_did } | Res::Def(DefKind::HKTParam, param_did),
+            ) => self.find_bound_for_assoc_item(param_did.expect_local(), assoc_ident, span)?,
             _ => {
                 let reported = if variant_resolution.is_some() {
                     // Variant in type position
@@ -2177,12 +2182,14 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
 
         let (lt, ty, ct, inf) =
             args.clone().fold((false, false, false, false), |(lt, ty, ct, inf), arg| match arg {
-                hir::GenericArg::Lifetime(_) => (true, ty, ct, inf),
-                hir::GenericArg::Type(_) => (lt, true, ct, inf),
-                hir::GenericArg::Const(_) => (lt, ty, true, inf),
-                hir::GenericArg::Infer(_) => (lt, ty, ct, true),
+                hir::GenericArg::Lifetime(_) => (true, ty,   ct,   inf ),
+                hir::GenericArg::Type(_)     => (lt,   true, ct,   inf ),
+                hir::GenericArg::Const(_)    => (lt,   ty,   true, inf ),
+                hir::GenericArg::Infer(_)    => (lt,   ty,   ct,   true),
             });
+
         let mut emitted = false;
+
         if lt || ty || ct || inf {
             let types_and_spans: Vec<_> = segments
                 .clone()
@@ -2193,8 +2200,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                         Some((
                             match segment.res {
                                 Res::PrimTy(ty) => format!("{} `{}`", segment.res.descr(), ty.name()),
-                                Res::Def(_, def_id)
-                                if let Some(name) = self.tcx().opt_item_name(def_id) => {
+                                Res::Def(_, def_id) if let Some(name) = self.tcx().opt_item_name(def_id) => {
                                     format!("{} `{name}`", segment.res.descr())
                                 }
                                 Res::Err => "this type".to_string(),
@@ -2205,6 +2211,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                     }
                 })
                 .collect();
+
             let this_type = match &types_and_spans[..] {
                 [.., _, (last, _)] => format!(
                     "{} and {last}",
@@ -2403,6 +2410,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     }
 
     /// Check a type `Path` and convert it to a `Ty`.
+    #[instrument(level = "debug", skip(self))]
     pub fn res_to_ty(
         &self,
         opt_self_ty: Option<Ty<'tcx>>,
@@ -2412,7 +2420,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         let tcx = self.tcx();
 
         debug!(
-            "res_to_ty(res={:?}, opt_self_ty={:?}, path_segments={:?})",
+            "res_to_ty(res={:#?}, opt_self_ty={:#?}, path_segments={:#?})",
             path.res, opt_self_ty, path.segments
         );
 
@@ -2428,14 +2436,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 let substs = self.ast_path_substs_for_ty(span, did, item_segment.0);
                 self.normalize_ty(span, tcx.mk_opaque(did, substs))
             }
-            Res::Def(
-                DefKind::Enum
-                | DefKind::TyAlias
-                | DefKind::Struct
-                | DefKind::Union
-                | DefKind::ForeignTy,
-                did,
-            ) => {
+            Res::Def(DefKind::Enum | DefKind::TyAlias | DefKind::Struct | DefKind::Union | DefKind::ForeignTy, did) => {
                 assert_eq!(opt_self_ty, None);
                 self.prohibit_generics(path.segments.split_last().unwrap().1.iter(), |_| {});
                 self.ast_path_to_ty(span, did, path.segments.last().unwrap())
@@ -2475,6 +2476,31 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 let generics = tcx.generics_of(item_def_id);
                 let index = generics.param_def_id_to_index[&def_id.to_def_id()];
                 tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
+            }
+            Res::Def(DefKind::HKTParam, def_id) => {
+                // TODO(hoch)
+                assert_eq!(opt_self_ty, None);
+
+                // Disallow generics on the path to the last segment, but allow the last segment
+                // to contain generics.
+                self.prohibit_generics(path.segments.split_last().unwrap().1.iter(), |err| {
+                    if let Some(span) = tcx.def_ident_span(def_id) {
+                        let name = tcx.item_name(def_id);
+                        err.span_note(span, &format!("hkt parameter `{name}` defined here"));
+                    }
+                });
+
+                // Get the local def_id and the owners def_id
+                let def_id = def_id.expect_local();
+                let item_def_id = tcx.hir().ty_param_owner(def_id);
+
+                // Get the index of the ty_param
+                let generics = tcx.generics_of(item_def_id);
+                let index = generics.param_def_id_to_index[&def_id.to_def_id()];
+                info!("{:#?}, {:#?}, {:#?}, {}", def_id, item_def_id, generics, index);
+                //tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
+                tcx.mk_hkt_param(index, tcx.hir().ty_param_name(def_id), tcx.intern_substs(&[]))
+                //todo!()
             }
             Res::SelfTyParam { .. } => {
                 // `Self` in trait or type alias.

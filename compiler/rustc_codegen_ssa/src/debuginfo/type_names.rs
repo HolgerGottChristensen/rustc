@@ -409,6 +409,10 @@ fn push_debuginfo_type_name<'tcx>(
         ty::Param(_) => {
             write!(output, "{:?}", t).unwrap();
         }
+        ty::HKT(..) => {
+            //write!(output, "{:?}", t).unwrap();
+            todo!("hoch")
+        }
         ty::Error(_)
         | ty::Infer(_)
         | ty::Placeholder(..)

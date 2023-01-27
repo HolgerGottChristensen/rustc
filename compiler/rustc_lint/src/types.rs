@@ -1142,6 +1142,10 @@ impl<'a, 'tcx> ImproperCTypesVisitor<'a, 'tcx> {
                 FfiUnsafe { ty, reason: fluent::lint_improper_ctypes_opaque, help: None }
             }
 
+            ty::HKT(..) => {
+                todo!("hoch")
+            }
+
             // `extern "C" fn` functions can have type parameters, which may or may not be FFI-safe,
             //  so they are currently ignored for the purposes of this lint.
             ty::Param(..) | ty::Alias(ty::Projection, ..)

@@ -49,6 +49,11 @@ impl<'tcx> Printer<'tcx> for AbsolutePathPrinter<'tcx> {
             | ty::Tuple(_)
             | ty::Dynamic(_, _, _) => self.pretty_print_type(ty),
 
+            ty::HKT(..) => {
+                // TODO(hoch)
+                write!(self, "")?;
+                Ok(self)
+            }
             // Placeholders (all printed as `_` to uniformize them).
             ty::Param(_) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) | ty::Error(_) => {
                 write!(self, "_")?;

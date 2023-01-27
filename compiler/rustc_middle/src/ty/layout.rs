@@ -271,7 +271,7 @@ impl<'tcx> SizeSkeleton<'tcx> {
                 let non_zero = !ty.is_unsafe_ptr();
                 let tail = tcx.struct_tail_erasing_lifetimes(pointee, param_env);
                 match tail.kind() {
-                    ty::Param(_) | ty::Alias(ty::Projection, _) => {
+                    ty::HKT(..) | ty::Param(_) | ty::Alias(ty::Projection, _) => {
                         debug_assert!(tail.has_non_region_param());
                         Ok(SizeSkeleton::Pointer { non_zero, tail: tcx.erase_regions(tail) })
                     }
@@ -776,6 +776,10 @@ where
                     } else {
                         bug!("no field {i} on dyn*")
                     }
+                }
+
+                ty::HKT(_, _) => {
+                    todo!()
                 }
 
                 ty::Alias(..)

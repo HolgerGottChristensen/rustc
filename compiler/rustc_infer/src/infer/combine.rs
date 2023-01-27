@@ -608,7 +608,7 @@ impl<'tcx> TypeRelation<'tcx> for Generalizer<'_, 'tcx> {
         if let Some(&result) = self.cache.get(&t) {
             return Ok(result);
         }
-        debug!("generalize: t={:?}", t);
+        debug!("generalize222: t={:?}", t);
 
         // Check to see whether the type we are generalizing references
         // any other type variable related to `vid` via

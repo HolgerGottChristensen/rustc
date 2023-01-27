@@ -656,6 +656,7 @@ impl<'tcx> TypeSuperFoldable<'tcx> for Ty<'tcx> {
             | ty::Error(_)
             | ty::Infer(_)
             | ty::Param(..)
+            | ty::HKT(..) // TODO(hoch)
             | ty::Bound(..)
             | ty::Placeholder(..)
             | ty::Never
@@ -703,6 +704,7 @@ impl<'tcx> TypeSuperVisitable<'tcx> for Ty<'tcx> {
             | ty::Bound(..)
             | ty::Placeholder(..)
             | ty::Param(..)
+            | ty::HKT(..) // TODO(hoch)
             | ty::Never
             | ty::Foreign(..) => ControlFlow::CONTINUE,
         }

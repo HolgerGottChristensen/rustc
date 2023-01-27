@@ -931,6 +931,7 @@ impl<'tcx> MirBorrowckCtxt<'_, 'tcx> {
     ) -> bool {
         let tcx = self.infcx.tcx;
         ty.walk().any(|arg| {
+            // TODO(hoch)
             if let ty::GenericArgKind::Type(ty) = arg.unpack()
                 && let ty::Param(_) = ty.kind()
             {

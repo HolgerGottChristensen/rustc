@@ -339,6 +339,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Infer(ty::FreshFloatTy(_)) => "fresh floating-point type".into(),
             ty::Alias(ty::Projection, _) => "associated type".into(),
             ty::Param(p) => format!("type parameter `{}`", p).into(),
+            ty::HKT(p, _) => format!("hkt parameter `{}`", p).into(),
             ty::Alias(ty::Opaque, ..) => "opaque type".into(),
             ty::Error(_) => "type error".into(),
         }
@@ -377,6 +378,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Bound(..) => "bound type variable".into(),
             ty::Alias(ty::Projection, _) => "associated type".into(),
             ty::Param(_) => "type parameter".into(),
+            ty::HKT(_, _) => "hkt parameter".into(),
             ty::Alias(ty::Opaque, ..) => "opaque type".into(),
         }
     }
@@ -419,6 +421,7 @@ impl<'tcx> TyCtxt<'tcx> {
                             );
                         }
                     }
+                    // TODO(hoch)
                     (ty::Param(expected), ty::Param(found)) => {
                         let generics = self.generics_of(body_owner_def_id);
                         let e_span = self.def_span(generics.type_param(expected, self).def_id);

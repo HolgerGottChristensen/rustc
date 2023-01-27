@@ -362,6 +362,7 @@ impl<'tcx> LowerInto<'tcx, chalk_ir::Ty<RustInterner<'tcx>>> for Ty<'tcx> {
             // This should have been done eagerly prior to this, and all Params
             // should have been substituted to placeholders
             ty::Param(_) => panic!("Lowering Param when not expected."),
+            ty::HKT(..) => panic!("Lowering HKT when not expected."),
             ty::Bound(db, bound) => chalk_ir::TyKind::BoundVar(chalk_ir::BoundVar::new(
                 chalk_ir::DebruijnIndex::new(db.as_u32()),
                 bound.var.index(),
@@ -1083,6 +1084,21 @@ impl<'tcx> TypeFolder<'tcx> for ParamsSubstitutor<'tcx> {
                     }))
                 }
             },
+            ty::HKT(param, ..) => match self.list.iter().position(|r| r == &param) {
+                Some(idx) => self.tcx.mk_ty(ty::Placeholder(ty::PlaceholderType {
+                    universe: ty::UniverseIndex::from_usize(0),
+                    name: ty::BoundVar::from_usize(idx),
+                })),
+                None => {
+                    self.list.push(param);
+                    let idx = self.list.len() - 1 + self.next_ty_placeholder;
+                    self.params.insert(idx, param);
+                    self.tcx.mk_ty(ty::Placeholder(ty::PlaceholderType {
+                        universe: ty::UniverseIndex::from_usize(0),
+                        name: ty::BoundVar::from_usize(idx),
+                    }))
+                }
+            },
             _ => t.super_fold_with(self),
         }
     }
@@ -1138,6 +1154,7 @@ impl<'tcx> TypeFolder<'tcx> for ReverseParamsSubstitutor<'tcx> {
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
         match *t.kind() {
             ty::Placeholder(ty::PlaceholderType { universe: ty::UniverseIndex::ROOT, name }) => {
+                // TODO(hoch)
                 match self.params.get(&name.as_usize()) {
                     Some(param) => self.tcx.mk_ty(ty::Param(*param)),
                     None => t,

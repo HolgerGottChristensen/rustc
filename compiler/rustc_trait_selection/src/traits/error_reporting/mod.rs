@@ -1828,6 +1828,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                 ty::Closure(..) => Some(9),
                 ty::Tuple(..) => Some(10),
                 ty::Param(..) => Some(11),
+                ty::HKT(..) => Some(11), // TODO(hoch)
                 ty::Alias(ty::Projection, ..) => Some(12),
                 ty::Alias(ty::Opaque, ..) => Some(13),
                 ty::Never => Some(14),
@@ -2010,6 +2011,9 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                     let self_ty = trait_ref.self_ty();
                     // Avoid mentioning type parameters.
                     if let ty::Param(_) = self_ty.kind() {
+                        false
+                    } else if let ty::HKT(..) = self_ty.kind() {
+                        // TODO(hoch)
                         false
                     }
                     // Avoid mentioning types that are private to another crate
@@ -2581,6 +2585,15 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
 
             fn fold_ty(&mut self, ty: Ty<'tcx>) -> Ty<'tcx> {
                 if let ty::Param(ty::ParamTy { name, .. }) = *ty.kind() {
+                    let infcx = self.infcx;
+                    *self.var_map.entry(ty).or_insert_with(|| {
+                        infcx.next_ty_var(TypeVariableOrigin {
+                            kind: TypeVariableOriginKind::TypeParameterDefinition(name, None),
+                            span: DUMMY_SP,
+                        })
+                    })
+                } else if let ty::HKT(ty::ParamTy { name, .. }, ..) = *ty.kind() {
+                    // TODO(hoch)
                     let infcx = self.infcx;
                     *self.var_map.entry(ty).or_insert_with(|| {
                         infcx.next_ty_var(TypeVariableOrigin {

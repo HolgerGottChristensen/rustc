@@ -11,11 +11,11 @@ use std::fmt::Debug;
 
 //trait Collection4<I<J>> {}
 
-fn test<I<?J>: Debug>(input: I) {
-    println!("Hej verden! {:?}", input);
+fn test<I<?J>>(input: I<u32>) {
+    //println!("Hej verden!");
 }
 
 //fn main() { let i = 1 + "hejsa"; }
 fn main() {
-    test(42);
+    //test(42);
 }

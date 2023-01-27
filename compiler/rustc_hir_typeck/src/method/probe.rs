@@ -682,6 +682,9 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             ty::Param(p) => {
                 self.assemble_inherent_candidates_from_param(p);
             }
+            ty::HKT(p, ..) => {
+                self.assemble_inherent_candidates_from_param(p);
+            }
             ty::Bool
             | ty::Char
             | ty::Int(_)
@@ -819,6 +822,10 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 ty::PredicateKind::Clause(ty::Clause::Trait(trait_predicate)) => {
                     match *trait_predicate.trait_ref.self_ty().kind() {
                         ty::Param(p) if p == param_ty => {
+                            Some(bound_predicate.rebind(trait_predicate.trait_ref))
+                        }
+                        ty::HKT(p, ..) if p == param_ty => {
+                            // TODO(hoch)
                             Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }
                         _ => None,

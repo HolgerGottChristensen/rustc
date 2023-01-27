@@ -316,6 +316,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ty::Param(param_type) => {
                 Some(param_type.span_from_generics(self.tcx, self.body_id.owner.to_def_id()))
             }
+            ty::HKT(param_type, ..) => {
+                Some(param_type.span_from_generics(self.tcx, self.body_id.owner.to_def_id()))
+            }
             ty::Adt(def, _) if def.did().is_local() => Some(tcx.def_span(def.did())),
             _ => None,
         };
@@ -445,9 +448,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             let mut collect_type_param_suggestions =
                 |self_ty: Ty<'tcx>, parent_pred: ty::Predicate<'tcx>, obligation: &str| {
                     // We don't care about regions here, so it's fine to skip the binder here.
-                    if let (ty::Param(_), ty::PredicateKind::Clause(ty::Clause::Trait(p))) =
-                        (self_ty.kind(), parent_pred.kind().skip_binder())
-                    {
+                    if let (ty::Param(_), ty::PredicateKind::Clause(ty::Clause::Trait(p))) = (self_ty.kind(), parent_pred.kind().skip_binder()) {
                         let hir = self.tcx.hir();
                         let node = match p.trait_ref.self_ty().kind() {
                             ty::Param(_) => {

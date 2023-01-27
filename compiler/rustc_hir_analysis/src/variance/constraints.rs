@@ -278,6 +278,9 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
                 }
             }
 
+            ty::HKT(..) => {
+                todo!("hoch")
+            }
             ty::Param(ref data) => {
                 self.add_constraint(current, data.index, variance);
             }

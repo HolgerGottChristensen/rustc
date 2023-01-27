@@ -249,7 +249,7 @@ pub fn fluent_bundle(
 pub type LazyFallbackBundle = Lrc<Lazy<FluentBundle, impl FnOnce() -> FluentBundle>>;
 
 /// Return the default `FluentBundle` with standard "en-US" diagnostic messages.
-#[instrument(level = "trace")]
+//#[instrument(level = "trace")]
 pub fn fallback_fluent_bundle(
     resources: &'static [&'static str],
     with_directionality_markers: bool,

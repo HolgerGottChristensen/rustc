@@ -438,6 +438,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     },
                     GenericArgKind::Type(ty) => match ty.kind() {
                         ty::Param(ref pt) => !impl_generics.type_param(pt, self).pure_wrt_drop,
+                        ty::HKT(ref pt, _) => !impl_generics.type_param(pt, self).pure_wrt_drop,
                         // Error: not a type param
                         _ => false,
                     },
@@ -477,6 +478,11 @@ impl<'tcx> TyCtxt<'tcx> {
                 }
                 GenericArgKind::Type(t) => match t.kind() {
                     ty::Param(p) => {
+                        if !seen.insert(p.index) {
+                            return Err(NotUniqueParam::DuplicateParam(t.into()));
+                        }
+                    }
+                    ty::HKT(p, ..) => {
                         if !seen.insert(p.index) {
                             return Err(NotUniqueParam::DuplicateParam(t.into()));
                         }
@@ -946,6 +952,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Infer(_)
             | ty::Alias(..)
             | ty::Param(_)
+            | ty::HKT(_, _)
             | ty::Placeholder(_) => false,
         }
     }
@@ -985,6 +992,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Infer(_)
             | ty::Alias(..)
             | ty::Param(_)
+            | ty::HKT(_, _)
             | ty::Placeholder(_) => false,
         }
     }
@@ -1105,7 +1113,7 @@ impl<'tcx> Ty<'tcx> {
             //
             // FIXME(ecstaticmorse): Maybe we should `bug` here? This should probably only be
             // called for known, fully-monomorphized types.
-            ty::Alias(..) | ty::Param(_) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) => {
+            ty::Alias(..) | ty::Param(_) | ty::HKT(_, _) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) => {
                 false
             }
 
@@ -1240,6 +1248,7 @@ pub fn needs_drop_components<'tcx>(
         ty::Adt(..)
         | ty::Alias(..)
         | ty::Param(_)
+        | ty::HKT(_, _)
         | ty::Bound(..)
         | ty::Placeholder(..)
         | ty::Infer(_)
@@ -1270,6 +1279,7 @@ pub fn is_trivially_const_drop(ty: Ty<'_>) -> bool {
         | ty::Error(_)
         | ty::Bound(..)
         | ty::Param(_)
+        | ty::HKT(_, _)
         | ty::Placeholder(_)
         | ty::Infer(_) => false,
 

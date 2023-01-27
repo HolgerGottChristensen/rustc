@@ -1411,6 +1411,9 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
                     if let ty::Param(param) = t.kind() {
                         self.params.insert(param.index);
                     }
+                    if let ty::HKT(param, ..) = t.kind() {
+                        self.params.insert(param.index);
+                    }
                     t.super_visit_with(self)
                 }
 
@@ -1831,6 +1834,7 @@ fn check_variances_for_type_defn<'tcx>(
                 hir::WherePredicate::BoundPredicate(predicate) => {
                     match icx.to_ty(predicate.bounded_ty).kind() {
                         ty::Param(data) => Some(Parameter(data.index)),
+                        ty::HKT(data, ..) => Some(Parameter(data.index)),
                         _ => None,
                     }
                 }

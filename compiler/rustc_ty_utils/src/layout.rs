@@ -474,6 +474,9 @@ fn layout_of_uncached<'tcx>(
             bug!("Layout::compute: unexpected type `{}`", ty)
         }
 
+        ty::HKT(..) => {
+            todo!("hoch")
+        }
         ty::Bound(..) | ty::Param(_) | ty::Error(_) => {
             return Err(LayoutError::Unknown(ty));
         }

@@ -1762,6 +1762,9 @@ fn is_late_bound_map(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Option<&FxIndexSet<
                 ty::Param(param_ty) => {
                     self.arg_is_constrained[param_ty.index as usize] = true;
                 }
+                ty::HKT(param_ty, ..) => {
+                    self.arg_is_constrained[param_ty.index as usize] = true;
+                }
                 ty::Alias(ty::Projection, _) => return ControlFlow::Continue(()),
                 _ => (),
             }

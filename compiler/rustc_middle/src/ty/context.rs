@@ -1474,6 +1474,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     Tuple,
                     Bound,
                     Param,
+                    HKT,
                     Infer,
                     Alias,
                     Foreign
@@ -1997,6 +1998,11 @@ impl<'tcx> TyCtxt<'tcx> {
     #[inline]
     pub fn mk_ty_param(self, index: u32, name: Symbol) -> Ty<'tcx> {
         self.mk_ty(Param(ParamTy { index, name }))
+    }
+
+    #[inline]
+    pub fn mk_hkt_param(self, index: u32, name: Symbol, subst: SubstsRef<'tcx>) -> Ty<'tcx> {
+        self.mk_ty(HKT(ParamTy { index, name }, subst))
     }
 
     pub fn mk_param_from_def(self, param: &ty::GenericParamDef) -> GenericArg<'tcx> {
