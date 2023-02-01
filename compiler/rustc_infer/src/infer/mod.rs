@@ -1179,7 +1179,19 @@ impl<'tcx> InferCtxt<'tcx> {
                 self.tcx.mk_const(const_var_id, self.tcx.type_of(param.def_id)).into()
             }
             GenericParamDefKind::HKT => {
-                todo!("hoch")
+                //todo!("hoch")
+                let ty_var_id = self.inner.borrow_mut().type_variables().new_var(
+                    self.universe(),
+                    TypeVariableOrigin {
+                        kind: TypeVariableOriginKind::HKTParameterDefinition(
+                            param.name,
+                            Some(param.def_id),
+                        ),
+                        span,
+                    },
+                );
+
+                self.tcx.mk_ty_var(ty_var_id).into()
             }
         }
     }

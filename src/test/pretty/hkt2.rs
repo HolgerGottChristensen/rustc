@@ -11,11 +11,16 @@
 
 //trait Collection4<I<J>> {}
 
-fn test<T, I<?J>>(int: T, input: I) {
-    println!("Hej verden!");
+fn test<I<?J>>(input: I, f: fn(I)) {
+    f(input)
 }
 
 //fn main() { let i = 1 + "hejsa"; }
 fn main() {
-    test(42, 42);
+
+    fn print(i: u32) {
+        println!("Hej verden!: {}", i);
+    }
+
+    test(42, print);
 }

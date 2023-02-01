@@ -1254,7 +1254,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         }
                     }
                     GenericParamDefKind::HKT => {
-                        todo!("hoch")
+                        //todo!("hoch")
+                        self.fcx.var_for_def(self.span, param)
                     }
                 }
             }

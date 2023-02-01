@@ -124,6 +124,7 @@ pub enum TypeVariableOriginKind {
     TypeInference,
     OpaqueTypeInference(DefId),
     TypeParameterDefinition(Symbol, Option<DefId>),
+    HKTParameterDefinition(Symbol, Option<DefId>),
 
     /// One of the upvars or closure kind parameters in a `ClosureSubsts`
     /// (before it has been determined).
