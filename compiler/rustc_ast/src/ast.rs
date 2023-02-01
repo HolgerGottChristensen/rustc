@@ -337,9 +337,12 @@ impl fmt::Display for ParamKindOrd {
     }
 }
 
+/// Everything parsed inside a HKT parameter
 #[derive(Clone, Encodable, Decodable, Debug)]
 pub enum HKTKind {
+    /// ?A
     Atomic(Ident),
+    /// ?A<?I, ?J>
     Composition(Ident, Vec<HKTKind>),
 }
 
@@ -357,6 +360,7 @@ pub enum GenericParamKind {
         /// Optional default value for the const generic param
         default: Option<AnonConst>,
     },
+    /// A HKT definition parameter list. It is the `?A, ?B, ?C<?I, ?J>` part of `T<?A, ?B, ?C<?I, ?J>>`
     HKT(Vec<HKTKind>),
 }
 

@@ -378,7 +378,6 @@ fn fn_sig_suggestion<'tcx>(
         .map(|(i, ty)| {
             Some(match ty.kind() {
                 ty::Param(_) if assoc.fn_has_self_parameter && i == 0 => "self".to_string(),
-                ty::HKT(..) => todo!("hoch"),
                 ty::Ref(reg, ref_ty, mutability) if i == 0 => {
                     let reg = format!("{reg} ");
                     let reg = match &reg[..] {
