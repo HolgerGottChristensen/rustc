@@ -28,24 +28,7 @@ impl<Key, Value> Cache<Key, Value> {
 
 impl<Key: Eq + Hash, Value: Clone> Cache<Key, Value> {
     pub fn get<Tcx: DepContext>(&self, key: &Key, tcx: Tcx) -> Option<Value> {
-        // FIXME: revert this change after debugging
-        let map = self.hashmap.borrow();
-
-        for (k, v) in map.iter() {
-            use std::hash::{Hasher};
-            let mut hasher1 = std::collections::hash_map::DefaultHasher::new();
-            let mut hasher2 = std::collections::hash_map::DefaultHasher::new();
-            key.hash(&mut hasher1);
-            k.hash(&mut hasher2);
-            info!("Checking if {} == {}", hasher1.finish(), hasher2.finish());
-            if key == k {
-                return Some(v.get(tcx))
-            }
-        }
-
-        None
-
-        //Some(self.hashmap.borrow().get(key)?.get(tcx))
+        Some(self.hashmap.borrow().get(key)?.get(tcx))
     }
 
     pub fn insert(&self, key: Key, dep_node: DepNodeIndex, value: Value) {

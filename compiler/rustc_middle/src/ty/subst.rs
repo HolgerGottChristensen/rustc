@@ -187,7 +187,7 @@ impl<'tcx> GenericArg<'tcx> {
     pub fn expect_ty(self) -> Ty<'tcx> {
         match self.unpack() {
             GenericArgKind::Type(ty) => ty,
-            _ => bug!("expected a type, but found another kind"),
+            v => bug!("expected a type, but found another kind ({:?})", v),
         }
     }
 
