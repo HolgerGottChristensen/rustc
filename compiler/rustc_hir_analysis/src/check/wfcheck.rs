@@ -590,7 +590,7 @@ fn gather_gat_bounds<'tcx, T: TypeFoldable<'tcx>>(
                 // `Self` in the GAT.
                 let ty_param = gat_generics.param_at(*ty_idx, tcx);
                 let ty_param = tcx
-                    .mk_ty(ty::Param(ty::ParamTy { index: ty_param.index, name: ty_param.name }));
+                    .mk_ty(ty::Param(ty::ParamTy::Param { index: ty_param.index, name: ty_param.name }));
                 // Same for the region. In our example, 'a corresponds
                 // to the 'me parameter.
                 let region_param = gat_generics.param_at(*region_a_idx, tcx);
@@ -1296,8 +1296,11 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
     let infcx = wfcx.infcx;
     let tcx = wfcx.tcx();
 
+    info!("Hejsa1");
     let predicates = tcx.bound_predicates_of(def_id.to_def_id());
+    info!("post bound_predicates_of - {:#?}", predicates);
     let generics = tcx.generics_of(def_id);
+    info!("Hejsa3");
 
     let is_our_default = |def: &ty::GenericParamDef| match def.kind {
         GenericParamDefKind::Type { has_default, .. }
@@ -1305,7 +1308,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             has_default && def.index >= generics.parent_count as u32
         }
         GenericParamDefKind::Lifetime => unreachable!(),
-        GenericParamDefKind::HKT => todo!("hoch")
+        GenericParamDefKind::HKT => unreachable!("we have no default parameters for hkt")
     };
 
     // Check that concrete defaults are well-formed. See test `type-check-defaults.rs`.
@@ -1349,7 +1352,9 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             }
             // Doesn't have defaults.
             GenericParamDefKind::Lifetime => {}
-            GenericParamDefKind::HKT => todo!("hoch"),
+            GenericParamDefKind::HKT => {
+                // We have no defaults, so we can leave this empty
+            },
         }
     }
 
@@ -1400,6 +1405,8 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
         }
     });
 
+    info!("substs = {:?}", substs);
+
     // Now we build the substituted predicates.
     let default_obligations = predicates
         .0
@@ -1415,10 +1422,10 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
 
                 fn visit_ty(&mut self, t: Ty<'tcx>) -> ControlFlow<Self::BreakTy> {
                     if let ty::Param(param) = t.kind() {
-                        self.params.insert(param.index);
+                        self.params.insert(param.index());
                     }
                     if let ty::HKT(param, ..) = t.kind() {
-                        self.params.insert(param.index);
+                        self.params.insert(param.index());
                     }
                     t.super_visit_with(self)
                 }
@@ -1437,6 +1444,8 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             let mut param_count = CountParams::default();
             let has_region = pred.visit_with(&mut param_count).is_break();
             let substituted_pred = predicates.rebind(pred).subst(tcx, substs);
+
+            info!(?substituted_pred);
             // Don't check non-defaulted params, dependent defaults (including lifetimes)
             // or preds with multiple params.
             if substituted_pred.has_non_region_param() || param_count.params.len() > 1 || has_region
@@ -1459,7 +1468,9 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             // Note the subtle difference from how we handle `predicates`
             // below: there, we are not trying to prove those predicates
             // to be *true* but merely *well-formed*.
+            info!(?pred, "pre");
             let pred = wfcx.normalize(sp, None, pred);
+            info!(?pred, "post");
             let cause = traits::ObligationCause::new(
                 sp,
                 wfcx.body_id,
@@ -1468,9 +1479,11 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             traits::Obligation::new(tcx, cause, wfcx.param_env, pred)
         });
 
+    info!("pre instantiate_identity - {:#?}", predicates);
     let predicates = predicates.0.instantiate_identity(tcx);
-
+    info!("pre normalize - {:#?}", predicates);
     let predicates = wfcx.normalize(span, None, predicates);
+    info!("post normalize - {:#?}", predicates);
 
     info!(?predicates.predicates);
     assert_eq!(predicates.predicates.len(), predicates.spans.len());
@@ -1849,8 +1862,8 @@ fn check_variances_for_type_defn<'tcx>(
             .filter_map(|predicate| match predicate {
                 hir::WherePredicate::BoundPredicate(predicate) => {
                     match icx.to_ty(predicate.bounded_ty).kind() {
-                        ty::Param(data) => Some(Parameter(data.index)),
-                        ty::HKT(data, ..) => Some(Parameter(data.index)),
+                        ty::Param(data) => Some(Parameter(data.index())),
+                        ty::HKT(data, ..) => Some(Parameter(data.index())),
                         _ => None,
                     }
                 }

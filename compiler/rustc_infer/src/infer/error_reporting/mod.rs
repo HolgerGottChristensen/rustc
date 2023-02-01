@@ -2133,7 +2133,7 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
             GenericKind::Param(ref param) => {
                 // Account for the case where `param` corresponds to `Self`,
                 // which doesn't have the expected type argument.
-                if !(generics.has_self && param.index == 0) {
+                if !(generics.has_self && param.index() == 0) {
                     let type_param = generics.type_param(param, self.tcx);
                     type_param.def_id.as_local().map(|def_id| {
                         // Get the `hir::Param` to verify whether it already has any bounds.

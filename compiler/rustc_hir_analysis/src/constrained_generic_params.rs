@@ -9,7 +9,7 @@ pub struct Parameter(pub u32);
 
 impl From<ty::ParamTy> for Parameter {
     fn from(param: ty::ParamTy) -> Self {
-        Parameter(param.index)
+        Parameter(param.index())
     }
 }
 

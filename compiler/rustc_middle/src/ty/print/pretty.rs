@@ -2715,7 +2715,7 @@ define_print_and_forward_display! {
     }
 
     ty::ParamTy {
-        p!(write("{}", self.name))
+        p!(write("{}", self.name()))
     }
 
     ty::ParamConst {

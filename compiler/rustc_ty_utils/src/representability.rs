@@ -112,10 +112,10 @@ fn params_in_repr_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, params_in_repr: &mut
         ty::Array(ty, _) => params_in_repr_ty(tcx, ty, params_in_repr),
         ty::Tuple(tys) => tys.iter().for_each(|ty| params_in_repr_ty(tcx, ty, params_in_repr)),
         ty::Param(param) => {
-            params_in_repr.insert(param.index);
+            params_in_repr.insert(param.index());
         }
         ty::HKT(param, ..) => {
-            params_in_repr.insert(param.index);
+            params_in_repr.insert(param.index());
         }
         _ => {}
     }

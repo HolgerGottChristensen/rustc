@@ -1069,7 +1069,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             (&ty::Adt(def, substs_a), &ty::Adt(_, substs_b)) => {
                 let maybe_unsizing_param_idx = |arg: GenericArg<'tcx>| match arg.unpack() {
                     GenericArgKind::Type(ty) => match ty.kind() {
-                        ty::Param(p) => Some(p.index),
+                        ty::Param(p) => Some(p.index()),
                         ty::HKT(..) => todo!("hoch"),
                         _ => None,
                     },

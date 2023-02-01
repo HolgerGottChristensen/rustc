@@ -807,7 +807,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
 impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
     fn ty_for_param(&self, p: ty::ParamTy, source_ty: Ty<'tcx>) -> Ty<'tcx> {
         // Look up the type in the substitutions. It really should be in there.
-        let opt_ty = self.substs.get(p.index as usize).map(|k| k.unpack());
+        let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
         let ty = match opt_ty {
             Some(GenericArgKind::Type(ty)) => ty,
             Some(kind) => self.type_param_expected(p, source_ty, kind),
@@ -824,7 +824,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             "expected type for `{:?}` ({:?}/{}) but found {:?} when substituting, substs={:?}",
             p,
             ty,
-            p.index,
+            p.index(),
             kind,
             self.substs,
         )
@@ -837,7 +837,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             "type parameter `{:?}` ({:?}/{}) out of range when substituting, substs={:?}",
             p,
             ty,
-            p.index,
+            p.index(),
             self.substs,
         )
     }

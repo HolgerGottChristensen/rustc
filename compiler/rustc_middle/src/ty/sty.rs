@@ -6,10 +6,7 @@ use crate::infer::canonical::Canonical;
 use crate::ty::subst::{GenericArg, InternalSubsts, SubstsRef};
 use crate::ty::visit::ValidateBoundVars;
 use crate::ty::InferTy::*;
-use crate::ty::{
-    self, AdtDef, DefIdTree, Discr, Term, Ty, TyCtxt, TypeFlags, TypeSuperVisitable, TypeVisitable,
-    TypeVisitor,
-};
+use crate::ty::{self, AdtDef, DefIdTree, Discr, GenericParamDefKind, Term, Ty, TyCtxt, TypeFlags, TypeSuperVisitable, TypeVisitable, TypeVisitor};
 use crate::ty::{List, ParamEnv};
 use hir::def::DefKind;
 use polonius_engine::Atom;
@@ -1294,23 +1291,69 @@ pub type CanonicalPolyFnSig<'tcx> = Canonical<'tcx, Binder<'tcx, FnSig<'tcx>>>;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
 #[derive(HashStable)]
-pub struct ParamTy {
-    pub index: u32,
-    pub name: Symbol,
+pub enum ParamTy {
+    Param {
+        index: u32,
+        name: Symbol,
+    },
+    HKT {
+        index: u32,
+        name: Symbol,
+    }
 }
 
 impl<'tcx> ParamTy {
-    pub fn new(index: u32, name: Symbol) -> ParamTy {
-        ParamTy { index, name }
+    pub fn new_param(index: u32, name: Symbol) -> ParamTy {
+        ParamTy::Param { index, name }
+    }
+
+    pub fn new_hkt(index: u32, name: Symbol) -> ParamTy {
+        ParamTy::HKT { index, name }
     }
 
     pub fn for_def(def: &ty::GenericParamDef) -> ParamTy {
-        ParamTy::new(def.index, def.name)
+        match def.kind {
+            GenericParamDefKind::Lifetime |
+            GenericParamDefKind::Type { .. } |
+            GenericParamDefKind::Const { .. } => {
+                ParamTy::new_param(def.index, def.name)
+            }
+            GenericParamDefKind::HKT => {
+                ParamTy::new_hkt(def.index, def.name)
+            }
+        }
     }
 
     #[inline]
     pub fn to_ty(self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
-        tcx.mk_ty_param(self.index, self.name)
+        match self {
+            ParamTy::Param { index, name } => tcx.mk_ty_param(index, name),
+            ParamTy::HKT { index, name } => tcx.mk_hkt_param(index, name, tcx.intern_substs(&[]))
+        }
+    }
+
+    #[inline]
+    pub fn index(&self) -> u32 {
+        match *self {
+            ParamTy::Param { index, .. } => {
+                index
+            }
+            ParamTy::HKT { index, .. } => {
+                index
+            }
+        }
+    }
+
+    #[inline]
+    pub fn name(&self) -> Symbol {
+        match *self {
+            ParamTy::Param { name, .. } => {
+                name
+            }
+            ParamTy::HKT { name, .. } => {
+                name
+            }
+        }
     }
 
     pub fn span_from_generics(&self, tcx: TyCtxt<'tcx>, item_with_generics: DefId) -> Span {
@@ -1709,8 +1752,8 @@ impl<'tcx> Ty<'tcx> {
     #[inline]
     pub fn is_param(self, index: u32) -> bool {
         match self.kind() {
-            ty::Param(ref data) => data.index == index,
-            ty::HKT(ref data, ..) => data.index == index,
+            ty::Param(ref data) => data.index() == index,
+            ty::HKT(ref data, ..) => data.index() == index,
             _ => false,
         }
     }

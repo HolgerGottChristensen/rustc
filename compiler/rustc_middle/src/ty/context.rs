@@ -303,7 +303,7 @@ impl<'tcx> CommonTypes<'tcx> {
             f32: mk(Float(ty::FloatTy::F32)),
             f64: mk(Float(ty::FloatTy::F64)),
             str_: mk(Str),
-            self_param: mk(ty::Param(ty::ParamTy { index: 0, name: kw::SelfUpper })),
+            self_param: mk(ty::Param(ty::ParamTy::Param { index: 0, name: kw::SelfUpper })),
 
             trait_object_dummy_self: mk(Infer(ty::FreshTy(0))),
         }
@@ -1998,12 +1998,12 @@ impl<'tcx> TyCtxt<'tcx> {
 
     #[inline]
     pub fn mk_ty_param(self, index: u32, name: Symbol) -> Ty<'tcx> {
-        self.mk_ty(Param(ParamTy { index, name }))
+        self.mk_ty(Param(ParamTy::Param { index, name }))
     }
 
     #[inline]
     pub fn mk_hkt_param(self, index: u32, name: Symbol, subst: SubstsRef<'tcx>) -> Ty<'tcx> {
-        self.mk_ty(HKT(ParamTy { index, name }, subst))
+        self.mk_ty(HKT(ParamTy::HKT { index, name }, subst))
     }
 
     pub fn mk_param_from_def(self, param: &ty::GenericParamDef) -> GenericArg<'tcx> {

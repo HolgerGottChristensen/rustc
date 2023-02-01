@@ -1789,14 +1789,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // from a trait or impl, for example.
         let mut fallback_param_to_point_at = find_param_matching(&|param_ty| {
             self.tcx.parent(generics.type_param(param_ty, self.tcx).def_id) != def_id
-                && param_ty.name != rustc_span::symbol::kw::SelfUpper
+                && param_ty.name() != rustc_span::symbol::kw::SelfUpper
         });
         // Finally, the `Self` parameter is possibly the reason that the predicate
         // is unsatisfied. This is less likely to be true for methods, because
         // method probe means that we already kinda check that the predicates due
         // to the `Self` type are true.
         let mut self_param_to_point_at =
-            find_param_matching(&|param_ty| param_ty.name == rustc_span::symbol::kw::SelfUpper);
+            find_param_matching(&|param_ty| param_ty.name() == rustc_span::symbol::kw::SelfUpper);
 
         // Finally, for ambiguity-related errors, we actually want to look
         // for a parameter that is the source of the inference type left

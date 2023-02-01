@@ -840,7 +840,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ..
         })) = fn_node else { return };
 
-        if params.get(expected_ty_as_param.index as usize).is_none() {
+        if params.get(expected_ty_as_param.index() as usize).is_none() {
             return;
         };
 
@@ -1428,7 +1428,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     self.tcx,
                     generics,
                     diag,
-                    vec![(param.name.as_str(), "Clone", Some(clone_trait_did))].into_iter(),
+                    vec![(param.name().as_str(), "Clone", Some(clone_trait_did))].into_iter(),
                 );
             } else {
                 self.suggest_derive(diag, &[(trait_ref.to_predicate(self.tcx), None, None)]);

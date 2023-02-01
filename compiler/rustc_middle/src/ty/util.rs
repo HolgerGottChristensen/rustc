@@ -478,12 +478,12 @@ impl<'tcx> TyCtxt<'tcx> {
                 }
                 GenericArgKind::Type(t) => match t.kind() {
                     ty::Param(p) => {
-                        if !seen.insert(p.index) {
+                        if !seen.insert(p.index()) {
                             return Err(NotUniqueParam::DuplicateParam(t.into()));
                         }
                     }
                     ty::HKT(p, ..) => {
-                        if !seen.insert(p.index) {
+                        if !seen.insert(p.index()) {
                             return Err(NotUniqueParam::DuplicateParam(t.into()));
                         }
                     }
@@ -687,6 +687,7 @@ impl<'tcx> TyCtxt<'tcx> {
         self,
         def_id: DefId,
     ) -> ty::EarlyBinder<ty::generics::GenericPredicates<'tcx>> {
+        info!("awdoaiwdawd");
         ty::EarlyBinder(self.predicates_of(def_id))
     }
 

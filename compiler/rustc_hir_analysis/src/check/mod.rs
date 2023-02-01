@@ -387,7 +387,7 @@ fn fn_sig_suggestion<'tcx>(
                     };
                     if assoc.fn_has_self_parameter {
                         match ref_ty.kind() {
-                            ty::Param(param) if param.name == kw::SelfUpper => {
+                            ty::Param(param) if param.name() == kw::SelfUpper => {
                                 format!("&{}{}self", reg, mutability.prefix_str())
                             }
 

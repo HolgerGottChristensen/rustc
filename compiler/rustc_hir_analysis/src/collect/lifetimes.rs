@@ -1760,7 +1760,7 @@ fn is_late_bound_map(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Option<&FxIndexSet<
         fn visit_ty(&mut self, t: Ty<'tcx>) -> ControlFlow<!> {
             match t.kind() {
                 ty::Param(param_ty) => {
-                    self.arg_is_constrained[param_ty.index as usize] = true;
+                    self.arg_is_constrained[param_ty.index() as usize] = true;
                 }
                 ty::HKT(_param_ty, ..) => {
                     todo!("hoch")

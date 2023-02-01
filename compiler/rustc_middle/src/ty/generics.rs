@@ -263,7 +263,7 @@ impl<'tcx> Generics {
 
     /// Returns the `GenericParamDef` associated with this `ParamTy`.
     pub fn type_param(&'tcx self, param: &ParamTy, tcx: TyCtxt<'tcx>) -> &'tcx GenericParamDef {
-        let param = self.param_at(param.index as usize, tcx);
+        let param = self.param_at(param.index() as usize, tcx);
         match param.kind {
             GenericParamDefKind::Type { .. } => param,
             _ => bug!("expected type parameter, but found another generic parameter"),

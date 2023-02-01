@@ -55,7 +55,7 @@ pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredic
                 span,
             ))));
     }
-    debug!("predicates_of(def_id={:?}) = {:?}", def_id, result);
+    info!("predicates_of(def_id={:?}) = {:?}", def_id, result);
     result
 }
 
@@ -115,6 +115,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
     };
 
     let generics = tcx.generics_of(def_id);
+
     let parent_count = generics.parent_count as u32;
     let has_own_self = generics.has_self && parent_count == 0;
 
@@ -145,9 +146,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         + has_own_self as u32
         + super::early_bound_lifetimes_from_generics(tcx, ast_generics).count() as u32;
 
-    trace!(?predicates);
-    trace!(?ast_generics);
-    trace!(?generics);
+    info!("predicates = {:#?}", predicates);
+    info!("ast_generics = {:#?}", ast_generics);
+    info!("generics = {:#?}", generics);
 
     // Collect the predicates that were written inline by the user on each
     // type parameter (e.g., `<T: Foo>`).
@@ -157,7 +158,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             GenericParamKind::Lifetime { .. } => (),
             GenericParamKind::Type { .. } => {
                 let name = param.name.ident().name;
-                let param_ty = ty::ParamTy::new(index, name).to_ty(tcx);
+                let param_ty = ty::ParamTy::new_param(index, name).to_ty(tcx);
                 index += 1;
 
                 let mut bounds = Bounds::default();
@@ -180,7 +181,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             GenericParamKind::HKT(_) => {
                 // TODO(hoch)
                 let name = param.name.ident().name;
-                let param_ty = ty::ParamTy::new(index, name).to_ty(tcx);
+                let param_ty = ty::ParamTy::new_hkt(index, name).to_ty(tcx);
                 index += 1;
 
                 let mut bounds = Bounds::default();
@@ -192,9 +193,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                     Some((param.def_id, ast_generics.predicates)),
                     param.span,
                 );
-                trace!(?bounds);
+                info!(?bounds);
                 predicates.extend(bounds.predicates(tcx, param_ty));
-                trace!(?predicates);
+                info!(?predicates);
             }
         }
     }

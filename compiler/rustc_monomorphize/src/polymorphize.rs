@@ -343,12 +343,12 @@ impl<'a, 'tcx> TypeVisitor<'tcx> for MarkUsedGenericParams<'a, 'tcx> {
             }
             ty::Param(param) => {
                 debug!(?param);
-                self.unused_parameters.clear(param.index);
+                self.unused_parameters.clear(param.index());
                 ControlFlow::CONTINUE
             }
             ty::HKT(param, ..) => {
                 debug!(?param);
-                self.unused_parameters.clear(param.index);
+                self.unused_parameters.clear(param.index());
                 ControlFlow::CONTINUE
             }
             _ => ty.super_visit_with(self),
@@ -390,14 +390,14 @@ impl<'a, 'tcx> TypeVisitor<'tcx> for HasUsedGenericParams<'a> {
 
         match ty.kind() {
             ty::Param(param) => {
-                if self.unused_parameters.contains(param.index).unwrap_or(false) {
+                if self.unused_parameters.contains(param.index()).unwrap_or(false) {
                     ControlFlow::CONTINUE
                 } else {
                     ControlFlow::BREAK
                 }
             }
             ty::HKT(param, ..) => {
-                if self.unused_parameters.contains(param.index).unwrap_or(false) {
+                if self.unused_parameters.contains(param.index()).unwrap_or(false) {
                     ControlFlow::CONTINUE
                 } else {
                     ControlFlow::BREAK

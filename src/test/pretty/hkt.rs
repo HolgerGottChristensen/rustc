@@ -1,7 +1,7 @@
 // HKT test
 // pretty-compare-only
 
-use std::fmt::Debug;
+//use std::fmt::Debug;
 
 //trait Collection1<I<J,K<L>>> {}
 
