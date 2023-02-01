@@ -1747,7 +1747,7 @@ impl SearchInterfaceForPrivateItemsVisitor<'_> {
                     self.visit(self.tcx.type_of(param.def_id));
                 }
                 GenericParamDefKind::HKT => {
-                    todo!("hoch")
+                    // Since we dont have a default, we should not traverse further
                 }
             }
         }

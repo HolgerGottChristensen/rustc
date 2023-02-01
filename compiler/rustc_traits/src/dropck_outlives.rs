@@ -268,12 +268,8 @@ fn dtorck_constraint_for_ty<'tcx>(
             constraints.outlives.push(ty.into());
         }
 
-        ty::HKT(..) => {
-            todo!("hoch")
-        }
-
         // Types that can't be resolved. Pass them forward.
-        ty::Alias(..) | ty::Param(..) => {
+        ty::HKT(..) | ty::Alias(..) | ty::Param(..) => {
             constraints.dtorck_types.push(ty);
         }
 
