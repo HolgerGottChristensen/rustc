@@ -1855,6 +1855,9 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                         GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => {
                             self.var_for_def(self.span, param)
                         }
+                        GenericParamDefKind::HKT => {
+                            todo!("hoch")
+                        }
                     }
                 }
             });
@@ -1888,6 +1891,9 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     span,
                 };
                 self.next_const_var(self.tcx.type_of(param.def_id), origin).into()
+            }
+            GenericParamDefKind::HKT => {
+                todo!("hoch")
             }
         })
     }

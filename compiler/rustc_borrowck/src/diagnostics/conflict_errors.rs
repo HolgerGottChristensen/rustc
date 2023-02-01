@@ -795,6 +795,13 @@ impl<'cx, 'tcx> MirBorrowckCtxt<'cx, 'tcx> {
                             generics.type_param(param_ty, tcx),
                             predicate.trait_ref.print_only_trait_path().to_string(),
                         )),
+                        ty::HKT(_param_ty, ..) => {
+                            todo!("hoch")
+                            /*Ok((
+                                generics.type_param(param_ty, tcx),
+                                predicate.trait_ref.print_only_trait_path().to_string(),
+                            ))*/
+                        },
                         _ => Err(()),
                     }
                 }

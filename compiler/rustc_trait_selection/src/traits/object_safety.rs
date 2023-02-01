@@ -789,11 +789,12 @@ fn contains_illegal_self_type_reference<'tcx, T: TypeVisitable<'tcx>>(
                     }
                 }
                 ty::HKT(..) => {
-                    if t == self.tcx.types.self_param {
+                    todo!()
+                    /*if t == self.tcx.types.self_param {
                         ControlFlow::BREAK
                     } else {
                         ControlFlow::CONTINUE
-                    }
+                    }*/
                 }
                 ty::Alias(ty::Projection, ref data)
                     if self.tcx.def_kind(data.def_id) == DefKind::ImplTraitPlaceholder =>

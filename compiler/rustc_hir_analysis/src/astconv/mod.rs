@@ -518,6 +518,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                             }
                         }
                     }
+                    GenericParamDefKind::HKT => todo!("hoch")
                 }
             }
         }
@@ -2489,6 +2490,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                         err.span_note(span, &format!("hkt parameter `{name}` defined here"));
                     }
                 });
+
 
                 // Get the local def_id and the owners def_id
                 let def_id = def_id.expect_local();

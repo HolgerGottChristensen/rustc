@@ -1767,12 +1767,18 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         && matches(param_ty)
                     {
                         Some(arg)
+                    } else if let ty::GenericArgKind::Type(ty) = arg.unpack()
+                        && let ty::HKT(param_ty, ..) = ty.kind()
+                        && matches(param_ty)
+                    {
+                        todo!("hoch")
                     } else {
                         None
                     }
                 })
             })
         };
+
 
         // Prefer generics that are local to the fn item, since these are likely
         // to be the cause of the unsatisfied predicate.
@@ -2112,7 +2118,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         {
             let callee_ty = callee_ty.peel_refs();
             match *callee_ty.kind() {
-                // TODO(hoch)
+                ty::HKT(..) => {
+                    todo!("hoch")
+                }
                 ty::Param(param) => {
                     let param =
                         self.tcx.generics_of(self.body_id.owner).type_param(&param, self.tcx);

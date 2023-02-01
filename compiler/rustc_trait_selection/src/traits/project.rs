@@ -334,11 +334,11 @@ pub(crate) fn normalize_with_depth_to<'a, 'b, 'tcx, T>(
 where
     T: TypeFoldable<'tcx>,
 {
-    debug!(obligations.len = obligations.len());
+    info!(obligations.len = obligations.len());
     let mut normalizer = AssocTypeNormalizer::new(selcx, param_env, cause, depth, obligations);
     let result = ensure_sufficient_stack(|| normalizer.fold(value));
-    debug!(?result, obligations.len = normalizer.obligations.len());
-    debug!(?normalizer.obligations,);
+    info!(?result, obligations.len = normalizer.obligations.len());
+    info!(?normalizer.obligations,);
     result
 }
 

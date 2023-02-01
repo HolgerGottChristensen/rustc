@@ -382,12 +382,14 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
                                         (_, ty::Param(_))
                                         | (_, ty::Infer(_))
                                         | (ty::Param(_), _)
+                                        | (ty::HKT(..), _)
+                                        | (_, ty::HKT(..))
                                         | (ty::Infer(_), _) => {}
                                         _ if self.same_type_modulo_infer(exp_ty, found_ty) => {}
                                         _ => show_suggestion = false,
                                     };
                                 }
-                                ty::Param(_) | ty::Infer(_) => {}
+                                ty::HKT(..) | ty::Param(_) | ty::Infer(_) => {}
                                 _ => show_suggestion = false,
                             }
                         }

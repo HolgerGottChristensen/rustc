@@ -66,9 +66,9 @@ impl<'tcx> TypeVisitor<'tcx> for ParameterCollector {
             ty::Param(data) => {
                 self.parameters.push(Parameter::from(data));
             }
-            // TODO(hoch)
-            ty::HKT(data, _) => {
-                self.parameters.push(Parameter::from(data));
+            ty::HKT(_data, _) => {
+                todo!("hoch");
+                //self.parameters.push(Parameter::from(data));
             }
             _ => {}
         }

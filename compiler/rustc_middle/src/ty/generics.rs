@@ -12,6 +12,7 @@ use super::{EarlyBoundRegion, InstantiatedPredicates, ParamConst, ParamTy, Predi
 pub enum GenericParamDefKind {
     Lifetime,
     Type { has_default: bool, synthetic: bool },
+    HKT,
     Const { has_default: bool },
 }
 
@@ -21,6 +22,7 @@ impl GenericParamDefKind {
             GenericParamDefKind::Lifetime => "lifetime",
             GenericParamDefKind::Type { .. } => "type",
             GenericParamDefKind::Const { .. } => "constant",
+            GenericParamDefKind::HKT => "hkt"
         }
     }
     pub fn to_ord(&self) -> ast::ParamKindOrd {
@@ -29,6 +31,7 @@ impl GenericParamDefKind {
             GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => {
                 ast::ParamKindOrd::TypeOrConst
             }
+            GenericParamDefKind::HKT => todo!("hoch")
         }
     }
 
@@ -36,6 +39,7 @@ impl GenericParamDefKind {
         match self {
             GenericParamDefKind::Lifetime => false,
             GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => true,
+            GenericParamDefKind::HKT => todo!("hoch")
         }
     }
 
@@ -105,6 +109,9 @@ impl GenericParamDef {
             ty::GenericParamDefKind::Const { .. } => {
                 tcx.const_error(tcx.bound_type_of(self.def_id).subst(tcx, preceding_substs)).into()
             }
+            GenericParamDefKind::HKT => {
+                todo!("hoch")
+            }
         }
     }
 }
@@ -114,6 +121,7 @@ pub struct GenericParamCount {
     pub lifetimes: usize,
     pub types: usize,
     pub consts: usize,
+    pub hkts: usize,
 }
 
 /// Information about the formal type/lifetime parameters associated
@@ -167,6 +175,7 @@ impl<'tcx> Generics {
                 GenericParamDefKind::Lifetime => own_counts.lifetimes += 1,
                 GenericParamDefKind::Type { .. } => own_counts.types += 1,
                 GenericParamDefKind::Const { .. } => own_counts.consts += 1,
+                GenericParamDefKind::HKT => own_counts.hkts += 1,
             }
         }
 
@@ -185,6 +194,7 @@ impl<'tcx> Generics {
                 GenericParamDefKind::Const { has_default } => {
                     own_defaults.consts += has_default as usize;
                 }
+                GenericParamDefKind::HKT => ()
             }
         }
 
@@ -211,6 +221,9 @@ impl<'tcx> Generics {
                     return true;
                 }
                 GenericParamDefKind::Lifetime => {}
+                GenericParamDefKind::HKT => {
+                    return true;
+                }
             }
         }
         false

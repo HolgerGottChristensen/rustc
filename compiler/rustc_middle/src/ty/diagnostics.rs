@@ -469,6 +469,12 @@ impl<'tcx> TypeVisitor<'tcx> for IsSuggestableVisitor<'tcx> {
                 }
             }
 
+            HKT(param, ..) => {
+                //todo!("hoch")
+                if param.name.as_str().starts_with("impl ") {
+                    return ControlFlow::Break(());
+                }
+            }
             Param(param) => {
                 // FIXME: It would be nice to make this not use string manipulation,
                 // but it's pretty hard to do this, since `ty::ParamTy` is missing

@@ -195,6 +195,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                         substs[param.index as usize].to_string()
                     }
                     GenericParamDefKind::Lifetime => continue,
+                    GenericParamDefKind::HKT => todo!("hoch")
                 };
                 let name = param.name;
                 flags.push((name, Some(value)));
@@ -613,6 +614,9 @@ impl<'tcx> OnUnimplementedFormatString {
                         trait_ref.substs[param.index as usize].to_string()
                     }
                     GenericParamDefKind::Lifetime => return None,
+                    GenericParamDefKind::HKT => {
+                        todo!("hoch")
+                    }
                 };
                 let name = param.name;
                 Some((name, value))

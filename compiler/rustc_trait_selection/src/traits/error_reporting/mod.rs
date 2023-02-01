@@ -459,7 +459,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
             }
         }
 
-        self.tcx.sess.delay_span_bug(DUMMY_SP, "expected fullfillment errors")
+        self.tcx.sess.delay_span_bug(DUMMY_SP, "expected fulfillment errors")
     }
 
     /// Reports that an overflow has occurred and halts compilation. We
@@ -2013,8 +2013,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                     if let ty::Param(_) = self_ty.kind() {
                         false
                     } else if let ty::HKT(..) = self_ty.kind() {
-                        // TODO(hoch)
-                        false
+                        todo!("hoch")
                     }
                     // Avoid mentioning types that are private to another crate
                     else if let ty::Adt(def, _) = self_ty.peel_refs().kind() {

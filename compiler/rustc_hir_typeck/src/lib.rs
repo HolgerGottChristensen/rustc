@@ -203,6 +203,10 @@ fn typeck_with_fallback<'tcx>(
         let param_env = tcx.param_env(def_id);
         let mut fcx = FnCtxt::new(&inh, param_env, body.value.hir_id);
 
+        info!("param_env = {param_env:#?}");
+        //info!("inh = {inh:#?}");
+        info!("body_id = {:#?}", body.value.hir_id);
+
         if let Some(hir::FnSig { header, decl, .. }) = fn_sig {
             let fn_sig = if rustc_hir_analysis::collect::get_infer_ret_ty(&decl.output).is_some() {
                 <dyn AstConv<'_>>::ty_of_fn(&fcx, id, header.unsafety, header.abi, decl, None, None)
@@ -276,12 +280,17 @@ fn typeck_with_fallback<'tcx>(
             fcx.write_ty(id, expected_type);
         };
 
+        info!("HERE 111");
         fcx.type_inference_fallback();
+        info!("HERE 222");
 
         // Even though coercion casts provide type hints, we check casts after fallback for
         // backwards compatibility. This makes fallback a stronger type hint than a cast coercion.
         fcx.check_casts();
+
+        info!("HERE 333");
         fcx.select_obligations_where_possible(|_| {});
+        info!("HERE 444");
 
         // Closure and generator analysis may run after fallback
         // because they don't constrain other type variables.
@@ -301,7 +310,10 @@ fn typeck_with_fallback<'tcx>(
             fcx.require_type_is_sized(ty, span, code);
         }
 
+        info!("HERE 555");
         fcx.select_all_obligations_or_error();
+        info!("HERE 666");
+
 
         if let None = fcx.infcx.tainted_by_errors() {
             fcx.check_transmutes();

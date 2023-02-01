@@ -972,10 +972,13 @@ impl<'tcx> TypeFolder<'tcx> for TypeParamEraser<'_, 'tcx> {
                 kind: TypeVariableOriginKind::MiscVariable,
                 span: self.1,
             }),
-            ty::HKT(..) => self.0.next_ty_var(TypeVariableOrigin {
-                kind: TypeVariableOriginKind::MiscVariable,
-                span: self.1,
-            }),
+            ty::HKT(..) => {
+                todo!();
+                /*self.0.next_ty_var(TypeVariableOrigin {
+                    kind: TypeVariableOriginKind::MiscVariable,
+                    span: self.1,
+                })*/
+            },
             _ => ty.super_fold_with(self),
         }
     }

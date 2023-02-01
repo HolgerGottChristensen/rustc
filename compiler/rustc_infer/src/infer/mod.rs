@@ -1178,6 +1178,9 @@ impl<'tcx> InferCtxt<'tcx> {
                     });
                 self.tcx.mk_const(const_var_id, self.tcx.type_of(param.def_id)).into()
             }
+            GenericParamDefKind::HKT => {
+                todo!("hoch")
+            }
         }
     }
 

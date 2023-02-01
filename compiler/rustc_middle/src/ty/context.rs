@@ -1809,6 +1809,7 @@ impl<'tcx> TyCtxt<'tcx> {
                         self.bound_type_of(param.def_id).subst(self, substs).into()
                     }
                 }
+                GenericParamDefKind::HKT => todo!("hoch")
             });
         self.mk_ty(Adt(adt_def, substs))
     }
@@ -2010,13 +2011,18 @@ impl<'tcx> TyCtxt<'tcx> {
             GenericParamDefKind::Lifetime => {
                 self.mk_region(ty::ReEarlyBound(param.to_early_bound_region_data())).into()
             }
-            GenericParamDefKind::Type { .. } => self.mk_ty_param(param.index, param.name).into(),
+            GenericParamDefKind::Type { .. } => {
+                self.mk_ty_param(param.index, param.name).into()
+            },
             GenericParamDefKind::Const { .. } => self
                 .mk_const(
                     ParamConst { index: param.index, name: param.name },
                     self.type_of(param.def_id),
                 )
                 .into(),
+            GenericParamDefKind::HKT => {
+                self.mk_hkt_param(param.index, param.name, self.intern_substs(&[])).into()
+            }
         }
     }
 

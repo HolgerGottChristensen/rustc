@@ -843,6 +843,9 @@ impl ReachEverythingInTheInterfaceVisitor<'_, '_> {
                         self.visit(self.ev.tcx.const_param_default(param.def_id));
                     }
                 }
+                GenericParamDefKind::HKT => {
+                    todo!("hoch")
+                }
             }
         }
         self
@@ -1742,6 +1745,9 @@ impl SearchInterfaceForPrivateItemsVisitor<'_> {
                 // FIXME(generic_const_exprs): May want to look inside const here
                 GenericParamDefKind::Const { .. } => {
                     self.visit(self.tcx.type_of(param.def_id));
+                }
+                GenericParamDefKind::HKT => {
+                    todo!("hoch")
                 }
             }
         }

@@ -89,7 +89,7 @@ impl fmt::Debug for ty::FreeRegion {
 
 impl<'tcx> fmt::Debug for ty::FnSig<'tcx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({:?}; c_variadic: {})->{:?}", self.inputs(), self.c_variadic, self.output())
+        write!(f, "({:?}; c_variadic: {})->{:?}", self.inputs().iter().map(|a| a.kind()).collect::<Vec<_>>(), self.c_variadic, self.output())
     }
 }
 
@@ -108,6 +108,7 @@ impl<'tcx> fmt::Debug for ty::TraitRef<'tcx> {
 impl<'tcx> fmt::Debug for Ty<'tcx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         with_no_trimmed_paths!(fmt::Display::fmt(self, f))
+        //self.kind().fmt(f)
     }
 }
 
@@ -128,7 +129,7 @@ impl<'tcx> fmt::Debug for ty::TraitPredicate<'tcx> {
         if let ty::BoundConstness::ConstIfConst = self.constness {
             write!(f, "~const ")?;
         }
-        write!(f, "TraitPredicate({:?}, polarity:{:?})", self.trait_ref, self.polarity)
+        write!(f, "TraitPredicate({:?}⟨{:?}⟩, polarity:{:?})", self.trait_ref, self.trait_ref.substs.iter().map(|a| a.expect_ty().kind()).collect::<Vec<_>>(), self.polarity)
     }
 }
 

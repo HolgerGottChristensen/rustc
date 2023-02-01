@@ -102,7 +102,7 @@ impl<'tcx> fmt::Debug for GenericArg<'tcx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.unpack() {
             GenericArgKind::Lifetime(lt) => lt.fmt(f),
-            GenericArgKind::Type(ty) => ty.fmt(f),
+            GenericArgKind::Type(ty) => ty.kind().fmt(f),
             GenericArgKind::Const(ct) => ct.fmt(f),
         }
     }

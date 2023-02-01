@@ -300,6 +300,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     ) -> SelectionResult<'tcx, SelectionCandidate<'tcx>> {
         debug_assert!(!obligation.predicate.has_escaping_bound_vars());
 
+        info!("select from obligation");
+
         let pec = &ProvisionalEvaluationCache::default();
         let stack = self.push_stack(TraitObligationStackList::empty(pec), obligation);
 
@@ -320,13 +322,11 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         // this is because we want the unbound variables to be
         // replaced with fresh types starting from index 0.
         let cache_fresh_trait_pred = self.infcx.freshen(stack.obligation.predicate);
-        debug!(?cache_fresh_trait_pred);
+        info!(?cache_fresh_trait_pred);
         debug_assert!(!stack.obligation.predicate.has_escaping_bound_vars());
 
-        if let Some(c) =
-            self.check_candidate_cache(stack.obligation.param_env, cache_fresh_trait_pred)
-        {
-            debug!("CACHE HIT");
+        if let Some(c) = self.check_candidate_cache(stack.obligation.param_env, cache_fresh_trait_pred) {
+            info!("CACHE HIT");
             return c;
         }
 
@@ -339,7 +339,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         let (candidate, dep_node) =
             self.in_task(|this| this.candidate_from_obligation_no_cache(stack));
 
-        debug!("CACHE MISS");
+        info!("CACHE MISS");
         self.insert_candidate_cache(
             stack.obligation.param_env,
             cache_fresh_trait_pred,
@@ -353,6 +353,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
     ) -> SelectionResult<'tcx, SelectionCandidate<'tcx>> {
+
+        info!("candidate_from_obligation_no_cache");
+
         if let Err(conflict) = self.is_knowable(stack) {
             debug!("coherence stage: not knowable");
             if self.intercrate_ambiguity_causes.is_some() {
@@ -1440,7 +1443,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     }
 
     fn is_knowable<'o>(&mut self, stack: &TraitObligationStack<'o, 'tcx>) -> Result<(), Conflict> {
-        debug!("is_knowable(intercrate={:?})", self.is_intercrate());
+        info!("is_knowable(intercrate={:?})", self.is_intercrate());
 
         if !self.is_intercrate() || stack.obligation.polarity() == ty::ImplPolarity::Negative {
             return Ok(());
@@ -1498,7 +1501,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         pred.remap_constness(&mut param_env);
 
         if self.can_use_global_caches(param_env) {
+            info!("Can use global: {:#?}", tcx.selection_cache);
             if let Some(res) = tcx.selection_cache.get(&(param_env, pred), tcx) {
+                info!("Used global cache to get result");
                 return Some(res);
             }
         }
@@ -1552,7 +1557,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         pred.remap_constness(&mut param_env);
 
         if !self.can_cache_candidate(&candidate) {
-            debug!(?pred, ?candidate, "insert_candidate_cache - candidate is not cacheable");
+            info!(?pred, ?candidate, "insert_candidate_cache - candidate is not cacheable");
             return;
         }
 
@@ -1561,7 +1566,13 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 // Don't cache overflow globally; we only produce this in certain modes.
             } else if !pred.needs_infer() {
                 if !candidate.needs_infer() {
-                    debug!(?pred, ?candidate, "insert_candidate_cache global");
+                    info!(?pred, ?candidate, "insert_candidate_cache global");
+                    info!(?pred.trait_ref.def_id);
+                    let mut s = vec![];
+                    for arg in pred.trait_ref.substs {
+                        s.push(format!("{:?}", arg.expect_ty().kind()));
+                    }
+                    info!("substs: {}", s.join(", "));
                     // This may overwrite the cache with the same value.
                     tcx.selection_cache.insert((param_env, pred), dep_node, candidate);
                     return;
@@ -1569,8 +1580,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             }
         }
 
-        debug!(?pred, ?candidate, "insert_candidate_cache local");
+        info!(?pred, ?candidate, "insert_candidate_cache local");
         self.infcx.selection_cache.insert((param_env, pred), dep_node, candidate);
+
     }
 
     /// Matches a predicate against the bounds of its self type.

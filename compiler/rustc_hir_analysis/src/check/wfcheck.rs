@@ -71,6 +71,7 @@ impl<'tcx> WfCheckingCtxt<'_, 'tcx> {
         loc: Option<WellFormedLoc>,
         arg: ty::GenericArg<'tcx>,
     ) {
+        info!("Register wf obligation for: {:?}", arg.expect_ty().kind());
         let cause =
             traits::ObligationCause::new(span, self.body_id, ObligationCauseCode::WellFormed(loc));
         // for a type to be WF, we do not need to check if const trait predicates satisfy.
@@ -1304,6 +1305,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             has_default && def.index >= generics.parent_count as u32
         }
         GenericParamDefKind::Lifetime => unreachable!(),
+        GenericParamDefKind::HKT => todo!("hoch")
     };
 
     // Check that concrete defaults are well-formed. See test `type-check-defaults.rs`.
@@ -1347,6 +1349,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             }
             // Doesn't have defaults.
             GenericParamDefKind::Lifetime => {}
+            GenericParamDefKind::HKT => todo!("hoch"),
         }
     }
 
@@ -1389,6 +1392,9 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
                     }
                 }
 
+                tcx.mk_param_from_def(param)
+            }
+            GenericParamDefKind::HKT => {
                 tcx.mk_param_from_def(param)
             }
         }
@@ -1466,7 +1472,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
 
     let predicates = wfcx.normalize(span, None, predicates);
 
-    debug!(?predicates.predicates);
+    info!(?predicates.predicates);
     assert_eq!(predicates.predicates.len(), predicates.spans.len());
     let wf_obligations =
         iter::zip(&predicates.predicates, &predicates.spans).flat_map(|(&p, &sp)| {
@@ -1492,8 +1498,9 @@ fn check_fn_or_method<'tcx>(
     def_id: LocalDefId,
 ) {
     let tcx = wfcx.tcx();
+    info!("sig = {:?}", sig);
     let sig = tcx.liberate_late_bound_regions(def_id.to_def_id(), sig);
-
+    info!("post-liberate_late_bound_regions sig = {:?}", sig);
     // Normalize the input and output types one at a time, using a different
     // `WellFormedLoc` for each. We cannot call `normalize_associated_types`
     // on the entire `FnSig`, since this would use the same `WellFormedLoc`
@@ -1523,7 +1530,11 @@ fn check_fn_or_method<'tcx>(
         abi: wfcx.normalize(span, None, abi),
     };
 
+    info!("post-normalize sig = {:?}", sig);
+
+    // All inputs are obligated to be well-formed
     for (i, (&input_ty, ty)) in iter::zip(sig.inputs(), hir_decl.inputs).enumerate() {
+        //info!("ty = {:#?}", ty);
         wfcx.register_wf_obligation(
             ty.span,
             Some(WellFormedLoc::Param { function: def_id, param_idx: i.try_into().unwrap() }),
@@ -1531,6 +1542,7 @@ fn check_fn_or_method<'tcx>(
         );
     }
 
+    // The output are obligated to be well-formed
     wfcx.register_wf_obligation(
         hir_decl.output.span(),
         Some(WellFormedLoc::Param {
@@ -1540,8 +1552,11 @@ fn check_fn_or_method<'tcx>(
         sig.output().into(),
     );
 
+    info!("Preparing from where clauses");
+
     check_where_clauses(wfcx, span, def_id);
 
+    info!("Before check_return_position_impl_trait_in_trait_bounds");
     check_return_position_impl_trait_in_trait_bounds(
         wfcx,
         def_id,
@@ -1550,6 +1565,7 @@ fn check_fn_or_method<'tcx>(
     );
 
     if sig.abi == Abi::RustCall {
+        info!("I am wrong");
         let span = tcx.def_span(def_id);
         let has_implicit_self = hir_decl.implicit_self != hir::ImplicitSelfKind::None;
         let mut inputs = sig.inputs().iter().skip(if has_implicit_self { 1 } else { 0 });

@@ -1,6 +1,6 @@
 use crate::middle::codegen_fn_attrs::CodegenFnAttrFlags;
 use crate::ty::print::{FmtPrinter, Printer};
-use crate::ty::{self, Ty, TyCtxt, TypeFoldable, TypeSuperFoldable, TypeVisitable};
+use crate::ty::{self, GenericParamDefKind, Ty, TyCtxt, TypeFoldable, TypeSuperFoldable, TypeVisitable};
 use crate::ty::{EarlyBinder, InternalSubsts, SubstsRef};
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir::def::Namespace;
@@ -331,12 +331,15 @@ impl<'tcx> Instance<'tcx> {
 
     pub fn mono(tcx: TyCtxt<'tcx>, def_id: DefId) -> Instance<'tcx> {
         let substs = InternalSubsts::for_item(tcx, def_id, |param, _| match param.kind {
-            ty::GenericParamDefKind::Lifetime => tcx.lifetimes.re_erased.into(),
-            ty::GenericParamDefKind::Type { .. } => {
+            GenericParamDefKind::Lifetime => tcx.lifetimes.re_erased.into(),
+            GenericParamDefKind::Type { .. } => {
                 bug!("Instance::mono: {:?} has type parameters", def_id)
             }
-            ty::GenericParamDefKind::Const { .. } => {
+            GenericParamDefKind::Const { .. } => {
                 bug!("Instance::mono: {:?} has const parameters", def_id)
+            }
+            GenericParamDefKind::HKT => {
+                bug!("Instance::mono: {:?} has hkt parameters", def_id)
             }
         });
 

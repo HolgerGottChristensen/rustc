@@ -1084,20 +1084,23 @@ impl<'tcx> TypeFolder<'tcx> for ParamsSubstitutor<'tcx> {
                     }))
                 }
             },
-            ty::HKT(param, ..) => match self.list.iter().position(|r| r == &param) {
-                Some(idx) => self.tcx.mk_ty(ty::Placeholder(ty::PlaceholderType {
-                    universe: ty::UniverseIndex::from_usize(0),
-                    name: ty::BoundVar::from_usize(idx),
-                })),
-                None => {
-                    self.list.push(param);
-                    let idx = self.list.len() - 1 + self.next_ty_placeholder;
-                    self.params.insert(idx, param);
-                    self.tcx.mk_ty(ty::Placeholder(ty::PlaceholderType {
+            ty::HKT(_param, ..) => {
+                todo!()
+                /*match self.list.iter().position(|r| r == &param) {
+                    Some(idx) => self.tcx.mk_ty(ty::Placeholder(ty::PlaceholderType {
                         universe: ty::UniverseIndex::from_usize(0),
                         name: ty::BoundVar::from_usize(idx),
-                    }))
-                }
+                    })),
+                    None => {
+                        self.list.push(param);
+                        let idx = self.list.len() - 1 + self.next_ty_placeholder;
+                        self.params.insert(idx, param);
+                        self.tcx.mk_ty(ty::Placeholder(ty::PlaceholderType {
+                            universe: ty::UniverseIndex::from_usize(0),
+                            name: ty::BoundVar::from_usize(idx),
+                        }))
+                    }
+                }*/
             },
             _ => t.super_fold_with(self),
         }

@@ -932,9 +932,7 @@ impl<'tcx> MirBorrowckCtxt<'_, 'tcx> {
         let tcx = self.infcx.tcx;
         ty.walk().any(|arg| {
             // TODO(hoch)
-            if let ty::GenericArgKind::Type(ty) = arg.unpack()
-                && let ty::Param(_) = ty.kind()
-            {
+            if let ty::GenericArgKind::Type(ty) = arg.unpack() && let ty::Param(_) = ty.kind() {
                 predicates.iter().any(|pred| {
                     match pred.kind().skip_binder() {
                         ty::PredicateKind::Clause(ty::Clause::Trait(data)) if data.self_ty() == ty => {}
@@ -945,6 +943,18 @@ impl<'tcx> MirBorrowckCtxt<'_, 'tcx> {
                         *r == ty::ReEarlyBound(region)
                     })
                 })
+            } else if let ty::GenericArgKind::Type(ty) = arg.unpack() && let ty::HKT(..) = ty.kind() {
+                todo!("hoch")
+                /*predicates.iter().any(|pred| {
+                    match pred.kind().skip_binder() {
+                        ty::PredicateKind::Clause(ty::Clause::Trait(data)) if data.self_ty() == ty => {}
+                        ty::PredicateKind::Clause(ty::Clause::Projection(data)) if data.projection_ty.self_ty() == ty => {}
+                        _ => return false,
+                    }
+                    tcx.any_free_region_meets(pred, |r| {
+                        *r == ty::ReEarlyBound(region)
+                    })
+                })*/
             } else {
                 false
             }

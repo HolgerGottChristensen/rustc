@@ -365,7 +365,9 @@ fn check_opaque_type_parameter_valid(
     let mut seen_params: FxHashMap<_, Vec<_>> = FxHashMap::default();
     for (i, arg) in opaque_type_key.substs.iter().enumerate() {
         let arg_is_param = match arg.unpack() {
-            GenericArgKind::Type(ty) => matches!(ty.kind(), ty::Param(_)) || matches!(ty.kind(), ty::HKT(..)),
+            GenericArgKind::Type(ty) => {
+                matches!(ty.kind(), ty::Param(_)) || matches!(ty.kind(), ty::HKT(..))
+            },
             GenericArgKind::Lifetime(lt) if lt.is_static() => {
                 tcx.sess
                     .struct_span_err(span, "non-defining opaque type use in defining scope")
@@ -387,6 +389,7 @@ fn check_opaque_type_parameter_valid(
         if arg_is_param {
             seen_params.entry(arg).or_default().push(i);
         } else {
+            // TODO: interesting
             // Prevent `fn foo() -> Foo<u32>` from being defining.
             let opaque_param = opaque_generics.param_at(i, tcx);
             tcx.sess

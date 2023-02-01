@@ -1,5 +1,6 @@
 //! Cache for candidate selection.
 
+use std::fmt::{Debug, Formatter};
 use crate::dep_graph::{DepContext, DepNodeIndex};
 
 use rustc_data_structures::fx::FxHashMap;
@@ -27,7 +28,24 @@ impl<Key, Value> Cache<Key, Value> {
 
 impl<Key: Eq + Hash, Value: Clone> Cache<Key, Value> {
     pub fn get<Tcx: DepContext>(&self, key: &Key, tcx: Tcx) -> Option<Value> {
-        Some(self.hashmap.borrow().get(key)?.get(tcx))
+        // FIXME: revert this change after debugging
+        let map = self.hashmap.borrow();
+
+        for (k, v) in map.iter() {
+            use std::hash::{Hasher};
+            let mut hasher1 = std::collections::hash_map::DefaultHasher::new();
+            let mut hasher2 = std::collections::hash_map::DefaultHasher::new();
+            key.hash(&mut hasher1);
+            k.hash(&mut hasher2);
+            info!("Checking if {} == {}", hasher1.finish(), hasher2.finish());
+            if key == k {
+                return Some(v.get(tcx))
+            }
+        }
+
+        None
+
+        //Some(self.hashmap.borrow().get(key)?.get(tcx))
     }
 
     pub fn insert(&self, key: Key, dep_node: DepNodeIndex, value: Value) {
@@ -35,10 +53,31 @@ impl<Key: Eq + Hash, Value: Clone> Cache<Key, Value> {
     }
 }
 
+impl<Key: Eq + Hash + Debug, Value: Clone + Debug> Debug for Cache<Key, Value> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut val = f.debug_struct("Cache");
+
+        self.hashmap.borrow().iter().for_each(|(key, value)| {
+            val.field(&format!("{:#?}", key), &value);
+        });
+
+        val.finish()
+    }
+}
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct WithDepNode<T> {
     dep_node: DepNodeIndex,
     cached_value: T,
+}
+
+impl<T: Debug> Debug for WithDepNode<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WithDepNode")
+            .field("cached_value", &self.cached_value)
+            .field("dep_node", &self.dep_node)
+            .finish()
+    }
 }
 
 impl<T: Clone> WithDepNode<T> {

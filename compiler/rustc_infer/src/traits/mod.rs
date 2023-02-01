@@ -53,6 +53,7 @@ pub struct Obligation<'tcx, T> {
 }
 
 pub type PredicateObligation<'tcx> = Obligation<'tcx, ty::Predicate<'tcx>>;
+
 pub type TraitObligation<'tcx> = Obligation<'tcx, ty::PolyTraitPredicate<'tcx>>;
 
 impl<'tcx> PredicateObligation<'tcx> {

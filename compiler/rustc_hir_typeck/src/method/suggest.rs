@@ -448,10 +448,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             let mut collect_type_param_suggestions =
                 |self_ty: Ty<'tcx>, parent_pred: ty::Predicate<'tcx>, obligation: &str| {
                     // We don't care about regions here, so it's fine to skip the binder here.
-                    if let (ty::Param(_), ty::PredicateKind::Clause(ty::Clause::Trait(p))) = (self_ty.kind(), parent_pred.kind().skip_binder()) {
+                    if let (ty::Param(_) | ty::HKT(..), ty::PredicateKind::Clause(ty::Clause::Trait(p))) = (self_ty.kind(), parent_pred.kind().skip_binder()) {
                         let hir = self.tcx.hir();
                         let node = match p.trait_ref.self_ty().kind() {
-                            ty::Param(_) => {
+                            ty::Param(_) | ty::HKT(..) => {
                                 // Account for `fn` items like in `issue-35677.rs` to
                                 // suggest restricting its type params.
                                 let parent_body =
@@ -2008,6 +2008,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         | ty::Str
                         | ty::Alias(ty::Projection, _)
                         | ty::Param(_) => format!("{deref_ty}"),
+                        | ty::HKT(..) => format!("{deref_ty}"),
                         // we need to test something like  <&[_]>::len or <(&[u32])>::len
                         // and Vec::function();
                         // <&[_]>::len or <&[u32]>::len doesn't need an extra "<>" between
@@ -2377,8 +2378,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
             let param_type = match rcvr_ty.kind() {
                 ty::Param(param) => Some(param),
+                ty::HKT(param, ..) => Some(param),
                 ty::Ref(_, ty, _) => match ty.kind() {
                     ty::Param(param) => Some(param),
+                    ty::HKT(param, ..) => Some(param),
                     _ => None,
                 },
                 _ => None,
@@ -2643,6 +2646,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 ty::Foreign(did) => did.is_local(),
                 ty::Dynamic(tr, ..) => tr.principal().map_or(false, |d| d.def_id().is_local()),
                 ty::Param(_) => true,
+                ty::HKT(..) => true,
 
                 // Everything else (primitive types, etc.) is effectively
                 // non-local (there are "edge" cases, e.g., `(LocalType,)`, but

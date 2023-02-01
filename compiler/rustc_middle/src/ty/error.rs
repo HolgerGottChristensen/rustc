@@ -421,7 +421,9 @@ impl<'tcx> TyCtxt<'tcx> {
                             );
                         }
                     }
-                    // TODO(hoch)
+                    (ty::HKT(_expected, ..), ty::HKT(_found, ..)) => {
+                        todo!("hoch")
+                    }
                     (ty::Param(expected), ty::Param(found)) => {
                         let generics = self.generics_of(body_owner_def_id);
                         let e_span = self.def_span(generics.type_param(expected, self).def_id);
@@ -445,7 +447,8 @@ impl<'tcx> TyCtxt<'tcx> {
                     (ty::Alias(ty::Projection, _), ty::Alias(ty::Projection, _)) => {
                         diag.note("an associated type was expected, but a different one was found");
                     }
-                    (ty::Param(p), ty::Alias(ty::Projection, proj)) | (ty::Alias(ty::Projection, proj), ty::Param(p))
+                    (ty::Param(p), ty::Alias(ty::Projection, proj)) |
+                    (ty::Alias(ty::Projection, proj), ty::Param(p))
                         if self.def_kind(proj.def_id) != DefKind::ImplTraitPlaceholder =>
                     {
                         let generics = self.generics_of(body_owner_def_id);
@@ -496,8 +499,8 @@ impl<'tcx> TyCtxt<'tcx> {
                             diag.note("you might be missing a type parameter or trait bound");
                         }
                     }
-                    (ty::Param(p), ty::Dynamic(..) | ty::Alias(ty::Opaque, ..))
-                    | (ty::Dynamic(..) | ty::Alias(ty::Opaque, ..), ty::Param(p)) => {
+                    (ty::Param(p), ty::Dynamic(..) | ty::Alias(ty::Opaque, ..)) |
+                    (ty::Dynamic(..) | ty::Alias(ty::Opaque, ..), ty::Param(p)) => {
                         let generics = self.generics_of(body_owner_def_id);
                         let p_span = self.def_span(generics.type_param(p, self).def_id);
                         if !sp.contains(p_span) {
@@ -548,6 +551,9 @@ impl<T> Trait<T> for X {
                              caller-chosen type of parameter `{}`",
                             p
                         ));
+                    }
+                    (ty::HKT(_p, ..), _) | (_, ty::HKT(_p, ..)) => {
+                        todo!("hoch")
                     }
                     (ty::Param(p), _) | (_, ty::Param(p)) => {
                         let generics = self.generics_of(body_owner_def_id);
@@ -639,6 +645,10 @@ impl<T> Trait<T> for X {
                 let def_id = if let ty::Param(param_ty) = proj_ty.self_ty().kind() {
                     let generics = self.generics_of(body_owner_def_id);
                     generics.type_param(param_ty, self).def_id
+                } else if let ty::HKT(..) = proj_ty.self_ty().kind() {
+                    //let generics = self.generics_of(body_owner_def_id);
+                    //generics.type_param(param_ty, self).def_id
+                    todo!("hoch")
                 } else {
                     return false;
                 };

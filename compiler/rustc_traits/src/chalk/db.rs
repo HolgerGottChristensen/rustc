@@ -7,7 +7,7 @@
 //! `crate::chalk::lowering` (to lower rustc types into Chalk types).
 
 use rustc_middle::traits::ChalkRustInterner as RustInterner;
-use rustc_middle::ty::{self, AssocKind, EarlyBinder, Ty, TyCtxt, TypeFoldable, TypeSuperFoldable};
+use rustc_middle::ty::{self, AssocKind, EarlyBinder, GenericParamDefKind, Ty, TyCtxt, TypeFoldable, TypeSuperFoldable};
 use rustc_middle::ty::{InternalSubsts, SubstsRef};
 use rustc_target::abi::{Integer, IntegerType};
 
@@ -745,6 +745,7 @@ fn bound_vars_for_item(tcx: TyCtxt<'_>, def_id: DefId) -> SubstsRef<'_> {
                 tcx.type_of(param.def_id),
             )
             .into(),
+        GenericParamDefKind::HKT => todo!("hoch")
     })
 }
 

@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 //trait Collection4<I<J>> {}
 
-fn test<I<?J>>(input: I<u32>) {
+fn test<T, I<?J>>(int: T, input: I) {
     //println!("Hej verden!");
 }
 

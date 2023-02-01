@@ -115,7 +115,7 @@ impl<'a, 'tcx> FulfillmentContext<'tcx> {
         let errors: Vec<FulfillmentError<'tcx>> =
             outcome.errors.into_iter().map(to_fulfillment_error).collect();
 
-        debug!(
+        info!(
             "select({} predicates remaining, {} errors) done",
             self.predicates.len(),
             errors.len()
@@ -135,7 +135,7 @@ impl<'tcx> TraitEngine<'tcx> for FulfillmentContext<'tcx> {
         // debug output much nicer to read and so on.
         let obligation = infcx.resolve_vars_if_possible(obligation);
 
-        debug!(?obligation, "register_predicate_obligation");
+        info!(?obligation, "register_predicate_obligation");
 
         assert!(!infcx.is_in_snapshot() || self.usable_in_snapshot);
 
@@ -237,19 +237,24 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 
         let obligation = &mut pending_obligation.obligation;
 
-        debug!(?obligation, "pre-resolve");
+
+        info!(?obligation, "pre-resolve");
+        info!("{:#?}", obligation.cause);
 
         if obligation.predicate.has_non_region_infer() {
+            info!("Has non region infer");
             obligation.predicate = self.selcx.infcx.resolve_vars_if_possible(obligation.predicate);
         }
+        info!(?obligation, "post-resolve-vars-if-possible");
 
         let obligation = &pending_obligation.obligation;
 
         let infcx = self.selcx.infcx;
 
         if obligation.predicate.has_projections() {
+            info!("Has projections");
             let mut obligations = Vec::new();
-            let predicate = crate::traits::project::try_normalize_with_depth_to(
+            let predicate = project::try_normalize_with_depth_to(
                 &mut self.selcx,
                 obligation.param_env,
                 obligation.cause.clone(),
@@ -262,312 +267,322 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                 return ProcessResult::Changed(mk_pending(obligations));
             }
         }
+
         let binder = obligation.predicate.kind();
+
         match binder.no_bound_vars() {
-            None => match binder.skip_binder() {
-                // Evaluation will discard candidates using the leak check.
-                // This means we need to pass it the bound version of our
-                // predicate.
-                ty::PredicateKind::Clause(ty::Clause::Trait(trait_ref)) => {
-                    let trait_obligation = obligation.with(infcx.tcx, binder.rebind(trait_ref));
+            None => {
+                info!("Contains bound vars");
 
-                    self.process_trait_obligation(
-                        obligation,
-                        trait_obligation,
-                        &mut pending_obligation.stalled_on,
-                    )
-                }
-                ty::PredicateKind::Clause(ty::Clause::Projection(data)) => {
-                    let project_obligation = obligation.with(infcx.tcx, binder.rebind(data));
+                match binder.skip_binder() {
+                    // Evaluation will discard candidates using the leak check.
+                    // This means we need to pass it the bound version of our
+                    // predicate.
+                    ty::PredicateKind::Clause(ty::Clause::Trait(trait_ref)) => {
+                        let trait_obligation = obligation.with(infcx.tcx, binder.rebind(trait_ref));
 
-                    self.process_projection_obligation(
-                        obligation,
-                        project_obligation,
-                        &mut pending_obligation.stalled_on,
-                    )
-                }
-                ty::PredicateKind::Clause(ty::Clause::RegionOutlives(_))
-                | ty::PredicateKind::Clause(ty::Clause::TypeOutlives(_))
-                | ty::PredicateKind::WellFormed(_)
-                | ty::PredicateKind::ObjectSafe(_)
-                | ty::PredicateKind::ClosureKind(..)
-                | ty::PredicateKind::Subtype(_)
-                | ty::PredicateKind::Coerce(_)
-                | ty::PredicateKind::ConstEvaluatable(..)
-                | ty::PredicateKind::ConstEquate(..) => {
-                    let pred =
-                        ty::Binder::dummy(infcx.replace_bound_vars_with_placeholders(binder));
-                    ProcessResult::Changed(mk_pending(vec![obligation.with(infcx.tcx, pred)]))
-                }
-                ty::PredicateKind::Ambiguous => ProcessResult::Unchanged,
-                ty::PredicateKind::TypeWellFormedFromEnv(..) => {
-                    bug!("TypeWellFormedFromEnv is only used for Chalk")
+                        self.process_trait_obligation(
+                            obligation,
+                            trait_obligation,
+                            &mut pending_obligation.stalled_on,
+                        )
+                    }
+                    ty::PredicateKind::Clause(ty::Clause::Projection(data)) => {
+                        let project_obligation = obligation.with(infcx.tcx, binder.rebind(data));
+
+                        self.process_projection_obligation(
+                            obligation,
+                            project_obligation,
+                            &mut pending_obligation.stalled_on,
+                        )
+                    }
+                    ty::PredicateKind::Clause(ty::Clause::RegionOutlives(_))
+                    | ty::PredicateKind::Clause(ty::Clause::TypeOutlives(_))
+                    | ty::PredicateKind::WellFormed(_)
+                    | ty::PredicateKind::ObjectSafe(_)
+                    | ty::PredicateKind::ClosureKind(..)
+                    | ty::PredicateKind::Subtype(_)
+                    | ty::PredicateKind::Coerce(_)
+                    | ty::PredicateKind::ConstEvaluatable(..)
+                    | ty::PredicateKind::ConstEquate(..) => {
+                        let pred =
+                            ty::Binder::dummy(infcx.replace_bound_vars_with_placeholders(binder));
+                        ProcessResult::Changed(mk_pending(vec![obligation.with(infcx.tcx, pred)]))
+                    }
+                    ty::PredicateKind::Ambiguous => ProcessResult::Unchanged,
+                    ty::PredicateKind::TypeWellFormedFromEnv(..) => {
+                        bug!("TypeWellFormedFromEnv is only used for Chalk")
+                    }
                 }
             },
-            Some(pred) => match pred {
-                ty::PredicateKind::Clause(ty::Clause::Trait(data)) => {
-                    let trait_obligation = obligation.with(infcx.tcx, Binder::dummy(data));
+            Some(pred) => {
+                info!("Contains NO bound vars at all");
+                match pred {
+                    ty::PredicateKind::Clause(ty::Clause::Trait(data)) => {
+                        info!("Clause trait obligation: {:?}", data);
+                        let trait_obligation = obligation.with(infcx.tcx, Binder::dummy(data));
 
-                    self.process_trait_obligation(
-                        obligation,
-                        trait_obligation,
-                        &mut pending_obligation.stalled_on,
-                    )
-                }
-
-                ty::PredicateKind::Clause(ty::Clause::RegionOutlives(data)) => {
-                    if infcx.considering_regions {
-                        infcx.region_outlives_predicate(&obligation.cause, Binder::dummy(data));
+                        self.process_trait_obligation(
+                            obligation,
+                            trait_obligation,
+                            &mut pending_obligation.stalled_on,
+                        )
                     }
 
-                    ProcessResult::Changed(vec![])
-                }
+                    ty::PredicateKind::Clause(ty::Clause::RegionOutlives(data)) => {
+                        if infcx.considering_regions {
+                            infcx.region_outlives_predicate(&obligation.cause, Binder::dummy(data));
+                        }
 
-                ty::PredicateKind::Clause(ty::Clause::TypeOutlives(ty::OutlivesPredicate(
-                    t_a,
-                    r_b,
-                ))) => {
-                    if infcx.considering_regions {
-                        infcx.register_region_obligation_with_cause(t_a, r_b, &obligation.cause);
-                    }
-                    ProcessResult::Changed(vec![])
-                }
-
-                ty::PredicateKind::Clause(ty::Clause::Projection(ref data)) => {
-                    let project_obligation = obligation.with(infcx.tcx, Binder::dummy(*data));
-
-                    self.process_projection_obligation(
-                        obligation,
-                        project_obligation,
-                        &mut pending_obligation.stalled_on,
-                    )
-                }
-
-                ty::PredicateKind::ObjectSafe(trait_def_id) => {
-                    if !self.selcx.tcx().is_object_safe(trait_def_id) {
-                        ProcessResult::Error(CodeSelectionError(Unimplemented))
-                    } else {
                         ProcessResult::Changed(vec![])
                     }
-                }
 
-                ty::PredicateKind::ClosureKind(_, closure_substs, kind) => {
-                    match self.selcx.infcx.closure_kind(closure_substs) {
-                        Some(closure_kind) => {
-                            if closure_kind.extends(kind) {
-                                ProcessResult::Changed(vec![])
-                            } else {
-                                ProcessResult::Error(CodeSelectionError(Unimplemented))
-                            }
+                    ty::PredicateKind::Clause(ty::Clause::TypeOutlives(ty::OutlivesPredicate(
+                                                                           t_a,
+                                                                           r_b,
+                                                                       ))) => {
+                        if infcx.considering_regions {
+                            infcx.register_region_obligation_with_cause(t_a, r_b, &obligation.cause);
                         }
-                        None => ProcessResult::Unchanged,
-                    }
-                }
-
-                ty::PredicateKind::WellFormed(arg) => {
-                    match wf::obligations(
-                        self.selcx.infcx,
-                        obligation.param_env,
-                        obligation.cause.body_id,
-                        obligation.recursion_depth + 1,
-                        arg,
-                        obligation.cause.span,
-                    ) {
-                        None => {
-                            pending_obligation.stalled_on =
-                                vec![TyOrConstInferVar::maybe_from_generic_arg(arg).unwrap()];
-                            ProcessResult::Unchanged
-                        }
-                        Some(os) => ProcessResult::Changed(mk_pending(os)),
-                    }
-                }
-
-                ty::PredicateKind::Subtype(subtype) => {
-                    match self.selcx.infcx.subtype_predicate(
-                        &obligation.cause,
-                        obligation.param_env,
-                        Binder::dummy(subtype),
-                    ) {
-                        Err((a, b)) => {
-                            // None means that both are unresolved.
-                            pending_obligation.stalled_on =
-                                vec![TyOrConstInferVar::Ty(a), TyOrConstInferVar::Ty(b)];
-                            ProcessResult::Unchanged
-                        }
-                        Ok(Ok(ok)) => ProcessResult::Changed(mk_pending(ok.obligations)),
-                        Ok(Err(err)) => {
-                            let expected_found =
-                                ExpectedFound::new(subtype.a_is_expected, subtype.a, subtype.b);
-                            ProcessResult::Error(FulfillmentErrorCode::CodeSubtypeError(
-                                expected_found,
-                                err,
-                            ))
-                        }
-                    }
-                }
-
-                ty::PredicateKind::Coerce(coerce) => {
-                    match self.selcx.infcx.coerce_predicate(
-                        &obligation.cause,
-                        obligation.param_env,
-                        Binder::dummy(coerce),
-                    ) {
-                        Err((a, b)) => {
-                            // None means that both are unresolved.
-                            pending_obligation.stalled_on =
-                                vec![TyOrConstInferVar::Ty(a), TyOrConstInferVar::Ty(b)];
-                            ProcessResult::Unchanged
-                        }
-                        Ok(Ok(ok)) => ProcessResult::Changed(mk_pending(ok.obligations)),
-                        Ok(Err(err)) => {
-                            let expected_found = ExpectedFound::new(false, coerce.a, coerce.b);
-                            ProcessResult::Error(FulfillmentErrorCode::CodeSubtypeError(
-                                expected_found,
-                                err,
-                            ))
-                        }
-                    }
-                }
-
-                ty::PredicateKind::ConstEvaluatable(uv) => {
-                    match const_evaluatable::is_const_evaluatable(
-                        self.selcx.infcx,
-                        uv,
-                        obligation.param_env,
-                        obligation.cause.span,
-                    ) {
-                        Ok(()) => ProcessResult::Changed(vec![]),
-                        Err(NotConstEvaluatable::MentionsInfer) => {
-                            pending_obligation.stalled_on.clear();
-                            pending_obligation.stalled_on.extend(
-                                uv.walk().filter_map(TyOrConstInferVar::maybe_from_generic_arg),
-                            );
-                            ProcessResult::Unchanged
-                        }
-                        Err(
-                            e @ NotConstEvaluatable::MentionsParam
-                            | e @ NotConstEvaluatable::Error(_),
-                        ) => ProcessResult::Error(CodeSelectionError(
-                            SelectionError::NotConstEvaluatable(e),
-                        )),
-                    }
-                }
-
-                ty::PredicateKind::ConstEquate(c1, c2) => {
-                    let tcx = self.selcx.tcx();
-                    assert!(
-                        tcx.features().generic_const_exprs,
-                        "`ConstEquate` without a feature gate: {c1:?} {c2:?}",
-                    );
-                    // FIXME: we probably should only try to unify abstract constants
-                    // if the constants depend on generic parameters.
-                    //
-                    // Let's just see where this breaks :shrug:
-                    {
-                        let c1 = tcx.expand_abstract_consts(c1);
-                        let c2 = tcx.expand_abstract_consts(c2);
-                        debug!("equating consts:\nc1= {:?}\nc2= {:?}", c1, c2);
-
-                        use rustc_hir::def::DefKind;
-                        use ty::ConstKind::Unevaluated;
-                        match (c1.kind(), c2.kind()) {
-                            (Unevaluated(a), Unevaluated(b))
-                                if a.def.did == b.def.did
-                                    && tcx.def_kind(a.def.did) == DefKind::AssocConst =>
-                            {
-                                if let Ok(new_obligations) = infcx
-                                    .at(&obligation.cause, obligation.param_env)
-                                    .trace(c1, c2)
-                                    .eq(a.substs, b.substs)
-                                {
-                                    return ProcessResult::Changed(mk_pending(
-                                        new_obligations.into_obligations(),
-                                    ));
-                                }
-                            }
-                            (_, Unevaluated(_)) | (Unevaluated(_), _) => (),
-                            (_, _) => {
-                                if let Ok(new_obligations) =
-                                    infcx.at(&obligation.cause, obligation.param_env).eq(c1, c2)
-                                {
-                                    return ProcessResult::Changed(mk_pending(
-                                        new_obligations.into_obligations(),
-                                    ));
-                                }
-                            }
-                        }
+                        ProcessResult::Changed(vec![])
                     }
 
-                    let stalled_on = &mut pending_obligation.stalled_on;
+                    ty::PredicateKind::Clause(ty::Clause::Projection(ref data)) => {
+                        let project_obligation = obligation.with(infcx.tcx, Binder::dummy(*data));
 
-                    let mut evaluate = |c: Const<'tcx>| {
-                        if let ty::ConstKind::Unevaluated(unevaluated) = c.kind() {
-                            match self.selcx.infcx.try_const_eval_resolve(
-                                obligation.param_env,
-                                unevaluated,
-                                c.ty(),
-                                Some(obligation.cause.span),
-                            ) {
-                                Ok(val) => Ok(val),
-                                Err(e) => match e {
-                                    ErrorHandled::TooGeneric => {
-                                        stalled_on.extend(
-                                            unevaluated.substs.iter().filter_map(
-                                                TyOrConstInferVar::maybe_from_generic_arg,
-                                            ),
-                                        );
-                                        Err(ErrorHandled::TooGeneric)
-                                    }
-                                    _ => Err(e),
-                                },
-                            }
+                        self.process_projection_obligation(
+                            obligation,
+                            project_obligation,
+                            &mut pending_obligation.stalled_on,
+                        )
+                    }
+
+                    ty::PredicateKind::ObjectSafe(trait_def_id) => {
+                        if !self.selcx.tcx().is_object_safe(trait_def_id) {
+                            ProcessResult::Error(CodeSelectionError(Unimplemented))
                         } else {
-                            Ok(c)
+                            ProcessResult::Changed(vec![])
                         }
-                    };
+                    }
 
-                    match (evaluate(c1), evaluate(c2)) {
-                        (Ok(c1), Ok(c2)) => {
-                            match self
-                                .selcx
-                                .infcx
-                                .at(&obligation.cause, obligation.param_env)
-                                .eq(c1, c2)
-                            {
-                                Ok(inf_ok) => {
-                                    ProcessResult::Changed(mk_pending(inf_ok.into_obligations()))
+                    ty::PredicateKind::ClosureKind(_, closure_substs, kind) => {
+                        match self.selcx.infcx.closure_kind(closure_substs) {
+                            Some(closure_kind) => {
+                                if closure_kind.extends(kind) {
+                                    ProcessResult::Changed(vec![])
+                                } else {
+                                    ProcessResult::Error(CodeSelectionError(Unimplemented))
                                 }
-                                Err(err) => ProcessResult::Error(
-                                    FulfillmentErrorCode::CodeConstEquateError(
-                                        ExpectedFound::new(true, c1, c2),
-                                        err,
-                                    ),
-                                ),
                             }
+                            None => ProcessResult::Unchanged,
                         }
-                        (Err(ErrorHandled::Reported(reported)), _)
-                        | (_, Err(ErrorHandled::Reported(reported))) => ProcessResult::Error(
-                            CodeSelectionError(SelectionError::NotConstEvaluatable(
-                                NotConstEvaluatable::Error(reported),
-                            )),
-                        ),
-                        (Err(ErrorHandled::TooGeneric), _) | (_, Err(ErrorHandled::TooGeneric)) => {
-                            if c1.has_non_region_infer() || c2.has_non_region_infer() {
+                    }
+
+                    ty::PredicateKind::WellFormed(arg) => {
+                        match wf::obligations(
+                            self.selcx.infcx,
+                            obligation.param_env,
+                            obligation.cause.body_id,
+                            obligation.recursion_depth + 1,
+                            arg,
+                            obligation.cause.span,
+                        ) {
+                            None => {
+                                pending_obligation.stalled_on =
+                                    vec![TyOrConstInferVar::maybe_from_generic_arg(arg).unwrap()];
                                 ProcessResult::Unchanged
-                            } else {
-                                // Two different constants using generic parameters ~> error.
-                                let expected_found = ExpectedFound::new(true, c1, c2);
-                                ProcessResult::Error(FulfillmentErrorCode::CodeConstEquateError(
+                            }
+                            Some(os) => ProcessResult::Changed(mk_pending(os)),
+                        }
+                    }
+
+                    ty::PredicateKind::Subtype(subtype) => {
+                        match self.selcx.infcx.subtype_predicate(
+                            &obligation.cause,
+                            obligation.param_env,
+                            Binder::dummy(subtype),
+                        ) {
+                            Err((a, b)) => {
+                                // None means that both are unresolved.
+                                pending_obligation.stalled_on =
+                                    vec![TyOrConstInferVar::Ty(a), TyOrConstInferVar::Ty(b)];
+                                ProcessResult::Unchanged
+                            }
+                            Ok(Ok(ok)) => ProcessResult::Changed(mk_pending(ok.obligations)),
+                            Ok(Err(err)) => {
+                                let expected_found =
+                                    ExpectedFound::new(subtype.a_is_expected, subtype.a, subtype.b);
+                                ProcessResult::Error(FulfillmentErrorCode::CodeSubtypeError(
                                     expected_found,
-                                    TypeError::ConstMismatch(expected_found),
+                                    err,
                                 ))
                             }
                         }
                     }
-                }
-                ty::PredicateKind::Ambiguous => ProcessResult::Unchanged,
-                ty::PredicateKind::TypeWellFormedFromEnv(..) => {
-                    bug!("TypeWellFormedFromEnv is only used for Chalk")
+
+                    ty::PredicateKind::Coerce(coerce) => {
+                        match self.selcx.infcx.coerce_predicate(
+                            &obligation.cause,
+                            obligation.param_env,
+                            Binder::dummy(coerce),
+                        ) {
+                            Err((a, b)) => {
+                                // None means that both are unresolved.
+                                pending_obligation.stalled_on =
+                                    vec![TyOrConstInferVar::Ty(a), TyOrConstInferVar::Ty(b)];
+                                ProcessResult::Unchanged
+                            }
+                            Ok(Ok(ok)) => ProcessResult::Changed(mk_pending(ok.obligations)),
+                            Ok(Err(err)) => {
+                                let expected_found = ExpectedFound::new(false, coerce.a, coerce.b);
+                                ProcessResult::Error(FulfillmentErrorCode::CodeSubtypeError(
+                                    expected_found,
+                                    err,
+                                ))
+                            }
+                        }
+                    }
+
+                    ty::PredicateKind::ConstEvaluatable(uv) => {
+                        match const_evaluatable::is_const_evaluatable(
+                            self.selcx.infcx,
+                            uv,
+                            obligation.param_env,
+                            obligation.cause.span,
+                        ) {
+                            Ok(()) => ProcessResult::Changed(vec![]),
+                            Err(NotConstEvaluatable::MentionsInfer) => {
+                                pending_obligation.stalled_on.clear();
+                                pending_obligation.stalled_on.extend(
+                                    uv.walk().filter_map(TyOrConstInferVar::maybe_from_generic_arg),
+                                );
+                                ProcessResult::Unchanged
+                            }
+                            Err(
+                                e @ NotConstEvaluatable::MentionsParam
+                                | e @ NotConstEvaluatable::Error(_),
+                            ) => ProcessResult::Error(CodeSelectionError(
+                                SelectionError::NotConstEvaluatable(e),
+                            )),
+                        }
+                    }
+
+                    ty::PredicateKind::ConstEquate(c1, c2) => {
+                        let tcx = self.selcx.tcx();
+                        assert!(
+                            tcx.features().generic_const_exprs,
+                            "`ConstEquate` without a feature gate: {c1:?} {c2:?}",
+                        );
+                        // FIXME: we probably should only try to unify abstract constants
+                        // if the constants depend on generic parameters.
+                        //
+                        // Let's just see where this breaks :shrug:
+                        {
+                            let c1 = tcx.expand_abstract_consts(c1);
+                            let c2 = tcx.expand_abstract_consts(c2);
+                            debug!("equating consts:\nc1= {:?}\nc2= {:?}", c1, c2);
+
+                            use rustc_hir::def::DefKind;
+                            use ty::ConstKind::Unevaluated;
+                            match (c1.kind(), c2.kind()) {
+                                (Unevaluated(a), Unevaluated(b))
+                                if a.def.did == b.def.did
+                                    && tcx.def_kind(a.def.did) == DefKind::AssocConst =>
+                                    {
+                                        if let Ok(new_obligations) = infcx
+                                            .at(&obligation.cause, obligation.param_env)
+                                            .trace(c1, c2)
+                                            .eq(a.substs, b.substs)
+                                        {
+                                            return ProcessResult::Changed(mk_pending(
+                                                new_obligations.into_obligations(),
+                                            ));
+                                        }
+                                    }
+                                (_, Unevaluated(_)) | (Unevaluated(_), _) => (),
+                                (_, _) => {
+                                    if let Ok(new_obligations) =
+                                        infcx.at(&obligation.cause, obligation.param_env).eq(c1, c2)
+                                    {
+                                        return ProcessResult::Changed(mk_pending(
+                                            new_obligations.into_obligations(),
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+
+                        let stalled_on = &mut pending_obligation.stalled_on;
+
+                        let mut evaluate = |c: Const<'tcx>| {
+                            if let ty::ConstKind::Unevaluated(unevaluated) = c.kind() {
+                                match self.selcx.infcx.try_const_eval_resolve(
+                                    obligation.param_env,
+                                    unevaluated,
+                                    c.ty(),
+                                    Some(obligation.cause.span),
+                                ) {
+                                    Ok(val) => Ok(val),
+                                    Err(e) => match e {
+                                        ErrorHandled::TooGeneric => {
+                                            stalled_on.extend(
+                                                unevaluated.substs.iter().filter_map(
+                                                    TyOrConstInferVar::maybe_from_generic_arg,
+                                                ),
+                                            );
+                                            Err(ErrorHandled::TooGeneric)
+                                        }
+                                        _ => Err(e),
+                                    },
+                                }
+                            } else {
+                                Ok(c)
+                            }
+                        };
+
+                        match (evaluate(c1), evaluate(c2)) {
+                            (Ok(c1), Ok(c2)) => {
+                                match self
+                                    .selcx
+                                    .infcx
+                                    .at(&obligation.cause, obligation.param_env)
+                                    .eq(c1, c2)
+                                {
+                                    Ok(inf_ok) => {
+                                        ProcessResult::Changed(mk_pending(inf_ok.into_obligations()))
+                                    }
+                                    Err(err) => ProcessResult::Error(
+                                        FulfillmentErrorCode::CodeConstEquateError(
+                                            ExpectedFound::new(true, c1, c2),
+                                            err,
+                                        ),
+                                    ),
+                                }
+                            }
+                            (Err(ErrorHandled::Reported(reported)), _)
+                            | (_, Err(ErrorHandled::Reported(reported))) => ProcessResult::Error(
+                                CodeSelectionError(SelectionError::NotConstEvaluatable(
+                                    NotConstEvaluatable::Error(reported),
+                                )),
+                            ),
+                            (Err(ErrorHandled::TooGeneric), _) | (_, Err(ErrorHandled::TooGeneric)) => {
+                                if c1.has_non_region_infer() || c2.has_non_region_infer() {
+                                    ProcessResult::Unchanged
+                                } else {
+                                    // Two different constants using generic parameters ~> error.
+                                    let expected_found = ExpectedFound::new(true, c1, c2);
+                                    ProcessResult::Error(FulfillmentErrorCode::CodeConstEquateError(
+                                        expected_found,
+                                        TypeError::ConstMismatch(expected_found),
+                                    ))
+                                }
+                            }
+                        }
+                    }
+                    ty::PredicateKind::Ambiguous => ProcessResult::Unchanged,
+                    ty::PredicateKind::TypeWellFormedFromEnv(..) => {
+                        bug!("TypeWellFormedFromEnv is only used for Chalk")
+                    }
                 }
             },
         }
@@ -602,9 +617,11 @@ impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
     ) -> ProcessResult<PendingPredicateObligation<'tcx>, FulfillmentErrorCode<'tcx>> {
         let infcx = self.selcx.infcx;
         if obligation.predicate.is_global() {
+            info!("Predicate is global");
             // no type variables present, can use evaluation for better caching.
             // FIXME: consider caching errors too.
             if infcx.predicate_must_hold_considering_regions(obligation) {
+                info!("predicate_must_hold_considering_regions");
                 debug!(
                     "selecting trait at depth {} evaluated to holds",
                     obligation.recursion_depth
@@ -615,11 +632,11 @@ impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
 
         match self.selcx.select(&trait_obligation) {
             Ok(Some(impl_source)) => {
-                debug!("selecting trait at depth {} yielded Ok(Some)", obligation.recursion_depth);
+                info!("selecting trait at depth {} yielded Ok(Some)", obligation.recursion_depth);
                 ProcessResult::Changed(mk_pending(impl_source.nested_obligations()))
             }
             Ok(None) => {
-                debug!("selecting trait at depth {} yielded Ok(None)", obligation.recursion_depth);
+                info!("selecting trait at depth {} yielded Ok(None)", obligation.recursion_depth);
 
                 // This is a bit subtle: for the most part, the
                 // only reason we can fail to make progress on
@@ -631,7 +648,7 @@ impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
                     trait_obligation.predicate.map_bound(|pred| pred.trait_ref.substs),
                 ));
 
-                debug!(
+                info!(
                     "process_predicate: pending obligation {:?} now stalled on {:?}",
                     infcx.resolve_vars_if_possible(obligation.clone()),
                     stalled_on
@@ -640,7 +657,7 @@ impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
                 ProcessResult::Unchanged
             }
             Err(selection_err) => {
-                debug!("selecting trait at depth {} yielded Err", obligation.recursion_depth);
+                info!("selecting trait at depth {} yielded {:?}", obligation.recursion_depth, selection_err);
 
                 ProcessResult::Error(CodeSelectionError(selection_err))
             }
