@@ -44,7 +44,7 @@ use rustc_middle::ty::abstract_const::NotConstEvaluatable;
 use rustc_middle::ty::fast_reject::{DeepRejectCtxt, TreatParams};
 use rustc_middle::ty::fold::BottomUpFolder;
 use rustc_middle::ty::relate::TypeRelation;
-use rustc_middle::ty::SubstsRef;
+use rustc_middle::ty::{GenericArgKind, SubstsRef};
 use rustc_middle::ty::{self, EarlyBinder, PolyProjectionPredicate, ToPolyTraitRef, ToPredicate};
 use rustc_middle::ty::{Ty, TyCtxt, TypeFoldable, TypeVisitable};
 use rustc_span::symbol::sym;
@@ -1570,7 +1570,11 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                     info!(?pred.trait_ref.def_id);
                     let mut s = vec![];
                     for arg in pred.trait_ref.substs {
-                        s.push(format!("{:?}", arg.expect_ty().kind()));
+                        s.push(match arg.unpack() {
+                            GenericArgKind::Lifetime(_) => format!("{:?}", arg),
+                            GenericArgKind::Type(ty) => format!("{:?}", ty.kind()),
+                            GenericArgKind::Const(_) => format!("{:?}", arg),
+                        });
                     }
                     info!("substs: {}", s.join(", "));
                     // This may overwrite the cache with the same value.
