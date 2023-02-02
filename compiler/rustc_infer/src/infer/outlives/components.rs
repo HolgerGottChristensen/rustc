@@ -12,6 +12,8 @@ use smallvec::{smallvec, SmallVec};
 pub enum Component<'tcx> {
     Region(ty::Region<'tcx>),
     Param(ty::ParamTy),
+    // TODO muki change to HKTTy
+    HKT(ty::ParamTy),
     UnresolvedInferenceVariable(ty::InferTy),
 
     // Projections like `T::Foo` are tricky because a constraint like
@@ -123,8 +125,9 @@ fn compute_components<'tcx>(
                 out.push(Component::Param(p));
             }
 
-            ty::HKT(..) => {
-                todo!("hoch")
+            ty::HKT(p, ..) => {
+                out.push(Component::HKT(p));
+                // todo!("hoch")
             }
 
             // Ignore lifetimes found in opaque types. Opaque types can

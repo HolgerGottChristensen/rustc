@@ -79,6 +79,49 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
         }
     }
 
+    #[instrument(level = "debug", skip(self))]
+    pub fn hkt_bound(&self, hkt_ty: ty::ParamTy) -> VerifyBound<'tcx> {
+        // TODO muki ParamTy change
+        // Start with anything like `T: 'a` we can scrape from the
+        // environment. If the environment contains something like
+        // `for<'a> T: 'a`, then we know that `T` outlives everything.
+        let declared_bounds_from_env = self.declared_generic_bounds_from_env(hkt_ty);
+        debug!(?declared_bounds_from_env);
+        let mut hkt_bounds = vec![];
+        for declared_bound in declared_bounds_from_env {
+            let bound_region = declared_bound.map_bound(|outlives| outlives.1);
+            if let Some(region) = bound_region.no_bound_vars() {
+                // This is `T: 'a` for some free region `'a`.
+                hkt_bounds.push(VerifyBound::OutlivedBy(region));
+            } else {
+                // This is `for<'a> T: 'a`. This means that `T` outlives everything! All done here.
+                debug!("found that {hkt_ty:?} outlives any lifetime, returning empty vector");
+                return VerifyBound::AllBounds(vec![]);
+            }
+        }
+
+        // Add in the default bound of fn body that applies to all in
+        // scope type parameters:
+        if let Some(r) = self.implicit_region_bound {
+            debug!("adding implicit region bound of {r:?}");
+            hkt_bounds.push(VerifyBound::OutlivedBy(r));
+        }
+
+        if hkt_bounds.is_empty() {
+            // We know that all types `T` outlive `'empty`, so if we
+            // can find no other bound, then check that the region
+            // being tested is `'empty`.
+            VerifyBound::IsEmpty
+        } else if hkt_bounds.len() == 1 {
+            // Micro-opt: no need to store the vector if it's just len 1
+            hkt_bounds.pop().unwrap()
+        } else {
+            // If we can find any other bound `R` such that `T: R`, then
+            // we don't need to check for `'empty`, because `R: 'empty`.
+            VerifyBound::AnyBound(hkt_bounds)
+        }
+    }
+
     /// Given a projection like `T::Item`, searches the environment
     /// for where-clauses like `T::Item: 'a`. Returns the set of
     /// regions `'a` that it finds.
@@ -196,6 +239,9 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
                 // add a bound that never holds
                 VerifyBound::AnyBound(vec![])
             }
+            Component::HKT(_) => {
+                todo!("hoch")
+            }
         }
     }
 
@@ -209,6 +255,7 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
         &self,
         param_ty: ty::ParamTy,
     ) -> Vec<ty::Binder<'tcx, ty::OutlivesPredicate<Ty<'tcx>, ty::Region<'tcx>>>> {
+        // TODO muki make copy with HKTTy
         let generic_ty = param_ty.to_ty(self.tcx);
         self.declared_generic_bounds_from_env_for_erased_ty(generic_ty)
     }

@@ -270,6 +270,9 @@ impl<'tcx> Elaborator<'tcx> {
                                 // want to deal with escaping vars right now.
                                 None
                             }
+                            Component::HKT(_) => {
+                                todo!("hoch");
+                            }
                         })
                         .map(|predicate_kind| {
                             bound_predicate.rebind(predicate_kind).to_predicate(tcx)

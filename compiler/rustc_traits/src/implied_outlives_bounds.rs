@@ -171,6 +171,9 @@ fn implied_bounds_from_components<'tcx>(
                     None
                 }
                 Component::UnresolvedInferenceVariable(..) => None,
+                Component::HKT(_) => {
+                    todo!("hoch")
+                }
             }
         })
         .collect()

@@ -303,6 +303,9 @@ where
                         &format!("unresolved inference variable in outlives: {:?}", v),
                     );
                 }
+                Component::HKT(hkt_ty) => {
+                    self.hkt_ty_must_outlive(origin, region, *hkt_ty);
+                }
             }
         }
     }
@@ -320,6 +323,22 @@ where
 
         let generic = GenericKind::Param(param_ty);
         let verify_bound = self.verify_bound.param_bound(param_ty);
+        self.delegate.push_verify(origin, generic, region, verify_bound);
+    }
+
+    fn hkt_ty_must_outlive(
+        &mut self,
+        origin: infer::SubregionOrigin<'tcx>,
+        region: ty::Region<'tcx>,
+        hkt_ty: ty::ParamTy,
+    ) {
+        debug!(
+            "hkt_ty_must_outlive(region={:?}, hkt_ty={:?}, origin={:?})",
+            region, hkt_ty, origin
+        );
+
+        let generic = GenericKind::HKT(hkt_ty);
+        let verify_bound = self.verify_bound.hkt_bound(hkt_ty);
         self.delegate.push_verify(origin, generic, region, verify_bound);
     }
 

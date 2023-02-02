@@ -222,7 +222,9 @@ impl<'tcx> Generics {
                 }
                 GenericParamDefKind::Lifetime => {}
                 GenericParamDefKind::HKT => {
-                    todo!("hoch")
+                    // If we encounter a HKT we require monomorphization
+                    return true;
+                    //todo!("hoch")
                 }
             }
         }

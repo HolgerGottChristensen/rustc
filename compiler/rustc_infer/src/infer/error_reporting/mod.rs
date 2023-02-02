@@ -2184,6 +2184,7 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
             GenericKind::Opaque(def_id, substs) => {
                 format!("the opaque type `{}`", self.tcx.def_path_str_with_substs(def_id, substs))
             }
+            GenericKind::HKT(ref p) => format!("the hkt type `{}`", p),
         };
 
         if let Some(SubregionOrigin::CompareImplItemObligation {

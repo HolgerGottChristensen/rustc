@@ -169,6 +169,8 @@ pub struct Verify<'tcx> {
 #[derive(Copy, Clone, PartialEq, Eq, Hash, TypeFoldable, TypeVisitable)]
 pub enum GenericKind<'tcx> {
     Param(ty::ParamTy),
+    // TODO muki replace ParamTy
+    HKT(ty::ParamTy),
     Projection(ty::AliasTy<'tcx>),
     Opaque(DefId, SubstsRef<'tcx>),
 }
@@ -753,6 +755,7 @@ impl<'tcx> fmt::Debug for GenericKind<'tcx> {
             GenericKind::Opaque(def_id, substs) => ty::tls::with(|tcx| {
                 write!(f, "{}", tcx.def_path_str_with_substs(def_id, tcx.lift(substs).unwrap()))
             }),
+            GenericKind::HKT(ref p) => write!(f, "{:?}", p),
         }
     }
 }
@@ -765,6 +768,7 @@ impl<'tcx> fmt::Display for GenericKind<'tcx> {
             GenericKind::Opaque(def_id, substs) => ty::tls::with(|tcx| {
                 write!(f, "{}", tcx.def_path_str_with_substs(def_id, tcx.lift(substs).unwrap()))
             }),
+            GenericKind::HKT(ref p) => write!(f, "{}", p),
         }
     }
 }
@@ -775,6 +779,7 @@ impl<'tcx> GenericKind<'tcx> {
             GenericKind::Param(ref p) => p.to_ty(tcx),
             GenericKind::Projection(ref p) => tcx.mk_projection(p.def_id, p.substs),
             GenericKind::Opaque(def_id, substs) => tcx.mk_opaque(def_id, substs),
+            GenericKind::HKT(ref p) => p.to_ty(tcx),
         }
     }
 }
