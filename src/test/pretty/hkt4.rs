@@ -2,8 +2,8 @@
 // pretty-compare-only
 
 fn test<T, I<?J>>(input: I, input2: T, f: fn(&I, &T)) -> (I, T) {
-f(&input, &input2);
-(input, input2)
+    f(&input, &input2);
+    (input, input2)
 }
 
 //fn main() { let i = 1 + "hejsa"; }

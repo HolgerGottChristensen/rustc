@@ -12,7 +12,7 @@
 //trait Collection4<I<J>> {}
 
 fn test<I<?J, ?K>, L<?T>>(input: I, input2: L, f: fn(I, L)) {
-f(input, input2)
+    f(input, input2)
 }
 
 //fn main() { let i = 1 + "hejsa"; }
