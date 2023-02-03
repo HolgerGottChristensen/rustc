@@ -174,6 +174,10 @@ pub trait MutVisitor: Sized {
         noop_visit_lifetime(l, self);
     }
 
+    fn visit_hkt_var(&mut self, l: &mut HKTVar) {
+        noop_visit_hkt_var(l, self);
+    }
+
     fn visit_constraint(&mut self, t: &mut AssocConstraint) {
         noop_visit_constraint(t, self);
     }
@@ -549,6 +553,7 @@ pub fn noop_visit_generic_arg<T: MutVisitor>(arg: &mut GenericArg, vis: &mut T) 
         GenericArg::Lifetime(lt) => vis.visit_lifetime(lt),
         GenericArg::Type(ty) => vis.visit_ty(ty),
         GenericArg::Const(ct) => vis.visit_anon_const(ct),
+        GenericArg::HKTVar(v) => vis.visit_hkt_var(v)
     }
 }
 
@@ -907,6 +912,11 @@ pub fn noop_visit_label<T: MutVisitor>(Label { ident }: &mut Label, vis: &mut T)
 }
 
 fn noop_visit_lifetime<T: MutVisitor>(Lifetime { id, ident }: &mut Lifetime, vis: &mut T) {
+    vis.visit_id(id);
+    vis.visit_ident(ident);
+}
+
+fn noop_visit_hkt_var<T: MutVisitor>(HKTVar { id, ident }: &mut HKTVar, vis: &mut T) {
     vis.visit_id(id);
     vis.visit_ident(ident);
 }

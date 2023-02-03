@@ -27,6 +27,7 @@ pub enum CommentKind {
 pub enum BinOpToken {
     Plus,
     Minus,
+    /// *
     Star,
     Slash,
     Percent,
@@ -230,6 +231,7 @@ pub enum TokenKind {
     Gt,
     AndAnd,
     OrOr,
+    /// !
     Not,
     Tilde,
     BinOp(BinOpToken),
@@ -244,8 +246,11 @@ pub enum TokenKind {
     Comma,
     Semi,
     Colon,
+    /// ::
     ModSep,
+    /// ->
     RArrow,
+    /// <-
     LArrow,
     FatArrow,
     Pound,

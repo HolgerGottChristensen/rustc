@@ -254,6 +254,8 @@ impl<'a> Parser<'a> {
 
         let lo = self.token.span;
         let mut impl_dyn_multi = false;
+
+
         let kind = if self.check(&token::OpenDelim(Delimiter::Parenthesis)) {
             self.parse_ty_tuple_or_parens(lo, allow_plus)?
         } else if self.eat(&token::Not) {
@@ -300,8 +302,10 @@ impl<'a> Parser<'a> {
             // Qualified path
             let (qself, path) = self.parse_qpath(PathStyle::Type)?;
             TyKind::Path(Some(qself), path)
+
         } else if self.check_path() {
             self.parse_path_start_ty(lo, allow_plus, ty_generics)?
+
         } else if self.can_begin_bound() {
             self.parse_bare_trait_object(lo, allow_plus)?
         } else if self.eat(&token::DotDotDot) {

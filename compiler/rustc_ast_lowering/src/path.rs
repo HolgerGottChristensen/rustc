@@ -311,10 +311,12 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         param_mode: ParamMode,
         itctx: &ImplTraitContext,
     ) -> (GenericArgsCtor<'hir>, bool) {
-        let has_non_lt_args = data.args.iter().any(|arg| match arg {
+        let has_non_lifetime_args = data.args.iter().any(|arg| match arg {
             AngleBracketedArg::Arg(ast::GenericArg::Lifetime(_))
             | AngleBracketedArg::Constraint(_) => false,
-            AngleBracketedArg::Arg(ast::GenericArg::Type(_) | ast::GenericArg::Const(_)) => true,
+            AngleBracketedArg::Arg(ast::GenericArg::Type(_)
+            | ast::GenericArg::HKTVar(_)
+            | ast::GenericArg::Const(_)) => true,
         });
         let args = data
             .args
@@ -329,7 +331,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             AngleBracketedArg::Arg(_) => None,
         }));
         let ctor = GenericArgsCtor { args, bindings, parenthesized: false, span: data.span };
-        (ctor, !has_non_lt_args && param_mode == ParamMode::Optional)
+        (ctor, !has_non_lifetime_args && param_mode == ParamMode::Optional)
     }
 
     fn lower_parenthesized_parameter_data(

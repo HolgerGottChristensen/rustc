@@ -1017,6 +1017,9 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
             }
             GenericArg::Lifetime(lt) => self.visit_lifetime(lt, visit::LifetimeCtxt::GenericArg),
             GenericArg::Const(ct) => self.visit_anon_const(ct),
+            GenericArg::HKTVar(_v) => {
+                todo!("hoch")
+            }
         }
         self.diagnostic_metadata.currently_processing_generics = prev;
     }

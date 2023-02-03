@@ -163,6 +163,7 @@ impl PathSegment {
 #[derive(Clone, Encodable, Decodable, Debug)]
 pub enum GenericArgs {
     /// The `<'a, A, B, C>` in `foo::bar::baz::<'a, A, B, C>`.
+    /// or the `<'a, A, %j, C>` in `foo::bar::baz::<'a, A, %j, C>`.
     AngleBracketed(AngleBracketedArgs),
     /// The `(A, B)` and `C` in `Foo(A, B) -> C`.
     Parenthesized(ParenthesizedArgs),
@@ -181,6 +182,18 @@ impl GenericArgs {
     }
 }
 
+#[derive(Clone, Encodable, Decodable, Copy, PartialEq, Eq)]
+pub struct HKTVar {
+    pub id: NodeId,
+    pub ident: Ident,
+}
+
+impl fmt::Debug for HKTVar {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "hktvar({}: %{})", self.id, self.ident)
+    }
+}
+
 /// Concrete argument in the sequence of generic args.
 #[derive(Clone, Encodable, Decodable, Debug)]
 pub enum GenericArg {
@@ -190,6 +203,8 @@ pub enum GenericArg {
     Type(P<Ty>),
     /// `1` in `Foo<1>`
     Const(AnonConst),
+    /// %j in Foo<%j>
+    HKTVar(HKTVar)
 }
 
 impl GenericArg {
@@ -198,6 +213,7 @@ impl GenericArg {
             GenericArg::Lifetime(lt) => lt.ident.span,
             GenericArg::Type(ty) => ty.span,
             GenericArg::Const(ct) => ct.value.span,
+            GenericArg::HKTVar(v) => v.ident.span,
         }
     }
 }

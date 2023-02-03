@@ -1177,6 +1177,9 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 value: self.lower_anon_const(&ct),
                 span: self.lower_span(ct.value.span),
             }),
+            ast::GenericArg::HKTVar(_) => {
+                todo!("hoch")
+            }
         }
     }
 
