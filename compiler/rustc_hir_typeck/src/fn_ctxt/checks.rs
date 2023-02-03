@@ -1767,7 +1767,18 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         && matches(param_ty)
                     {
                         Some(arg)
-                    } else if let ty::GenericArgKind::Type(ty) = arg.unpack()
+                    } else {
+                        None
+                    }
+                })
+            })
+        };
+
+        let find_hkt_matching = |matches: &dyn Fn(&ty::HKTTy) -> bool| {
+            predicate_substs.types().find_map(|ty| {
+                ty.walk().find_map(|arg| {
+                    // TODO(hoch)
+                    if let ty::GenericArgKind::Type(ty) = arg.unpack()
                         && let ty::HKT(param_ty, ..) = ty.kind()
                         && matches(param_ty)
                     {
@@ -1785,11 +1796,20 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let mut param_to_point_at = find_param_matching(&|param_ty| {
             self.tcx.parent(generics.type_param(param_ty, self.tcx).def_id) == def_id
         });
+
+        let mut hkt_to_point_at = find_hkt_matching(&|hkt_ty| {
+            self.tcx.parent(generics.hkt_param(hkt_ty, self.tcx).def_id) == def_id
+        });
         // Fall back to generic that isn't local to the fn item. This will come
         // from a trait or impl, for example.
         let mut fallback_param_to_point_at = find_param_matching(&|param_ty| {
             self.tcx.parent(generics.type_param(param_ty, self.tcx).def_id) != def_id
                 && param_ty.name() != rustc_span::symbol::kw::SelfUpper
+        });
+
+        let mut fallback_hkt_to_point_at = find_hkt_matching(&|hkt_ty| {
+            self.tcx.parent(generics.hkt_param(hkt_ty, self.tcx).def_id) != def_id
+                && hkt_ty.name() != rustc_span::symbol::kw::SelfUpper
         });
         // Finally, the `Self` parameter is possibly the reason that the predicate
         // is unsatisfied. This is less likely to be true for methods, because
@@ -1798,13 +1818,20 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let mut self_param_to_point_at =
             find_param_matching(&|param_ty| param_ty.name() == rustc_span::symbol::kw::SelfUpper);
 
+        let mut self_hkt_to_point_at =
+            find_hkt_matching(&|hkt_ty| hkt_ty.name() == rustc_span::symbol::kw::SelfUpper);
+
         // Finally, for ambiguity-related errors, we actually want to look
         // for a parameter that is the source of the inference type left
         // over in this predicate.
         if let traits::FulfillmentErrorCode::CodeAmbiguity = error.code {
             fallback_param_to_point_at = None;
+            fallback_hkt_to_point_at = None;
             self_param_to_point_at = None;
+            self_hkt_to_point_at = None;
             param_to_point_at =
+                self.find_ambiguous_parameter_in(def_id, error.root_obligation.predicate);
+            hkt_to_point_at =
                 self.find_ambiguous_parameter_in(def_id, error.root_obligation.predicate);
         }
 
@@ -1827,7 +1854,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     }
 
                     for param in
-                        [param_to_point_at, fallback_param_to_point_at, self_param_to_point_at]
+                        [param_to_point_at, fallback_param_to_point_at, self_param_to_point_at,
+                            hkt_to_point_at, fallback_hkt_to_point_at, self_hkt_to_point_at]
                         .into_iter()
                         .flatten()
                     {
@@ -1855,9 +1883,16 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 {
                     return true;
                 }
+
+                if let Some(hkt_to_point_at) = hkt_to_point_at
+                    && self.point_at_path_if_possible(error, def_id, hkt_to_point_at, qpath)
+                {
+                    todo!("muki")
+                }
             }
             hir::ExprKind::MethodCall(segment, receiver, args, ..) => {
-                for param in [param_to_point_at, fallback_param_to_point_at, self_param_to_point_at]
+                for param in [param_to_point_at, fallback_param_to_point_at, self_param_to_point_at,
+                    hkt_to_point_at, fallback_hkt_to_point_at, self_hkt_to_point_at]
                     .into_iter()
                     .flatten()
                 {
@@ -1878,13 +1913,20 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 {
                     return true;
                 }
+
+                if let Some(hkt_to_point_at) = hkt_to_point_at
+                    && self.point_at_generic_if_possible(error, def_id, hkt_to_point_at, segment)
+                {
+                    todo!("muki")
+                }
             }
             hir::ExprKind::Struct(qpath, fields, ..) => {
                 if let Res::Def(DefKind::Struct | DefKind::Variant, variant_def_id) =
                     self.typeck_results.borrow().qpath_res(qpath, hir_id)
                 {
                     for param in
-                        [param_to_point_at, fallback_param_to_point_at, self_param_to_point_at]
+                        [param_to_point_at, fallback_param_to_point_at, self_param_to_point_at,
+                            hkt_to_point_at, fallback_hkt_to_point_at, self_hkt_to_point_at]
                     {
                         if let Some(param) = param
                             && self.point_at_field_if_possible(
@@ -1903,6 +1945,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     && self.point_at_path_if_possible(error, def_id, param_to_point_at, qpath)
                 {
                     return true;
+                }
+
+                if let Some(hkt_to_point_at) = hkt_to_point_at
+                    && self.point_at_path_if_possible(error, def_id, hkt_to_point_at, qpath)
+                {
+                    todo!("muki")
                 }
             }
             _ => {}

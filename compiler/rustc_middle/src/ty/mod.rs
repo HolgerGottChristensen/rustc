@@ -96,7 +96,7 @@ pub use self::sty::{
     BoundVariableKind, CanonicalPolyFnSig, ClosureSubsts, ClosureSubstsParts, ConstVid,
     EarlyBoundRegion, ExistentialPredicate, ExistentialProjection, ExistentialTraitRef, FnSig,
     FreeRegion, GenSig, GeneratorSubsts, GeneratorSubstsParts, InlineConstSubsts,
-    InlineConstSubstsParts, ParamConst, ParamTy, PolyExistentialPredicate,
+    InlineConstSubstsParts, ParamConst, ParamTy, HKTTy, PolyExistentialPredicate,
     PolyExistentialProjection, PolyExistentialTraitRef, PolyFnSig, PolyGenSig, PolyTraitRef,
     Region, RegionKind, RegionVid, TraitRef, TyKind, TypeAndMut, UpvarSubsts, VarianceDiagInfo,
 };

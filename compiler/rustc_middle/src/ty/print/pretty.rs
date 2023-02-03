@@ -2718,6 +2718,10 @@ define_print_and_forward_display! {
         p!(write("{}", self.name()))
     }
 
+    ty::HKTTy {
+        p!(write("{}", self.name()))
+    }
+
     ty::ParamConst {
         p!(write("{}", self.name))
     }

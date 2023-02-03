@@ -170,7 +170,7 @@ pub struct Verify<'tcx> {
 pub enum GenericKind<'tcx> {
     Param(ty::ParamTy),
     // TODO muki replace ParamTy
-    HKT(ty::ParamTy),
+    HKT(ty::HKTTy),
     Projection(ty::AliasTy<'tcx>),
     Opaque(DefId, SubstsRef<'tcx>),
 }

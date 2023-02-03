@@ -438,7 +438,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     },
                     GenericArgKind::Type(ty) => match ty.kind() {
                         ty::Param(ref pt) => !impl_generics.type_param(pt, self).pure_wrt_drop,
-                        ty::HKT(ref pt, _) => !impl_generics.type_param(pt, self).pure_wrt_drop,
+                        ty::HKT(ref pt, _) => !impl_generics.hkt_param(pt, self).pure_wrt_drop,
                         // Error: not a type param
                         _ => false,
                     },

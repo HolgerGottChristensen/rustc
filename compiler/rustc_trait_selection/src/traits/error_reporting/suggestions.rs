@@ -420,7 +420,7 @@ fn suggest_restriction<'tcx>(
         let trait_pred = trait_pred.fold_with(&mut ReplaceImplTraitFolder {
             tcx,
             param,
-            replace_ty: ty::ParamTy::new_param(generics.count() as u32, Symbol::intern(&type_param_name))
+            replace_ty: ty::ParamTy::new(generics.count() as u32, Symbol::intern(&type_param_name))
                 .to_ty(tcx),
         });
         // TODO: new_param or new_hkt
@@ -3766,8 +3766,8 @@ struct ReplaceImplTraitFolder<'tcx> {
 
 impl<'tcx> TypeFolder<'tcx> for ReplaceImplTraitFolder<'tcx> {
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
-        if let ty::Param(ty::ParamTy::Param { index, .. }) = t.kind() {
-            if self.param.index == *index {
+        if let ty::Param(param_ty) = t.kind() {
+            if self.param.index == param_ty.index() {
                 return self.replace_ty;
             }
         }

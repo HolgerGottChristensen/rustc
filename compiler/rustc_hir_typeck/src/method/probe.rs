@@ -683,7 +683,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 self.assemble_inherent_candidates_from_param(p);
             }
             ty::HKT(p, ..) => {
-                self.assemble_inherent_candidates_from_param(p);
+                self.assemble_inherent_candidates_from_hkt(p);
             }
             ty::Bool
             | ty::Char
@@ -824,7 +824,60 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                         ty::Param(p) if p == param_ty => {
                             Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }
-                        ty::HKT(p, ..) if p == param_ty => {
+                        _ => None,
+                    }
+                }
+                ty::PredicateKind::Subtype(..)
+                | ty::PredicateKind::Coerce(..)
+                | ty::PredicateKind::Clause(ty::Clause::Projection(..))
+                | ty::PredicateKind::Clause(ty::Clause::RegionOutlives(..))
+                | ty::PredicateKind::WellFormed(..)
+                | ty::PredicateKind::ObjectSafe(..)
+                | ty::PredicateKind::ClosureKind(..)
+                | ty::PredicateKind::Clause(ty::Clause::TypeOutlives(..))
+                | ty::PredicateKind::ConstEvaluatable(..)
+                | ty::PredicateKind::ConstEquate(..)
+                | ty::PredicateKind::Ambiguous
+                | ty::PredicateKind::TypeWellFormedFromEnv(..) => None,
+            }
+        });
+
+        self.elaborate_bounds(bounds, |this, poly_trait_ref, item| {
+            let trait_ref = this.erase_late_bound_regions(poly_trait_ref);
+
+            let (xform_self_ty, xform_ret_ty) =
+                this.xform_self_ty(&item, trait_ref.self_ty(), trait_ref.substs);
+
+            // Because this trait derives from a where-clause, it
+            // should not contain any inference variables or other
+            // artifacts. This means it is safe to put into the
+            // `WhereClauseCandidate` and (eventually) into the
+            // `WhereClausePick`.
+            assert!(!trait_ref.substs.needs_infer());
+
+            this.push_candidate(
+                Candidate {
+                    xform_self_ty,
+                    xform_ret_ty,
+                    item,
+                    kind: WhereClauseCandidate(poly_trait_ref),
+                    import_ids: smallvec![],
+                },
+                true,
+            );
+        });
+    }
+
+    fn assemble_inherent_candidates_from_hkt(&mut self, hkt_ty: ty::HKTTy) {
+        // FIXME: do we want to commit to this behavior for param bounds?
+        debug!("assemble_inherent_candidates_from_param(param_ty={:?})", hkt_ty);
+
+        let bounds = self.param_env.caller_bounds().iter().filter_map(|predicate| {
+            let bound_predicate = predicate.kind();
+            match bound_predicate.skip_binder() {
+                ty::PredicateKind::Clause(ty::Clause::Trait(trait_predicate)) => {
+                    match *trait_predicate.trait_ref.self_ty().kind() {
+                        ty::HKT(p, ..) if p == hkt_ty => {
                             // TODO(hoch)
                             Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }

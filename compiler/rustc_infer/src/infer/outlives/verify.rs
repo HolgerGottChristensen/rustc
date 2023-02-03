@@ -80,12 +80,12 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
     }
 
     #[instrument(level = "debug", skip(self))]
-    pub fn hkt_bound(&self, hkt_ty: ty::ParamTy) -> VerifyBound<'tcx> {
+    pub fn hkt_bound(&self, hkt_ty: ty::HKTTy) -> VerifyBound<'tcx> {
         // TODO muki ParamTy change
         // Start with anything like `T: 'a` we can scrape from the
         // environment. If the environment contains something like
         // `for<'a> T: 'a`, then we know that `T` outlives everything.
-        let declared_bounds_from_env = self.declared_generic_bounds_from_env(hkt_ty);
+        let declared_bounds_from_env = self.declared_generic_hkt_bounds_from_env(hkt_ty);
         debug!(?declared_bounds_from_env);
         let mut hkt_bounds = vec![];
         for declared_bound in declared_bounds_from_env {
@@ -254,6 +254,16 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
     fn declared_generic_bounds_from_env(
         &self,
         param_ty: ty::ParamTy,
+    ) -> Vec<ty::Binder<'tcx, ty::OutlivesPredicate<Ty<'tcx>, ty::Region<'tcx>>>> {
+        // TODO muki make copy with HKTTy
+        let generic_ty = param_ty.to_ty(self.tcx);
+        self.declared_generic_bounds_from_env_for_erased_ty(generic_ty)
+    }
+
+    // TODO: probably create a trait for to_ty to avoid duplication
+    fn declared_generic_hkt_bounds_from_env(
+        &self,
+        param_ty: ty::HKTTy,
     ) -> Vec<ty::Binder<'tcx, ty::OutlivesPredicate<Ty<'tcx>, ty::Region<'tcx>>>> {
         // TODO muki make copy with HKTTy
         let generic_ty = param_ty.to_ty(self.tcx);

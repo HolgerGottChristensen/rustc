@@ -330,7 +330,7 @@ where
         &mut self,
         origin: infer::SubregionOrigin<'tcx>,
         region: ty::Region<'tcx>,
-        hkt_ty: ty::ParamTy,
+        hkt_ty: ty::HKTTy,
     ) {
         debug!(
             "hkt_ty_must_outlive(region={:?}, hkt_ty={:?}, origin={:?})",

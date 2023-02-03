@@ -13,7 +13,7 @@ pub enum Component<'tcx> {
     Region(ty::Region<'tcx>),
     Param(ty::ParamTy),
     // TODO muki change to HKTTy
-    HKT(ty::ParamTy),
+    HKT(ty::HKTTy),
     UnresolvedInferenceVariable(ty::InferTy),
 
     // Projections like `T::Foo` are tricky because a constraint like

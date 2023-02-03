@@ -1289,7 +1289,7 @@ impl<'tcx> PolyFnSig<'tcx> {
 
 pub type CanonicalPolyFnSig<'tcx> = Canonical<'tcx, Binder<'tcx, FnSig<'tcx>>>;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
+/*#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
 #[derive(HashStable)]
 pub enum ParamTy {
     Param {
@@ -1300,15 +1300,25 @@ pub enum ParamTy {
         index: u32,
         name: Symbol,
     }
+}*/
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
+#[derive(HashStable)]
+pub struct ParamTy {
+    index: u32,
+    name: Symbol,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
+#[derive(HashStable)]
+pub struct HKTTy {
+    index: u32,
+    name: Symbol,
 }
 
 impl<'tcx> ParamTy {
-    pub fn new_param(index: u32, name: Symbol) -> ParamTy {
-        ParamTy::Param { index, name }
-    }
-
-    pub fn new_hkt(index: u32, name: Symbol) -> ParamTy {
-        ParamTy::HKT { index, name }
+    pub fn new(index: u32, name: Symbol) -> ParamTy {
+        ParamTy { index, name }
     }
 
     pub fn for_def(def: &ty::GenericParamDef) -> ParamTy {
@@ -1316,49 +1326,80 @@ impl<'tcx> ParamTy {
             GenericParamDefKind::Lifetime |
             GenericParamDefKind::Type { .. } |
             GenericParamDefKind::Const { .. } => {
-                ParamTy::new_param(def.index, def.name)
+                ParamTy::new(def.index, def.name)
             }
             GenericParamDefKind::HKT => {
-                ParamTy::new_hkt(def.index, def.name)
+                bug!("Do not convert HKT to other types. Use HKT instead.");
             }
         }
     }
 
     #[inline]
     pub fn to_ty(self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
+        tcx.mk_ty_param(self.index, self.name)
+        /*
         match self {
             ParamTy::Param { index, name } => tcx.mk_ty_param(index, name),
             ParamTy::HKT { index, name } => tcx.mk_hkt_param(index, name, tcx.intern_substs(&[]))
         }
+
+         */
     }
 
     #[inline]
     pub fn index(&self) -> u32 {
-        match *self {
-            ParamTy::Param { index, .. } => {
-                index
-            }
-            ParamTy::HKT { index, .. } => {
-                index
-            }
-        }
+        self.index
     }
 
     #[inline]
     pub fn name(&self) -> Symbol {
-        match *self {
-            ParamTy::Param { name, .. } => {
-                name
-            }
-            ParamTy::HKT { name, .. } => {
-                name
-            }
-        }
+        self.name
     }
 
     pub fn span_from_generics(&self, tcx: TyCtxt<'tcx>, item_with_generics: DefId) -> Span {
         let generics = tcx.generics_of(item_with_generics);
         let type_param = generics.type_param(self, tcx);
+        tcx.def_span(type_param.def_id)
+    }
+}
+
+impl<'tcx> HKTTy {
+
+    pub fn new(index: u32, name: Symbol) -> HKTTy {
+        HKTTy { index, name }
+    }
+
+    pub fn for_def(def: &ty::GenericParamDef) -> ParamTy {
+        match def.kind {
+            GenericParamDefKind::Lifetime |
+            GenericParamDefKind::Type { .. } |
+            GenericParamDefKind::Const { .. } => {
+                bug!("Do not convert other types to HKT. Use Lifetime, Type or Const instead.")
+            }
+            GenericParamDefKind::HKT => {
+                ParamTy::new(def.index, def.name)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn to_ty(self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
+        tcx.mk_hkt_param(self.index, self.name, tcx.intern_substs(&[]))
+    }
+
+    #[inline]
+    pub fn index(&self) -> u32 {
+        self.index
+    }
+
+    #[inline]
+    pub fn name(&self) -> Symbol {
+        self.name
+    }
+
+    pub fn span_from_generics(&self, tcx: TyCtxt<'tcx>, item_with_generics: DefId) -> Span {
+        let generics = tcx.generics_of(item_with_generics);
+        let type_param = generics.hkt_param(self, tcx);
         tcx.def_span(type_param.def_id)
     }
 }

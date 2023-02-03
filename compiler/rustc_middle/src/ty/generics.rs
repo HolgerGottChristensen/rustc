@@ -3,6 +3,7 @@ use crate::ty::{EarlyBinder, SubstsRef};
 use rustc_ast as ast;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::def_id::DefId;
+use rustc_middle::ty::HKTTy;
 use rustc_span::symbol::{kw, Symbol};
 use rustc_span::Span;
 
@@ -269,6 +270,15 @@ impl<'tcx> Generics {
         match param.kind {
             GenericParamDefKind::Type { .. } => param,
             _ => bug!("expected type parameter, but found another generic parameter"),
+        }
+    }
+
+    /// Returns the `GenericParamDef` associated with this `HKTTy`.
+    pub fn hkt_param(&'tcx self, param: &HKTTy, tcx: TyCtxt<'tcx>) -> &'tcx GenericParamDef {
+        let param = self.param_at(param.index() as usize, tcx);
+        match param.kind {
+            GenericParamDefKind::HKT { .. } => param,
+            _ => bug!("expected hkt parameter, but found another generic parameter"),
         }
     }
 

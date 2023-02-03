@@ -790,7 +790,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
 
         match *t.kind() {
             ty::Param(p) => self.ty_for_param(p, t),
-            ty::HKT(p, ..) => self.ty_for_param(p, t),
+            ty::HKT(p, ..) => self.hkt_for_param(p, t),
             _ => t.super_fold_with(self),
         }
     }
@@ -815,6 +815,11 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
         };
 
         self.shift_vars_through_binders(ty)
+    }
+
+    fn hkt_for_param(&self, _p: ty::HKTTy, _source_ty: Ty<'tcx>) -> Ty<'tcx> {
+        // Look up the type in the substitutions. It really should be in there.
+        todo!("muki")
     }
 
     #[cold]

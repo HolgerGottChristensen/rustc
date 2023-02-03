@@ -75,6 +75,7 @@ use std::iter;
 use std::mem;
 use std::ops::{Bound, Deref};
 use std::sync::Arc;
+use rustc_middle::ty::sty::HKTTy;
 
 pub trait OnDiskCache<'tcx>: rustc_data_structures::sync::Sync {
     /// Creates a new `OnDiskCache` instance from the serialized data in `data`.
@@ -108,6 +109,7 @@ impl<'tcx> Interner for TyCtxt<'tcx> {
     type ListTy = &'tcx List<Ty<'tcx>>;
     type AliasTy = ty::AliasTy<'tcx>;
     type ParamTy = ParamTy;
+    type HKTTy = HKTTy;
     type BoundTy = ty::BoundTy;
     type PlaceholderType = ty::PlaceholderType;
     type InferTy = InferTy;
@@ -303,7 +305,8 @@ impl<'tcx> CommonTypes<'tcx> {
             f32: mk(Float(ty::FloatTy::F32)),
             f64: mk(Float(ty::FloatTy::F64)),
             str_: mk(Str),
-            self_param: mk(ty::Param(ty::ParamTy::Param { index: 0, name: kw::SelfUpper })),
+            //self_param: mk(ty::Param(ty::ParamTy::Param { index: 0, name: kw::SelfUpper })),
+            self_param: mk(ty::Param(ty::ParamTy::new(0, kw::SelfUpper))),
 
             trait_object_dummy_self: mk(Infer(ty::FreshTy(0))),
         }
@@ -1998,12 +2001,12 @@ impl<'tcx> TyCtxt<'tcx> {
 
     #[inline]
     pub fn mk_ty_param(self, index: u32, name: Symbol) -> Ty<'tcx> {
-        self.mk_ty(Param(ParamTy::Param { index, name }))
+        self.mk_ty(Param(ParamTy::new(index, name)))
     }
 
     #[inline]
     pub fn mk_hkt_param(self, index: u32, name: Symbol, subst: SubstsRef<'tcx>) -> Ty<'tcx> {
-        self.mk_ty(HKT(ParamTy::HKT { index, name }, subst))
+        self.mk_ty(HKT(HKTTy::new(index, name), subst))
     }
 
     pub fn mk_param_from_def(self, param: &ty::GenericParamDef) -> GenericArg<'tcx> {

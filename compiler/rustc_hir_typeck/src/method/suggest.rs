@@ -2378,10 +2378,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
             let param_type = match rcvr_ty.kind() {
                 ty::Param(param) => Some(param),
-                ty::HKT(param, ..) => Some(param),
+                ty::HKT(_param, ..) => {
+                    todo!("muki")
+                },
                 ty::Ref(_, ty, _) => match ty.kind() {
                     ty::Param(param) => Some(param),
-                    ty::HKT(param, ..) => Some(param),
+                    ty::HKT(_param, ..) => {
+                        todo!("muki")
+                    },
                     _ => None,
                 },
                 _ => None,
