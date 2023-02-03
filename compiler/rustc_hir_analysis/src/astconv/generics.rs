@@ -441,7 +441,8 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
             })
             .count();
         let named_type_param_count =
-            param_counts.types - has_self as usize - synth_type_param_count;
+            param_counts.types + param_counts.hkts - has_self as usize - synth_type_param_count;
+
         let infer_lifetimes =
             (gen_pos != GenericArgPosition::Type || infer_args) && !gen_args.has_lifetime_params();
 
