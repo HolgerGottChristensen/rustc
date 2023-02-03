@@ -817,9 +817,17 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
         self.shift_vars_through_binders(ty)
     }
 
-    fn hkt_for_param(&self, _p: ty::HKTTy, _source_ty: Ty<'tcx>) -> Ty<'tcx> {
+    fn hkt_for_param(&self, p: ty::HKTTy, source_ty: Ty<'tcx>) -> Ty<'tcx> {
         // Look up the type in the substitutions. It really should be in there.
-        todo!("muki")
+        let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
+                let ty = match opt_ty {
+                    //TODO:muki, need a genericArgKind::HKT
+                    Some(GenericArgKind::Type(ty)) => ty,
+                    Some(kind) => self.hkt_param_expected(p, source_ty, kind),
+                    None => self.hkt_param_out_of_range(p, source_ty),
+                };
+
+                self.shift_vars_through_binders(ty)
     }
 
     #[cold]
@@ -838,6 +846,31 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
     #[cold]
     #[inline(never)]
     fn type_param_out_of_range(&self, p: ty::ParamTy, ty: Ty<'tcx>) -> ! {
+        bug!(
+            "type parameter `{:?}` ({:?}/{}) out of range when substituting, substs={:?}",
+            p,
+            ty,
+            p.index(),
+            self.substs,
+        )
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn hkt_param_expected(&self, p: ty::HKTTy, ty: Ty<'tcx>, kind: GenericArgKind<'tcx>) -> ! {
+        bug!(
+            "expected type for `{:?}` ({:?}/{}) but found {:?} when substituting, substs={:?}",
+            p,
+            ty,
+            p.index(),
+            kind,
+            self.substs,
+        )
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn hkt_param_out_of_range(&self, p: ty::HKTTy, ty: Ty<'tcx>) -> ! {
         bug!(
             "type parameter `{:?}` ({:?}/{}) out of range when substituting, substs={:?}",
             p,
