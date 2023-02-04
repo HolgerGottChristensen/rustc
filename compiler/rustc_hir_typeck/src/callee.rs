@@ -357,6 +357,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         false
     }
 
+    #[instrument(level = "debug", skip(self, call_expr, callee_expr, callee_ty, arg_exprs, expected))]
     fn confirm_builtin_call(
         &self,
         call_expr: &'tcx hir::Expr<'tcx>,
@@ -365,6 +366,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         arg_exprs: &'tcx [hir::Expr<'tcx>],
         expected: Expectation<'tcx>,
     ) -> Ty<'tcx> {
+
+        warn!("Call expr: {:#?}", call_expr);
+        warn!("Callee expr: {:#?}", callee_expr);
+        warn!("Callee type kind: {:#?}", callee_ty.kind());
+        warn!("Arg expr: {:#?}", arg_exprs);
+
+
+
         let (fn_sig, def_id) = match *callee_ty.kind() {
             ty::FnDef(def_id, subst) => {
                 let fn_sig = self.tcx.bound_fn_sig(def_id).subst(self.tcx, subst);
@@ -434,6 +443,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         };
 
+        warn!("Fn sig: {:#?}", fn_sig);
+
         // Replace any late-bound regions that appear in the function
         // signature with region variables. We also have to
         // renormalize the associated types at this point, since they
@@ -441,6 +452,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // have been normalized before.
         let fn_sig = self.replace_bound_vars_with_fresh_vars(call_expr.span, infer::FnCall, fn_sig);
         let fn_sig = self.normalize(call_expr.span, fn_sig);
+
+        warn!("Fn sig: {:#?}", fn_sig);
 
         // Call the generic checker.
         let expected_arg_tys = self.expected_inputs_for_expected_output(

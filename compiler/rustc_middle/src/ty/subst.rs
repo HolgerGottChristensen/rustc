@@ -21,6 +21,7 @@ use std::mem;
 use std::num::NonZeroUsize;
 use std::ops::{ControlFlow, Deref};
 use std::slice;
+use rustc_span::Symbol;
 
 /// An entity in the Rust type system, which can be one of
 /// several kinds (types, lifetimes, and consts).
@@ -254,8 +255,10 @@ impl<'tcx, D: TyDecoder<I = TyCtxt<'tcx>>> Decodable<D> for GenericArg<'tcx> {
 
 /// List of generic arguments that are gonna be used to substitute generic parameters.
 pub type InternalSubsts<'tcx> = List<GenericArg<'tcx>>;
+pub type InternalHKTParameters<'tcx> = List<Symbol>;
 
 pub type SubstsRef<'tcx> = &'tcx InternalSubsts<'tcx>;
+pub type HKTParametersRef<'tcx> = &'tcx InternalHKTParameters<'tcx>;
 
 impl<'tcx> InternalSubsts<'tcx> {
     /// Checks whether all elements of this list are types, if so, transmute.

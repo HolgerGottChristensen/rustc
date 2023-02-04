@@ -475,7 +475,7 @@ pub enum LifetimeParamKind {
 #[derive(Debug, HashStable_Generic)]
 pub enum HKTKind {
     Atomic(Ident),
-    Composition(Ident, Vec<HKTKind>),
+    //Composition(Ident, Vec<HKTKind>),
 }
 
 #[derive(Debug, HashStable_Generic)]
@@ -2592,6 +2592,7 @@ pub enum OpaqueTyOrigin {
 /// The various kinds of types recognized by the compiler.
 #[derive(Debug, HashStable_Generic)]
 pub enum TyKind<'hir> {
+    Argument(Ident),
     /// A variable length slice (i.e., `[T]`).
     Slice(&'hir Ty<'hir>),
     /// A fixed length array (i.e., `[T; n]`).

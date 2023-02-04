@@ -322,7 +322,7 @@ where
     Normalized { value, obligations }
 }
 
-#[instrument(level = "info", skip(selcx, param_env, cause, obligations))]
+#[instrument(level = "debug", skip(selcx, param_env, cause, obligations))]
 pub(crate) fn normalize_with_depth_to<'a, 'b, 'tcx, T>(
     selcx: &'a mut SelectionContext<'b, 'tcx>,
     param_env: ty::ParamEnv<'tcx>,
@@ -334,11 +334,11 @@ pub(crate) fn normalize_with_depth_to<'a, 'b, 'tcx, T>(
 where
     T: TypeFoldable<'tcx>,
 {
-    info!(obligations.len = obligations.len());
+    debug!(obligations.len = obligations.len());
     let mut normalizer = AssocTypeNormalizer::new(selcx, param_env, cause, depth, obligations);
     let result = ensure_sufficient_stack(|| normalizer.fold(value));
-    info!(?result, obligations.len = normalizer.obligations.len());
-    info!(?normalizer.obligations,);
+    debug!(?result, obligations.len = normalizer.obligations.len());
+    debug!(?normalizer.obligations,);
     result
 }
 
@@ -1610,6 +1610,8 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         // Integers and floats always have `u8` as their discriminant.
                         | ty::Infer(ty::InferTy::IntVar(_) | ty::InferTy::FloatVar(..)) => true,
 
+
+                        ty::Argument(_) => todo!("hoch"),
                          // type parameters, opaques, and unnormalized projections have pointer
                         // metadata if they're known (e.g. by the param_env) to be sized
                         ty::Param(_)
@@ -1667,6 +1669,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         | ty::Infer(ty::InferTy::IntVar(_) | ty::InferTy::FloatVar(..)) => true,
 
                         ty::HKT(..) => todo!("hoch"),
+                        ty::Argument(..) => todo!("hoch"),
 
                         // type parameters, opaques, and unnormalized projections have pointer
                         // metadata if they're known (e.g. by the param_env) to be sized

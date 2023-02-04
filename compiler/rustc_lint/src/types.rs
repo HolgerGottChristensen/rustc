@@ -929,6 +929,9 @@ impl<'a, 'tcx> ImproperCTypesVisitor<'a, 'tcx> {
         }
 
         match *ty.kind() {
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
             ty::Adt(def, substs) => {
                 if def.is_box() && matches!(self.mode, CItemKind::Definition) {
                     if ty.boxed_ty().is_sized(tcx, self.cx.param_env) {

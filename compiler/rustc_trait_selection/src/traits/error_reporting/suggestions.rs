@@ -3495,7 +3495,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                         }
                     }
                     ty::GenericParamDefKind::Lifetime | ty::GenericParamDefKind::Const { .. } => {}
-                    GenericParamDefKind::HKT => todo!("hoch")
+                    GenericParamDefKind::HKT(..) => todo!("hoch")
                 }
                 self.var_for_def(span, param)
             });

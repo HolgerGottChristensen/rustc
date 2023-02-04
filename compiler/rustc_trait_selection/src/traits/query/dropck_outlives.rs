@@ -65,6 +65,7 @@ pub fn trivial_dropck_outlives<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
         | ty::Alias(..)
         | ty::Param(_)
         | ty::HKT(..)
+        | ty::Argument(..)
         | ty::Placeholder(..)
         | ty::Infer(_)
         | ty::Bound(..)

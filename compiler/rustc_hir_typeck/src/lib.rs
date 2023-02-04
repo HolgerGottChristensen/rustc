@@ -280,17 +280,13 @@ fn typeck_with_fallback<'tcx>(
             fcx.write_ty(id, expected_type);
         };
 
-        info!("HERE 111");
         fcx.type_inference_fallback();
-        info!("HERE 222");
 
         // Even though coercion casts provide type hints, we check casts after fallback for
         // backwards compatibility. This makes fallback a stronger type hint than a cast coercion.
         fcx.check_casts();
 
-        info!("HERE 333");
         fcx.select_obligations_where_possible(|_| {});
-        info!("HERE 444");
 
         // Closure and generator analysis may run after fallback
         // because they don't constrain other type variables.
@@ -310,10 +306,7 @@ fn typeck_with_fallback<'tcx>(
             fcx.require_type_is_sized(ty, span, code);
         }
 
-        info!("HERE 555");
         fcx.select_all_obligations_or_error();
-        info!("HERE 666");
-
 
         if let None = fcx.infcx.tainted_by_errors() {
             fcx.check_transmutes();

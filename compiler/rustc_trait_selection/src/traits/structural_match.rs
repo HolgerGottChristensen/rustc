@@ -89,6 +89,9 @@ impl<'tcx> TypeVisitor<'tcx> for Search<'tcx> {
             ty::HKT(..) => {
                 todo!("hoch")
             }
+            ty::Argument(..) => {
+                todo!("hoch")
+            }
             ty::Param(_) => {
                 return ControlFlow::Break(ty);
             }

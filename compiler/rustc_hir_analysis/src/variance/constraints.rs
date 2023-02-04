@@ -216,6 +216,10 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
                 // leaf type -- noop
             }
 
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
+
             ty::FnDef(..) | ty::Generator(..) | ty::Closure(..) => {
                 bug!("Unexpected closure type in variance computation");
             }

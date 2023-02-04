@@ -300,7 +300,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     ) -> SelectionResult<'tcx, SelectionCandidate<'tcx>> {
         debug_assert!(!obligation.predicate.has_escaping_bound_vars());
 
-        info!("select from obligation");
+        debug!("select from obligation");
 
         let pec = &ProvisionalEvaluationCache::default();
         let stack = self.push_stack(TraitObligationStackList::empty(pec), obligation);
@@ -322,11 +322,11 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         // this is because we want the unbound variables to be
         // replaced with fresh types starting from index 0.
         let cache_fresh_trait_pred = self.infcx.freshen(stack.obligation.predicate);
-        info!(?cache_fresh_trait_pred);
+        debug!(?cache_fresh_trait_pred);
         debug_assert!(!stack.obligation.predicate.has_escaping_bound_vars());
 
         if let Some(c) = self.check_candidate_cache(stack.obligation.param_env, cache_fresh_trait_pred) {
-            info!("CACHE HIT");
+            debug!("CACHE HIT");
             return c;
         }
 
@@ -339,7 +339,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         let (candidate, dep_node) =
             self.in_task(|this| this.candidate_from_obligation_no_cache(stack));
 
-        info!("CACHE MISS");
+        debug!("CACHE MISS");
         self.insert_candidate_cache(
             stack.obligation.param_env,
             cache_fresh_trait_pred,
@@ -1501,9 +1501,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         pred.remap_constness(&mut param_env);
 
         if self.can_use_global_caches(param_env) {
-            info!("Can use global: {:#?}", tcx.selection_cache);
+            debug!("Can use global: {:#?}", tcx.selection_cache);
             if let Some(res) = tcx.selection_cache.get(&(param_env, pred), tcx) {
-                info!("Used global cache to get result");
+                debug!("Used global cache to get result");
                 return Some(res);
             }
         }
@@ -1557,7 +1557,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         pred.remap_constness(&mut param_env);
 
         if !self.can_cache_candidate(&candidate) {
-            info!(?pred, ?candidate, "insert_candidate_cache - candidate is not cacheable");
+            debug!(?pred, ?candidate, "insert_candidate_cache - candidate is not cacheable");
             return;
         }
 
@@ -1566,8 +1566,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 // Don't cache overflow globally; we only produce this in certain modes.
             } else if !pred.needs_infer() {
                 if !candidate.needs_infer() {
-                    info!(?pred, ?candidate, "insert_candidate_cache global");
-                    info!(?pred.trait_ref.def_id);
+                    debug!(?pred, ?candidate, "insert_candidate_cache global");
+                    debug!(?pred.trait_ref.def_id);
                     let mut s = vec![];
                     for arg in pred.trait_ref.substs {
                         s.push(match arg.unpack() {
@@ -1576,7 +1576,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                             GenericArgKind::Const(_) => format!("{:?}", arg),
                         });
                     }
-                    info!("substs: {}", s.join(", "));
+                    debug!("substs: {}", s.join(", "));
                     // This may overwrite the cache with the same value.
                     tcx.selection_cache.insert((param_env, pred), dep_node, candidate);
                     return;
@@ -1584,7 +1584,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             }
         }
 
-        info!(?pred, ?candidate, "insert_candidate_cache local");
+        debug!(?pred, ?candidate, "insert_candidate_cache local");
         self.infcx.selection_cache.insert((param_env, pred), dep_node, candidate);
 
     }
@@ -2078,6 +2078,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }))
             }
 
+            ty::Argument(_) => None, // TODO: hoch
             ty::Alias(..) | ty::Param(_) | ty::HKT(..) => None,
             ty::Infer(ty::TyVar(_)) => Ambiguous,
 
@@ -2099,6 +2100,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         use self::BuiltinImplConditions::{Ambiguous, None, Where};
 
         match *self_ty.kind() {
+
+            ty::Argument(_) => todo!("hoch"),
+
             ty::Infer(ty::IntVar(_))
             | ty::Infer(ty::FloatVar(_))
             | ty::FnDef(..)
@@ -2226,6 +2230,10 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Infer(ty::IntVar(_) | ty::FloatVar(_))
             | ty::Never
             | ty::Char => ty::Binder::dummy(Vec::new()),
+
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
 
             ty::Placeholder(..)
             | ty::Dynamic(..)

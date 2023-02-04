@@ -433,6 +433,10 @@ impl<'cx, 'tcx> TypeFolder<'tcx> for Canonicalizer<'cx, 'tcx> {
                 }
             }
 
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
+
             ty::Closure(..)
             | ty::Generator(..)
             | ty::GeneratorWitness(..)

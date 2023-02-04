@@ -338,7 +338,7 @@ impl<'tcx> Instance<'tcx> {
             GenericParamDefKind::Const { .. } => {
                 bug!("Instance::mono: {:?} has const parameters", def_id)
             }
-            GenericParamDefKind::HKT => {
+            GenericParamDefKind::HKT(..) => {
                 bug!("Instance::mono: {:?} has hkt parameters", def_id)
             }
         });

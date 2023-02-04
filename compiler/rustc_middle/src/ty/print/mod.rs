@@ -262,6 +262,8 @@ fn characteristic_def_id_of_type_cached<'a>(
             return None;
         }),
 
+        ty::Argument(_) => todo!("hoch"),
+
         ty::FnDef(def_id, _)
         | ty::Closure(def_id, _)
         | ty::Generator(def_id, _, _)
@@ -276,7 +278,7 @@ fn characteristic_def_id_of_type_cached<'a>(
         | ty::Alias(..)
         | ty::Placeholder(..)
         | ty::Param(_)
-        | ty::HKT(_, _)
+        | ty::HKT(..)
         | ty::Infer(_)
         | ty::Bound(..)
         | ty::Error(_)

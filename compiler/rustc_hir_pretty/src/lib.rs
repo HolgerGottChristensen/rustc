@@ -298,6 +298,10 @@ impl<'a> State<'a> {
         self.maybe_print_comment(ty.span.lo());
         self.ibox(0);
         match ty.kind {
+            hir::TyKind::Argument(i) => {
+                self.word("%");
+                self.print_ident(i)
+            }
             hir::TyKind::Slice(ty) => {
                 self.word("[");
                 self.print_type(ty);
@@ -2159,13 +2163,13 @@ impl<'a> State<'a> {
                     s.word("?");
                     s.print_ident(*ident);
                 }
-                HKTKind::Composition(ident, nested) => {
+                /*HKTKind::Composition(ident, nested) => {
                     s.word("?");
                     s.print_ident(*ident);
                     s.word("<");
                     s.print_hkt_kind(nested);
                     s.word(">");
-                }
+                }*/
             }
         });
     }

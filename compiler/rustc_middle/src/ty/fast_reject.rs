@@ -34,6 +34,7 @@ pub enum SimplifiedType {
     GeneratorWitnessSimplifiedType(usize),
     FunctionSimplifiedType(usize),
     PlaceholderSimplifiedType,
+    TyArgumentSimplifiedType,
 }
 
 /// Generic parameters are pretty much just bound variables, e.g.
@@ -117,10 +118,13 @@ pub fn simplify_type<'tcx>(
             TreatParams::AsInfer => None,
         },
         // TODO(hoch)
-        ty::HKT(_, _) => match treat_params {
+        ty::HKT(..) => match treat_params {
             TreatParams::AsPlaceholder => Some(PlaceholderSimplifiedType),
             TreatParams::AsInfer => None,
         },
+        ty::Argument(_) => {
+            Some(TyArgumentSimplifiedType)
+        }
         ty::Alias(..) => match treat_params {
             // When treating `ty::Param` as a placeholder, projections also
             // don't unify with anything else as long as they are fully normalized.
@@ -190,7 +194,7 @@ impl DeepRejectCtxt {
         match impl_ty.kind() {
             // Start by checking whether the type in the impl may unify with
             // pretty much everything. Just return `true` in that case.
-            ty::HKT(_, _) | ty::Param(_) | ty::Error(_) | ty::Alias(..) => return true,
+            ty::HKT(..) | ty::Param(_) | ty::Error(_) | ty::Alias(..) => return true,
             // These types only unify with inference variables or their own
             // variant.
             ty::Bool
@@ -216,6 +220,9 @@ impl DeepRejectCtxt {
             | ty::Placeholder(..)
             | ty::Bound(..)
             | ty::Infer(_) => bug!("unexpected impl_ty: {impl_ty}"),
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
         }
 
         let k = impl_ty.kind();
@@ -300,7 +307,7 @@ impl DeepRejectCtxt {
                 TreatParams::AsInfer => true,
             },
 
-            ty::HKT(_, _) => match self.treat_obligation_params {
+            ty::HKT(..) => match self.treat_obligation_params {
                 TreatParams::AsPlaceholder => false,
                 TreatParams::AsInfer => true,
             },
@@ -318,6 +325,10 @@ impl DeepRejectCtxt {
 
             ty::GeneratorWitness(..) | ty::Bound(..) => {
                 bug!("unexpected obligation type: {:?}", obligation_ty)
+            }
+
+            ty::Argument(_) => {
+                todo!("hoch")
             }
         }
     }

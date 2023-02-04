@@ -98,6 +98,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
 
         Ok(match *t.kind() {
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
             ty::Slice(_) | ty::Str => Some(PointerKind::Length),
             ty::Dynamic(ref tty, _, ty::Dyn) => Some(PointerKind::VTable(tty.principal_def_id())),
             ty::Adt(def, substs) if def.is_struct() => match def.non_enum_variant().fields.last() {

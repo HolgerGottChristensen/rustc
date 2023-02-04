@@ -30,6 +30,7 @@ pub trait HashStableContext {}
 
 pub trait Interner {
     type AdtDef: Clone + Debug + Hash + PartialEq + Eq + PartialOrd + Ord;
+    type ArgumentDef: Clone + Debug + Hash + PartialEq + Eq + PartialOrd + Ord;
     type SubstsRef: Clone + Debug + Hash + PartialEq + Eq + PartialOrd + Ord;
     type DefId: Clone + Debug + Hash + PartialEq + Eq + PartialOrd + Ord;
     type Ty: Clone + Debug + Hash + PartialEq + Eq + PartialOrd + Ord;

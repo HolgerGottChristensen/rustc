@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use crate::ty;
 use crate::ty::{EarlyBinder, SubstsRef};
 use rustc_ast as ast;
@@ -12,7 +13,7 @@ use super::{EarlyBoundRegion, InstantiatedPredicates, ParamConst, ParamTy, Predi
 pub enum GenericParamDefKind {
     Lifetime,
     Type { has_default: bool, synthetic: bool },
-    HKT,
+    HKT(SmallVec<[Symbol; 3]>),
     Const { has_default: bool },
 }
 
@@ -22,16 +23,15 @@ impl GenericParamDefKind {
             GenericParamDefKind::Lifetime => "lifetime",
             GenericParamDefKind::Type { .. } => "type",
             GenericParamDefKind::Const { .. } => "constant",
-            GenericParamDefKind::HKT => "hkt"
+            GenericParamDefKind::HKT(..) => "hkt"
         }
     }
     pub fn to_ord(&self) -> ast::ParamKindOrd {
         match self {
             GenericParamDefKind::Lifetime => ast::ParamKindOrd::Lifetime,
-            GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => {
+            GenericParamDefKind::HKT(..) | GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => {
                 ast::ParamKindOrd::TypeOrConst
             }
-            GenericParamDefKind::HKT => todo!("hoch")
         }
     }
 
@@ -39,7 +39,7 @@ impl GenericParamDefKind {
         match self {
             GenericParamDefKind::Lifetime => false,
             GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => true,
-            GenericParamDefKind::HKT => todo!("hoch")
+            GenericParamDefKind::HKT(..) => todo!("hoch")
         }
     }
 
@@ -49,6 +49,11 @@ impl GenericParamDefKind {
             _ => false,
         }
     }
+}
+
+#[derive(Clone, Debug, TyEncodable, TyDecodable, HashStable)]
+pub struct HKTParameter {
+    pub name: Symbol,
 }
 
 #[derive(Clone, Debug, TyEncodable, TyDecodable, HashStable)]
@@ -109,7 +114,7 @@ impl GenericParamDef {
             ty::GenericParamDefKind::Const { .. } => {
                 tcx.const_error(tcx.bound_type_of(self.def_id).subst(tcx, preceding_substs)).into()
             }
-            GenericParamDefKind::HKT => {
+            GenericParamDefKind::HKT(..) => {
                 todo!("hoch")
             }
         }
@@ -175,7 +180,7 @@ impl<'tcx> Generics {
                 GenericParamDefKind::Lifetime => own_counts.lifetimes += 1,
                 GenericParamDefKind::Type { .. } => own_counts.types += 1,
                 GenericParamDefKind::Const { .. } => own_counts.consts += 1,
-                GenericParamDefKind::HKT => own_counts.hkts += 1,
+                GenericParamDefKind::HKT(..) => own_counts.hkts += 1,
             }
         }
 
@@ -194,7 +199,7 @@ impl<'tcx> Generics {
                 GenericParamDefKind::Const { has_default } => {
                     own_defaults.consts += has_default as usize;
                 }
-                GenericParamDefKind::HKT => ()
+                GenericParamDefKind::HKT(..) => ()
             }
         }
 
@@ -221,7 +226,7 @@ impl<'tcx> Generics {
                     return true;
                 }
                 GenericParamDefKind::Lifetime => {}
-                GenericParamDefKind::HKT => {
+                GenericParamDefKind::HKT(..) => {
                     // If we encounter a HKT we require monomorphization
                     return true;
                     //todo!("hoch")

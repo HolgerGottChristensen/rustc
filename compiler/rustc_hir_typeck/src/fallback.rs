@@ -15,12 +15,10 @@ impl<'tcx> FnCtxt<'_, 'tcx> {
             self.fulfillment_cx.borrow_mut().pending_obligations()
         );
 
-        info!("HERE 1212");
         // All type checking constraints were added, try to fallback unsolved variables.
         self.select_obligations_where_possible(|_| {});
-        info!("HERE 1313");
 
-        info!(
+        debug!(
             "type-inference-fallback post selection obligations: {:#?}",
             self.fulfillment_cx.borrow_mut().pending_obligations()
         );

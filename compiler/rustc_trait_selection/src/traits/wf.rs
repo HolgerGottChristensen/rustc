@@ -532,6 +532,10 @@ impl<'tcx> WfPredicates<'tcx> {
                     // WfScalar, WfParameter, etc
                 }
 
+                ty::Argument(_) => {
+                    //todo!("hoch")
+                },
+
                 // Can only infer to `ty::Int(_) | ty::Uint(_)`.
                 ty::Infer(ty::IntVar(_)) => {}
 

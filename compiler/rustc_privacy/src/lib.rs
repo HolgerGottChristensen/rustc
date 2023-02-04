@@ -182,6 +182,9 @@ where
         // InternalSubsts are not visited here because they are visited below
         // in `super_visit_with`.
         match *ty.kind() {
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
             ty::Adt(ty::AdtDef(Interned(&ty::AdtDefData { did: def_id, .. }, _)), ..)
             | ty::Foreign(def_id)
             | ty::FnDef(def_id, ..)
@@ -843,7 +846,7 @@ impl ReachEverythingInTheInterfaceVisitor<'_, '_> {
                         self.visit(self.ev.tcx.const_param_default(param.def_id));
                     }
                 }
-                GenericParamDefKind::HKT => {
+                GenericParamDefKind::HKT(..) => {
                     todo!("hoch")
                 }
             }
@@ -1176,7 +1179,8 @@ impl<'tcx> Visitor<'tcx> for TypePrivacyVisitor<'tcx> {
         match generic_arg {
             hir::GenericArg::Type(t) => self.visit_ty(t),
             hir::GenericArg::Infer(inf) => self.visit_infer(inf),
-            hir::GenericArg::Lifetime(_) | hir::GenericArg::Const(_) => {}
+            hir::GenericArg::Lifetime(_)
+            | hir::GenericArg::Const(_) => {}
         }
     }
 
@@ -1746,7 +1750,7 @@ impl SearchInterfaceForPrivateItemsVisitor<'_> {
                 GenericParamDefKind::Const { .. } => {
                     self.visit(self.tcx.type_of(param.def_id));
                 }
-                GenericParamDefKind::HKT => {
+                GenericParamDefKind::HKT(..) => {
                     // Since we dont have a default, we should not traverse further
                 }
             }

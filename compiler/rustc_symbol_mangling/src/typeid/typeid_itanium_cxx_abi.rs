@@ -450,6 +450,8 @@ fn encode_ty<'tcx>(
             typeid.push('b');
         }
 
+        ty::Argument(_) => todo!("hoch"),
+
         ty::Int(..) | ty::Uint(..) | ty::Float(..) => {
             // u<length><type-name> as vendor extended type
             let mut s = String::from(match ty.kind() {
@@ -671,6 +673,8 @@ fn transform_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, options: TransformTyOptio
         | ty::Dynamic(..) => {}
 
         _ if ty.is_unit() => {}
+
+        ty::Argument(_) => todo!("hoch"),
 
         ty::Tuple(tys) => {
             ty = tcx.mk_tup(tys.iter().map(|ty| transform_ty(tcx, ty, options)));

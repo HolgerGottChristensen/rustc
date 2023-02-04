@@ -139,8 +139,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         method.sig.output()
     }
 
+    fn evaluate_type_functions(&self, fn_def_id: Option<DefId>, _arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
+        let fn_def_id = fn_def_id.expect("Investigation needed hoch");
+
+        let sig = self.tcx.bound_fn_sig(fn_def_id);
+
+        todo!("{:#?}", sig)
+    }
+
     /// Generic function that factors out common logic from function calls,
     /// method calls and overloaded operators.
+    #[instrument(level = "debug", skip(self, call_span, call_expr, formal_input_tys, expected_input_tys, provided_args, c_variadic, tuple_arguments))]
     pub(in super::super) fn check_argument_types(
         &self,
         // Span enclosing the call site
@@ -160,7 +169,18 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // The DefId for the function being called, for better error messages
         fn_def_id: Option<DefId>,
     ) {
+        warn!("{:#?}", fn_def_id);
+        warn!("{:#?}", call_expr);
+        warn!("{:#?}", formal_input_tys);
+        warn!("{:#?}", expected_input_tys);
+        warn!("{:#?}", provided_args);
         let tcx = self.tcx;
+
+
+        // Simplify the types and evaluate the type functions
+        let formal_input_tys = &self.evaluate_type_functions(fn_def_id, formal_input_tys)[..];
+
+
 
         // Conceptually, we've got some number of expected inputs, and some number of provided arguments
         // and we can form a grid of whether each argument could satisfy a given input:
@@ -2231,6 +2251,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             );
         }
     }
+
 }
 
 fn find_param_in_ty<'tcx>(ty: Ty<'tcx>, param_to_point_at: ty::GenericArg<'tcx>) -> bool {

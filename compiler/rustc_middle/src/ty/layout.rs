@@ -778,8 +778,11 @@ where
                     }
                 }
 
-                ty::HKT(_, _) => {
-                    todo!()
+                ty::HKT(..) => {
+                    todo!("hoch")
+                }
+                ty::Argument(_) => {
+                    todo!("hoch")
                 }
 
                 ty::Alias(..)

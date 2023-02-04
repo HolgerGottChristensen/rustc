@@ -1178,7 +1178,7 @@ impl<'tcx> InferCtxt<'tcx> {
                     });
                 self.tcx.mk_const(const_var_id, self.tcx.type_of(param.def_id)).into()
             }
-            GenericParamDefKind::HKT => {
+            GenericParamDefKind::HKT(..) => {
                 //todo!("hoch")
                 let ty_var_id = self.inner.borrow_mut().type_variables().new_var(
                     self.universe(),

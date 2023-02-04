@@ -1177,9 +1177,9 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 value: self.lower_anon_const(&ct),
                 span: self.lower_span(ct.value.span),
             }),
-            ast::GenericArg::HKTVar(_) => {
-                todo!("hoch")
-            }
+            ast::GenericArg::HKTVar(v) => GenericArg::Type(
+                self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(v.ident), span: self.lower_span(v.ident.span), hir_id: self.lower_node_id(v.id) })
+            )
         }
     }
 
@@ -2212,13 +2212,8 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             HKTKind::Atomic(ident) => {
                 hir::HKTKind::Atomic(self.lower_ident(*ident))
             }
-            HKTKind::Composition(ident, nested) => {
-                hir::HKTKind::Composition(
-                    self.lower_ident(*ident),
-                    nested.iter()
-                        .map(|a| self.lower_hkt_kind(a))
-                        .collect()
-                )
+            HKTKind::Composition(..) => {
+                unreachable!("This should be disallowed in ast_validation and thus be unreachable")
             }
         }
     }

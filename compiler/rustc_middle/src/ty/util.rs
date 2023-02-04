@@ -438,7 +438,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     },
                     GenericArgKind::Type(ty) => match ty.kind() {
                         ty::Param(ref pt) => !impl_generics.type_param(pt, self).pure_wrt_drop,
-                        ty::HKT(ref pt, _) => !impl_generics.type_param(pt, self).pure_wrt_drop,
+                        ty::HKT(ref pt, ..) => !impl_generics.type_param(pt, self).pure_wrt_drop,
                         // Error: not a type param
                         _ => false,
                     },
@@ -953,7 +953,8 @@ impl<'tcx> Ty<'tcx> {
             | ty::Infer(_)
             | ty::Alias(..)
             | ty::Param(_)
-            | ty::HKT(_, _)
+            | ty::HKT(..)
+            | ty::Argument(_)
             | ty::Placeholder(_) => false,
         }
     }
@@ -993,7 +994,8 @@ impl<'tcx> Ty<'tcx> {
             | ty::Infer(_)
             | ty::Alias(..)
             | ty::Param(_)
-            | ty::HKT(_, _)
+            | ty::HKT(..)
+            | ty::Argument(_)
             | ty::Placeholder(_) => false,
         }
     }
@@ -1114,9 +1116,11 @@ impl<'tcx> Ty<'tcx> {
             //
             // FIXME(ecstaticmorse): Maybe we should `bug` here? This should probably only be
             // called for known, fully-monomorphized types.
-            ty::Alias(..) | ty::Param(_) | ty::HKT(_, _) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) => {
+            ty::Alias(..) | ty::Param(_) | ty::HKT(..) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) => {
                 false
             }
+
+            ty::Argument(_) => todo!("hoch"), // true
 
             ty::Foreign(_) | ty::GeneratorWitness(..) | ty::Error(_) => false,
         }
@@ -1249,12 +1253,14 @@ pub fn needs_drop_components<'tcx>(
         ty::Adt(..)
         | ty::Alias(..)
         | ty::Param(_)
-        | ty::HKT(_, _)
+        | ty::HKT(..)
         | ty::Bound(..)
         | ty::Placeholder(..)
         | ty::Infer(_)
         | ty::Closure(..)
         | ty::Generator(..) => Ok(smallvec![ty]),
+
+        ty::Argument(_) => todo!("hoch")
     }
 }
 
@@ -1280,7 +1286,7 @@ pub fn is_trivially_const_drop(ty: Ty<'_>) -> bool {
         | ty::Error(_)
         | ty::Bound(..)
         | ty::Param(_)
-        | ty::HKT(_, _)
+        | ty::HKT(..)
         | ty::Placeholder(_)
         | ty::Infer(_) => false,
 
@@ -1291,6 +1297,8 @@ pub fn is_trivially_const_drop(ty: Ty<'_>) -> bool {
         ty::Array(ty, _) | ty::Slice(ty) => is_trivially_const_drop(ty),
 
         ty::Tuple(tys) => tys.iter().all(|ty| is_trivially_const_drop(ty)),
+
+        ty::Argument(_) => todo!("hoch")
     }
 }
 

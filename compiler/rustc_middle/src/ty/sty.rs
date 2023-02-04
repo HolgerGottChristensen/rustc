@@ -1299,6 +1299,7 @@ pub enum ParamTy {
     HKT {
         index: u32,
         name: Symbol,
+        parameters: HKTParametersRef,
     }
 }
 
@@ -1307,8 +1308,8 @@ impl<'tcx> ParamTy {
         ParamTy::Param { index, name }
     }
 
-    pub fn new_hkt(index: u32, name: Symbol) -> ParamTy {
-        ParamTy::HKT { index, name }
+    pub fn new_hkt(index: u32, name: Symbol, parameters: List<Symbol>) -> ParamTy {
+        ParamTy::HKT { index, name, parameters }
     }
 
     pub fn for_def(def: &ty::GenericParamDef) -> ParamTy {
@@ -1318,8 +1319,9 @@ impl<'tcx> ParamTy {
             GenericParamDefKind::Const { .. } => {
                 ParamTy::new_param(def.index, def.name)
             }
-            GenericParamDefKind::HKT => {
-                ParamTy::new_hkt(def.index, def.name)
+            GenericParamDefKind::HKT(ref parameters) => {
+                todo!("hoch")
+                //ParamTy::new_hkt(def.index, def.name, &parameters[..])
             }
         }
     }
@@ -1328,7 +1330,7 @@ impl<'tcx> ParamTy {
     pub fn to_ty(self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
         match self {
             ParamTy::Param { index, name } => tcx.mk_ty_param(index, name),
-            ParamTy::HKT { index, name } => tcx.mk_hkt_param(index, name, tcx.intern_substs(&[]))
+            ParamTy::HKT { index, name, parameters} => tcx.mk_hkt_param(index, name, parameters, tcx.intern_substs(&[]))
         }
     }
 
@@ -2105,6 +2107,10 @@ impl<'tcx> Ty<'tcx> {
                 tcx.mk_projection(assoc_items[0], tcx.intern_substs(&[self.into()]))
             }
 
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
+
             ty::Bool
             | ty::Char
             | ty::Int(_)
@@ -2169,6 +2175,10 @@ impl<'tcx> Ty<'tcx> {
             // If returned by `struct_tail_without_normalization` this is the empty tuple,
             // a.k.a. unit type, which is Sized
             | ty::Tuple(..) => (tcx.types.unit, false),
+
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
 
             ty::Str | ty::Slice(_) => (tcx.types.usize, false),
             ty::Dynamic(..) => {
@@ -2258,6 +2268,10 @@ impl<'tcx> Ty<'tcx> {
 
             ty::Infer(ty::TyVar(_)) => false,
 
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
+
             ty::Bound(..)
             | ty::Placeholder(..)
             | ty::Infer(ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
@@ -2311,6 +2325,10 @@ impl<'tcx> Ty<'tcx> {
 
             // Might be, but not "trivial" so just giving the safe answer.
             ty::Adt(..) | ty::Closure(..) => false,
+
+            ty::Argument(_) => {
+                todo!("hoch")
+            }
 
             // Needs normalization or revealing to determine, so no is the safe answer.
             ty::Alias(..) => false,

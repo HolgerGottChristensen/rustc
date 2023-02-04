@@ -544,7 +544,7 @@ impl<'a> CrateLoader<'a> {
         mut dep_kind: CrateDepKind,
         dep: Option<(&'b CratePaths, &'b CrateDep)>,
     ) -> Result<CrateNum, CrateError> {
-        info!("resolving crate `{}`", name);
+        debug!("resolving crate `{}`", name);
         if !name.as_str().is_ascii() {
             return Err(CrateError::NonAsciiName(name));
         }

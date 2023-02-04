@@ -188,6 +188,7 @@ impl<'tcx> InherentCollect<'tcx> {
 
         let self_ty = self.tcx.type_of(item.owner_id);
         match *self_ty.kind() {
+            ty::Argument(_) => todo!("hoch"),
             ty::Adt(def, _) => {
                 self.check_def_id(item, self_ty, def.did());
             }

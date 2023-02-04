@@ -372,6 +372,8 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
             ty::Float(FloatTy::F64) => "d",
             ty::Never => "z",
 
+            ty::Argument(_) => todo!("hoch"),
+
             // Placeholders (should be demangled as `_`).
             ty::Param(_) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) | ty::Error(_) => "p",
 
@@ -397,6 +399,10 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
             // Placeholders, also handled as part of basic types.
             ty::HKT(..) | ty::Param(_) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) | ty::Error(_) => {
                 unreachable!()
+            }
+
+            ty::Argument(_) => {
+                todo!("hoch")
             }
 
             ty::Ref(r, ty, mutbl) => {

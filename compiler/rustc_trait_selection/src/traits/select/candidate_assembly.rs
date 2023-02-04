@@ -740,6 +740,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Bound(..)
             | ty::Param(_)
             | ty::HKT(..) // TODO(hoch)
+            | ty::Argument(..) // TODO(hoch)
             | ty::Placeholder(_) => {
                 // We don't know if these are `~const Destruct`, at least
                 // not structurally... so don't push a candidate.
@@ -829,6 +830,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Alias(..)
             | ty::Param(_)
             | ty::HKT(..)
+            | ty::Argument(..)
             | ty::Bound(_, _)
             | ty::Error(_)
             | ty::Infer(_)

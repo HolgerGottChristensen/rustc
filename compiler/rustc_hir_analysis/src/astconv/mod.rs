@@ -518,7 +518,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                             }
                         }
                     }
-                    GenericParamDefKind::HKT => todo!("hoch")
+                    GenericParamDefKind::HKT(..) => todo!("hoch")
                 }
             }
         }
@@ -2497,11 +2497,26 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 let item_def_id = tcx.hir().ty_param_owner(def_id);
 
                 // Get the index of the ty_param
-                let generics = tcx.generics_of(item_def_id);
+                let generics: &ty::Generics = tcx.generics_of(item_def_id);
                 let index = generics.param_def_id_to_index[&def_id.to_def_id()];
-                info!("{:#?}, {:#?}, {:#?}, {}", def_id, item_def_id, generics, index);
+                let param = &generics.params[index as usize];
+
+                let hkt_parameters = match &param.kind {
+                    GenericParamDefKind::HKT(parameters) => {
+                        parameters.clone()
+                    }
+                    GenericParamDefKind::Lifetime
+                    | GenericParamDefKind::Type { .. }
+                    | GenericParamDefKind::Const { .. } =>
+                        unreachable!("Since we are in a defkind hkt, we should never have another parameter than hkt")
+                };
+
+
+
+                debug!("{:#?}, {:#?}, {:#?}, {:#?}", def_id, item_def_id, generics, index);
+
                 //tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
-                tcx.mk_hkt_param(index, tcx.hir().ty_param_name(def_id), tcx.intern_substs(&[]))
+                tcx.mk_hkt_param(index, tcx.hir().ty_param_name(def_id), hkt_parameters, tcx.intern_substs(&[]))
                 //todo!()
             }
             Res::SelfTyParam { .. } => {
@@ -2690,6 +2705,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         let tcx = self.tcx();
 
         let result_ty = match ast_ty.kind {
+            hir::TyKind::Argument(i) => tcx.mk_ty(ty::Argument(i.name)),
             hir::TyKind::Slice(ref ty) => tcx.mk_slice(self.ast_ty_to_ty(ty)),
             hir::TyKind::Ptr(ref mt) => {
                 tcx.mk_ptr(ty::TypeAndMut { ty: self.ast_ty_to_ty(mt.ty), mutbl: mt.mutbl })

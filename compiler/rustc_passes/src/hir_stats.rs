@@ -321,6 +321,7 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
         record_variants!(
             (self, t, t.kind, Id::Node(t.hir_id), hir, Ty, TyKind),
             [
+                Argument,
                 Slice,
                 Array,
                 Ptr,

@@ -76,138 +76,139 @@ fn compute_components<'tcx>(
     // in the `subtys` iterator (e.g., when encountering a
     // projection).
     match *ty.kind() {
-            ty::FnDef(_, substs) => {
-                // HACK(eddyb) ignore lifetimes found shallowly in `substs`.
-                // This is inconsistent with `ty::Adt` (including all substs)
-                // and with `ty::Closure` (ignoring all substs other than
-                // upvars, of which a `ty::FnDef` doesn't have any), but
-                // consistent with previous (accidental) behavior.
-                // See https://github.com/rust-lang/rust/issues/70917
-                // for further background and discussion.
-                for child in substs {
-                    match child.unpack() {
-                        GenericArgKind::Type(ty) => {
-                            compute_components(tcx, ty, out, visited);
-                        }
-                        GenericArgKind::Lifetime(_) => {}
-                        GenericArgKind::Const(_) => {
-                            compute_components_recursive(tcx, child, out, visited);
-                        }
+        ty::Argument(_) => todo!("hoch"),
+        ty::FnDef(_, substs) => {
+            // HACK(eddyb) ignore lifetimes found shallowly in `substs`.
+            // This is inconsistent with `ty::Adt` (including all substs)
+            // and with `ty::Closure` (ignoring all substs other than
+            // upvars, of which a `ty::FnDef` doesn't have any), but
+            // consistent with previous (accidental) behavior.
+            // See https://github.com/rust-lang/rust/issues/70917
+            // for further background and discussion.
+            for child in substs {
+                match child.unpack() {
+                    GenericArgKind::Type(ty) => {
+                        compute_components(tcx, ty, out, visited);
+                    }
+                    GenericArgKind::Lifetime(_) => {}
+                    GenericArgKind::Const(_) => {
+                        compute_components_recursive(tcx, child, out, visited);
                     }
                 }
             }
+        }
 
-            ty::Array(element, _) => {
-                // Don't look into the len const as it doesn't affect regions
-                compute_components(tcx, element, out, visited);
-            }
+        ty::Array(element, _) => {
+            // Don't look into the len const as it doesn't affect regions
+            compute_components(tcx, element, out, visited);
+        }
 
-            ty::Closure(_, ref substs) => {
-                let tupled_ty = substs.as_closure().tupled_upvars_ty();
-                compute_components(tcx, tupled_ty, out, visited);
-            }
+        ty::Closure(_, ref substs) => {
+            let tupled_ty = substs.as_closure().tupled_upvars_ty();
+            compute_components(tcx, tupled_ty, out, visited);
+        }
 
-            ty::Generator(_, ref substs, _) => {
-                // Same as the closure case
-                let tupled_ty = substs.as_generator().tupled_upvars_ty();
-                compute_components(tcx, tupled_ty, out, visited);
+        ty::Generator(_, ref substs, _) => {
+            // Same as the closure case
+            let tupled_ty = substs.as_generator().tupled_upvars_ty();
+            compute_components(tcx, tupled_ty, out, visited);
 
-                // We ignore regions in the generator interior as we don't
-                // want these to affect region inference
-            }
+            // We ignore regions in the generator interior as we don't
+            // want these to affect region inference
+        }
 
-            // All regions are bound inside a witness
-            ty::GeneratorWitness(..) => (),
+        // All regions are bound inside a witness
+        ty::GeneratorWitness(..) => (),
 
-            // OutlivesTypeParameterEnv -- the actual checking that `X:'a`
-            // is implied by the environment is done in regionck.
-            ty::Param(p) => {
-                out.push(Component::Param(p));
-            }
+        // OutlivesTypeParameterEnv -- the actual checking that `X:'a`
+        // is implied by the environment is done in regionck.
+        ty::Param(p) => {
+            out.push(Component::Param(p));
+        }
 
-            ty::HKT(p, ..) => {
-                out.push(Component::HKT(p));
-                // todo!("hoch")
-            }
+        ty::HKT(p, ..) => {
+            out.push(Component::HKT(p));
+            // todo!("hoch")
+        }
 
-            // Ignore lifetimes found in opaque types. Opaque types can
-            // have lifetimes in their substs which their hidden type doesn't
-            // actually use. If we inferred that an opaque type is outlived by
-            // its parameter lifetimes, then we could prove that any lifetime
-            // outlives any other lifetime, which is unsound.
-            // See https://github.com/rust-lang/rust/issues/84305 for
-            // more details.
-            ty::Alias(ty::Opaque, ty::AliasTy { def_id, substs, .. }) => {
-                out.push(Component::Opaque(def_id, substs));
-            },
+        // Ignore lifetimes found in opaque types. Opaque types can
+        // have lifetimes in their substs which their hidden type doesn't
+        // actually use. If we inferred that an opaque type is outlived by
+        // its parameter lifetimes, then we could prove that any lifetime
+        // outlives any other lifetime, which is unsound.
+        // See https://github.com/rust-lang/rust/issues/84305 for
+        // more details.
+        ty::Alias(ty::Opaque, ty::AliasTy { def_id, substs, .. }) => {
+            out.push(Component::Opaque(def_id, substs));
+        },
 
-            // For projections, we prefer to generate an obligation like
-            // `<P0 as Trait<P1...Pn>>::Foo: 'a`, because this gives the
-            // regionck more ways to prove that it holds. However,
-            // regionck is not (at least currently) prepared to deal with
-            // higher-ranked regions that may appear in the
-            // trait-ref. Therefore, if we see any higher-ranked regions,
-            // we simply fallback to the most restrictive rule, which
-            // requires that `Pi: 'a` for all `i`.
-            ty::Alias(ty::Projection, ref data) => {
-                if !data.has_escaping_bound_vars() {
-                    // best case: no escaping regions, so push the
-                    // projection and skip the subtree (thus generating no
-                    // constraints for Pi). This defers the choice between
-                    // the rules OutlivesProjectionEnv,
-                    // OutlivesProjectionTraitDef, and
-                    // OutlivesProjectionComponents to regionck.
-                    out.push(Component::Projection(*data));
-                } else {
-                    // fallback case: hard code
-                    // OutlivesProjectionComponents.  Continue walking
-                    // through and constrain Pi.
-                    let mut subcomponents = smallvec![];
-                    let mut subvisited = SsoHashSet::new();
-                    compute_components_recursive(tcx, ty.into(), &mut subcomponents, &mut subvisited);
-                    out.push(Component::EscapingProjection(subcomponents.into_iter().collect()));
-                }
-            }
-
-            // We assume that inference variables are fully resolved.
-            // So, if we encounter an inference variable, just record
-            // the unresolved variable as a component.
-            ty::Infer(infer_ty) => {
-                out.push(Component::UnresolvedInferenceVariable(infer_ty));
-            }
-
-            // Most types do not introduce any region binders, nor
-            // involve any other subtle cases, and so the WF relation
-            // simply constraints any regions referenced directly by
-            // the type and then visits the types that are lexically
-            // contained within. (The comments refer to relevant rules
-            // from RFC1214.)
-            ty::Bool |            // OutlivesScalar
-            ty::Char |            // OutlivesScalar
-            ty::Int(..) |         // OutlivesScalar
-            ty::Uint(..) |        // OutlivesScalar
-            ty::Float(..) |       // OutlivesScalar
-            ty::Never |           // ...
-            ty::Adt(..) |         // OutlivesNominalType
-            ty::Foreign(..) |     // OutlivesNominalType
-            ty::Str |             // OutlivesScalar (ish)
-            ty::Slice(..) |       // ...
-            ty::RawPtr(..) |      // ...
-            ty::Ref(..) |         // OutlivesReference
-            ty::Tuple(..) |       // ...
-            ty::FnPtr(_) |        // OutlivesFunction (*)
-            ty::Dynamic(..) |     // OutlivesObject, OutlivesFragment (*)
-            ty::Placeholder(..) |
-            ty::Bound(..) |
-            ty::Error(_) => {
-                // (*) Function pointers and trait objects are both binders.
-                // In the RFC, this means we would add the bound regions to
-                // the "bound regions list".  In our representation, no such
-                // list is maintained explicitly, because bound regions
-                // themselves can be readily identified.
-                compute_components_recursive(tcx, ty.into(), out, visited);
+        // For projections, we prefer to generate an obligation like
+        // `<P0 as Trait<P1...Pn>>::Foo: 'a`, because this gives the
+        // regionck more ways to prove that it holds. However,
+        // regionck is not (at least currently) prepared to deal with
+        // higher-ranked regions that may appear in the
+        // trait-ref. Therefore, if we see any higher-ranked regions,
+        // we simply fallback to the most restrictive rule, which
+        // requires that `Pi: 'a` for all `i`.
+        ty::Alias(ty::Projection, ref data) => {
+            if !data.has_escaping_bound_vars() {
+                // best case: no escaping regions, so push the
+                // projection and skip the subtree (thus generating no
+                // constraints for Pi). This defers the choice between
+                // the rules OutlivesProjectionEnv,
+                // OutlivesProjectionTraitDef, and
+                // OutlivesProjectionComponents to regionck.
+                out.push(Component::Projection(*data));
+            } else {
+                // fallback case: hard code
+                // OutlivesProjectionComponents.  Continue walking
+                // through and constrain Pi.
+                let mut subcomponents = smallvec![];
+                let mut subvisited = SsoHashSet::new();
+                compute_components_recursive(tcx, ty.into(), &mut subcomponents, &mut subvisited);
+                out.push(Component::EscapingProjection(subcomponents.into_iter().collect()));
             }
         }
+
+        // We assume that inference variables are fully resolved.
+        // So, if we encounter an inference variable, just record
+        // the unresolved variable as a component.
+        ty::Infer(infer_ty) => {
+            out.push(Component::UnresolvedInferenceVariable(infer_ty));
+        }
+
+        // Most types do not introduce any region binders, nor
+        // involve any other subtle cases, and so the WF relation
+        // simply constraints any regions referenced directly by
+        // the type and then visits the types that are lexically
+        // contained within. (The comments refer to relevant rules
+        // from RFC1214.)
+        ty::Bool |            // OutlivesScalar
+        ty::Char |            // OutlivesScalar
+        ty::Int(..) |         // OutlivesScalar
+        ty::Uint(..) |        // OutlivesScalar
+        ty::Float(..) |       // OutlivesScalar
+        ty::Never |           // ...
+        ty::Adt(..) |         // OutlivesNominalType
+        ty::Foreign(..) |     // OutlivesNominalType
+        ty::Str |             // OutlivesScalar (ish)
+        ty::Slice(..) |       // ...
+        ty::RawPtr(..) |      // ...
+        ty::Ref(..) |         // OutlivesReference
+        ty::Tuple(..) |       // ...
+        ty::FnPtr(_) |        // OutlivesFunction (*)
+        ty::Dynamic(..) |     // OutlivesObject, OutlivesFragment (*)
+        ty::Placeholder(..) |
+        ty::Bound(..) |
+        ty::Error(_) => {
+            // (*) Function pointers and trait objects are both binders.
+            // In the RFC, this means we would add the bound regions to
+            // the "bound regions list".  In our representation, no such
+            // list is maintained explicitly, because bound regions
+            // themselves can be readily identified.
+            compute_components_recursive(tcx, ty.into(), out, visited);
+        }
+    }
 }
 
 /// Collect [Component]s for *all* the substs of `parent`.

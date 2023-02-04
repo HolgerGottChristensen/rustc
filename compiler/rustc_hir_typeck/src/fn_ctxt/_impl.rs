@@ -562,17 +562,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         &self,
         mutate_fulfillment_errors: impl Fn(&mut Vec<traits::FulfillmentError<'tcx>>),
     ) {
-        info!("HERE 1122");
         let mut result = self.fulfillment_cx.borrow_mut().select_where_possible(self);
-        info!("HERE 1133");
         if !result.is_empty() {
-            info!("HERE 1144");
             mutate_fulfillment_errors(&mut result);
-            info!("HERE 1155");
             self.adjust_fulfillment_errors_for_expr_obligation(&mut result);
-            info!("HERE 1166");
             self.err_ctxt().report_fulfillment_errors(&result, self.inh.body_id);
-            info!("HERE 1177");
         }
 
     }
@@ -1212,6 +1206,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         let tcx = self.fcx.tcx();
                         self.fcx.ct_infer(tcx.type_of(param.def_id), Some(param), inf.span).into()
                     }
+                    (GenericParamDefKind::HKT(..), GenericArg::Type(ty)) => {
+                        self.fcx.to_ty(ty).into()
+                        //todo!("hoch")
+                    }
                     _ => unreachable!(),
                 }
             }
@@ -1253,7 +1251,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                             self.fcx.var_for_def(self.span, param)
                         }
                     }
-                    GenericParamDefKind::HKT => {
+                    GenericParamDefKind::HKT(..) => {
                         //todo!("hoch")
                         self.fcx.var_for_def(self.span, param)
                     }

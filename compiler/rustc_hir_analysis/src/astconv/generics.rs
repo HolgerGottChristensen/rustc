@@ -252,26 +252,16 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 match (args.peek(), params.peek()) {
                     (Some(&arg), Some(&param)) => {
                         match (arg, &param.kind, arg_count.explicit_late_bound) {
-                            (GenericArg::Lifetime(_), GenericParamDefKind::Lifetime, _)
-                            | (
-                                GenericArg::Type(_) | GenericArg::Infer(_),
-                                GenericParamDefKind::Type { .. },
-                                _,
-                            )
-                            | (
-                                GenericArg::Const(_) | GenericArg::Infer(_),
-                                GenericParamDefKind::Const { .. },
-                                _,
-                            ) => {
+                            (GenericArg::Lifetime(_), GenericParamDefKind::Lifetime,     _)
+                            | (GenericArg::Infer(_),  GenericParamDefKind::Type { .. },  _)
+                            | (GenericArg::Infer(_),  GenericParamDefKind::Const { .. }, _)
+                            | (GenericArg::Type(_),   GenericParamDefKind::Type { .. },  _)
+                            | (GenericArg::Const(_),  GenericParamDefKind::Const { .. }, _) => {
                                 substs.push(ctx.provided_kind(param, arg));
                                 args.next();
                                 params.next();
                             }
-                            (
-                                GenericArg::Infer(_) | GenericArg::Type(_) | GenericArg::Const(_),
-                                GenericParamDefKind::Lifetime,
-                                _,
-                            ) => {
+                            (GenericArg::Infer(_) | GenericArg::Type(_) | GenericArg::Const(_), GenericParamDefKind::Lifetime, _) => {
                                 // We expected a lifetime argument, but got a type or const
                                 // argument. That means we're inferring the lifetimes.
                                 substs.push(ctx.inferred_kind(None, param, infer_args));
@@ -284,6 +274,13 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                                 // due to the presence of the explicit bound so we're just going to
                                 // ignore it.
                                 args.next();
+                            }
+                            // If we expect a HKT, the user is allowed to provide either a type
+                            // or a HKTVar. Currently infer variables are not supported for HKT.
+                            (GenericArg::Type(_), GenericParamDefKind::HKT { .. },  _) => {
+                                substs.push(ctx.provided_kind(param, arg));
+                                args.next();
+                                params.next();
                             }
                             (_, _, _) => {
                                 // We expected one kind of parameter, but the user provided
