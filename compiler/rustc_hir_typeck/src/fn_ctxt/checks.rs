@@ -236,7 +236,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         // Simplify the types and evaluate the type functions
         let formal_input_tys = &self.evaluate_type_functions(fn_def_id, formal_input_tys)[..];
-
+        info!("Evaluated formal inputs: {:#?}", formal_input_tys);
 
 
         // Conceptually, we've got some number of expected inputs, and some number of provided arguments
