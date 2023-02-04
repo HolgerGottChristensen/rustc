@@ -115,7 +115,7 @@ impl<'a, 'tcx> FulfillmentContext<'tcx> {
         let errors: Vec<FulfillmentError<'tcx>> =
             outcome.errors.into_iter().map(to_fulfillment_error).collect();
 
-        info!(
+        debug!(
             "select({} predicates remaining, {} errors) done",
             self.predicates.len(),
             errors.len()
@@ -135,7 +135,7 @@ impl<'tcx> TraitEngine<'tcx> for FulfillmentContext<'tcx> {
         // debug output much nicer to read and so on.
         let obligation = infcx.resolve_vars_if_possible(obligation);
 
-        info!(?obligation, "register_predicate_obligation");
+        debug!(?obligation, "register_predicate_obligation");
 
         assert!(!infcx.is_in_snapshot() || self.usable_in_snapshot);
 
@@ -238,21 +238,21 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
         let obligation = &mut pending_obligation.obligation;
 
 
-        info!(?obligation, "pre-resolve");
-        info!("{:#?}", obligation.cause);
+        debug!(?obligation, "pre-resolve");
+        debug!("{:#?}", obligation.cause);
 
         if obligation.predicate.has_non_region_infer() {
-            info!("Has non region infer");
+            debug!("Has non region infer");
             obligation.predicate = self.selcx.infcx.resolve_vars_if_possible(obligation.predicate);
         }
-        info!(?obligation, "post-resolve-vars-if-possible");
+        debug!(?obligation, "post-resolve-vars-if-possible");
 
         let obligation = &pending_obligation.obligation;
 
         let infcx = self.selcx.infcx;
 
         if obligation.predicate.has_projections() {
-            info!("Has projections");
+            debug!("Has projections");
             let mut obligations = Vec::new();
             let predicate = project::try_normalize_with_depth_to(
                 &mut self.selcx,
@@ -272,7 +272,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 
         match binder.no_bound_vars() {
             None => {
-                info!("Contains bound vars");
+                debug!("Contains bound vars");
 
                 match binder.skip_binder() {
                     // Evaluation will discard candidates using the leak check.
@@ -316,10 +316,10 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                 }
             },
             Some(pred) => {
-                info!("Contains NO bound vars at all");
+                debug!("Contains NO bound vars at all");
                 match pred {
                     ty::PredicateKind::Clause(ty::Clause::Trait(data)) => {
-                        info!("Clause trait obligation: {:?}", data);
+                        debug!("Clause trait obligation: {:?}", data);
                         let trait_obligation = obligation.with(infcx.tcx, Binder::dummy(data));
 
                         self.process_trait_obligation(
@@ -617,11 +617,11 @@ impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
     ) -> ProcessResult<PendingPredicateObligation<'tcx>, FulfillmentErrorCode<'tcx>> {
         let infcx = self.selcx.infcx;
         if obligation.predicate.is_global() {
-            info!("Predicate is global");
+            debug!("Predicate is global");
             // no type variables present, can use evaluation for better caching.
             // FIXME: consider caching errors too.
             if infcx.predicate_must_hold_considering_regions(obligation) {
-                info!("predicate_must_hold_considering_regions");
+                debug!("predicate_must_hold_considering_regions");
                 debug!(
                     "selecting trait at depth {} evaluated to holds",
                     obligation.recursion_depth
@@ -632,11 +632,11 @@ impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
 
         match self.selcx.select(&trait_obligation) {
             Ok(Some(impl_source)) => {
-                info!("selecting trait at depth {} yielded Ok(Some)", obligation.recursion_depth);
+                debug!("selecting trait at depth {} yielded Ok(Some)", obligation.recursion_depth);
                 ProcessResult::Changed(mk_pending(impl_source.nested_obligations()))
             }
             Ok(None) => {
-                info!("selecting trait at depth {} yielded Ok(None)", obligation.recursion_depth);
+                debug!("selecting trait at depth {} yielded Ok(None)", obligation.recursion_depth);
 
                 // This is a bit subtle: for the most part, the
                 // only reason we can fail to make progress on
@@ -648,7 +648,7 @@ impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
                     trait_obligation.predicate.map_bound(|pred| pred.trait_ref.substs),
                 ));
 
-                info!(
+                debug!(
                     "process_predicate: pending obligation {:?} now stalled on {:?}",
                     infcx.resolve_vars_if_possible(obligation.clone()),
                     stalled_on
@@ -657,7 +657,7 @@ impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
                 ProcessResult::Unchanged
             }
             Err(selection_err) => {
-                info!("selecting trait at depth {} yielded {:?}", obligation.recursion_depth, selection_err);
+                debug!("selecting trait at depth {} yielded {:?}", obligation.recursion_depth, selection_err);
 
                 ProcessResult::Error(CodeSelectionError(selection_err))
             }

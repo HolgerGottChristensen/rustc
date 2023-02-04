@@ -1375,7 +1375,7 @@ fn create_mono_items_for_default_impls<'tcx>(
                             | GenericParamDefKind::Const { .. } => {
                                 trait_ref.substs[param.index as usize]
                             }
-                            GenericParamDefKind::HKT(..) => todo!("hoch")
+                            GenericParamDefKind::HKT => todo!("hoch")
                         });
                     let instance =
                         ty::Instance::expect_resolve(tcx, param_env, method.def_id, substs);

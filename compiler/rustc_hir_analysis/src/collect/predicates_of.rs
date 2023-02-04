@@ -178,12 +178,10 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                 // Bounds on const parameters are currently not possible.
                 index += 1;
             }
-            GenericParamKind::HKT(ref parameters) => {
+            GenericParamKind::HKT(..) => {
                 // TODO(hoch)
                 let name = param.name.ident().name;
-                let param_ty = ty::ParamTy::new_hkt(index, name, parameters.iter().map(|parameter| {
-                    match parameter { HKTKind::Atomic(ident) => {ident.name} }
-                }).collect()).to_ty(tcx);
+                let param_ty = ty::ParamTy::new_hkt(index, name).to_ty(tcx);
                 index += 1;
 
                 let mut bounds = Bounds::default();

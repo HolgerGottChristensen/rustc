@@ -1308,7 +1308,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             has_default && def.index >= generics.parent_count as u32
         }
         GenericParamDefKind::Lifetime => unreachable!(),
-        GenericParamDefKind::HKT(..) => unreachable!("we have no default parameters for hkt")
+        GenericParamDefKind::HKT => unreachable!("we have no default parameters for hkt")
     };
 
     // Check that concrete defaults are well-formed. See test `type-check-defaults.rs`.
@@ -1352,7 +1352,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             }
             // Doesn't have defaults.
             GenericParamDefKind::Lifetime => {}
-            GenericParamDefKind::HKT(..) => {
+            GenericParamDefKind::HKT => {
                 // We have no defaults, so we can leave this empty
             },
         }
@@ -1399,7 +1399,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
 
                 tcx.mk_param_from_def(param)
             }
-            GenericParamDefKind::HKT(..) => {
+            GenericParamDefKind::HKT => {
                 tcx.mk_param_from_def(param)
             }
         }

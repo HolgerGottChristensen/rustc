@@ -147,7 +147,7 @@ fn enforce_impl_params_are_constrained(tcx: TyCtxt<'_>, impl_def_id: LocalDefId)
                     );
                 }
             }
-            ty::GenericParamDefKind::HKT(..) => {
+            ty::GenericParamDefKind::HKT => {
                 /*let param_ty = ty::ParamTy::for_def(param);
                 if !input_parameters.contains(&cgp::Parameter::from(param_ty)) {
                     report_unused_parameter(tcx, tcx.def_span(param.def_id), "type", param_ty.name);

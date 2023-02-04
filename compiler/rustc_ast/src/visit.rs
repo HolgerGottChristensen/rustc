@@ -599,8 +599,8 @@ pub fn walk_generic_param<'a, V: Visitor<'a>>(visitor: &mut V, param: &'a Generi
                 visitor.visit_anon_const(default);
             }
         }
-        GenericParamKind::HKT(_) => {
-            // TODO(hoch)
+        GenericParamKind::HKT(generics) => {
+            visitor.visit_generics(generics)
         }
     }
 }

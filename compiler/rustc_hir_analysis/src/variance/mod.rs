@@ -141,7 +141,7 @@ fn variance_of_opaque(tcx: TyCtxt<'_>, item_def_id: LocalDefId) -> &[ty::Varianc
                     }
                     ty::GenericParamDefKind::Type { .. }
                     | ty::GenericParamDefKind::Const { .. } => {}
-                    ty::GenericParamDefKind::HKT(..) => {
+                    ty::GenericParamDefKind::HKT => {
                         todo!("hoch")
                     }
                 }

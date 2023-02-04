@@ -38,7 +38,7 @@ where
     /// (they will be given over to the NLL region solver).
     fn fully_perform(self, infcx: &InferCtxt<'tcx>) -> Fallible<TypeOpOutput<'tcx, Self>> {
         if cfg!(debug_assertions) {
-            info!("fully_perform({:?})", self);
+            debug!("fully_perform({:?})", self);
         }
 
         Ok(scrape_region_constraints(infcx, || (self.closure)(infcx))?.0)

@@ -1206,7 +1206,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         let tcx = self.fcx.tcx();
                         self.fcx.ct_infer(tcx.type_of(param.def_id), Some(param), inf.span).into()
                     }
-                    (GenericParamDefKind::HKT(..), GenericArg::Type(ty)) => {
+                    (GenericParamDefKind::HKT, GenericArg::Type(ty)) => {
                         self.fcx.to_ty(ty).into()
                         //todo!("hoch")
                     }
@@ -1251,7 +1251,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                             self.fcx.var_for_def(self.span, param)
                         }
                     }
-                    GenericParamDefKind::HKT(..) => {
+                    GenericParamDefKind::HKT => {
                         //todo!("hoch")
                         self.fcx.var_for_def(self.span, param)
                     }

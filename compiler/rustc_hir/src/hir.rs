@@ -493,7 +493,7 @@ pub enum GenericParamKind<'hir> {
         /// Optional default value for the const generic param
         default: Option<AnonConst>,
     },
-    HKT (Vec<HKTKind>),
+    HKT (&'hir Generics<'hir>),
 }
 
 #[derive(Debug, HashStable_Generic)]
@@ -3542,8 +3542,10 @@ impl<'hir> Node<'hir> {
             })
             | Node::TraitItem(TraitItem { generics, .. })
             | Node::ImplItem(ImplItem { generics, .. }) => Some(generics),
+            Node::GenericParam(GenericParam {kind: GenericParamKind::HKT(generics), .. }) => {
+                Some(generics)
+            }
             Node::Item(item) => item.kind.generics(),
-            //Node::GenericParam(GenericParam {kind: GenericParamKind::HKT()})
             _ => None,
         }
     }

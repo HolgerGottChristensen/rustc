@@ -518,7 +518,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                             }
                         }
                     }
-                    GenericParamDefKind::HKT(..) => todo!("hoch")
+                    GenericParamDefKind::HKT => todo!("hoch")
                 }
             }
         }
@@ -2528,17 +2528,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 // Get the index of the ty_param
                 let generics: &ty::Generics = tcx.generics_of(item_def_id);
                 let index = generics.param_def_id_to_index[&def_id.to_def_id()];
-                let param = &generics.params[index as usize];
-
-                let hkt_parameters = match &param.kind {
-                    GenericParamDefKind::HKT(parameters) => {
-                        parameters.clone()
-                    }
-                    GenericParamDefKind::Lifetime
-                    | GenericParamDefKind::Type { .. }
-                    | GenericParamDefKind::Const { .. } =>
-                        unreachable!("Since we are in a defkind hkt, we should never have another parameter than hkt")
-                };
+                //let param = &generics.params[index as usize];
 
 
                 //self.normalize_ty(span, self.tcx().at(span).bound_type_of(did).subst(self.tcx(), substs))
@@ -2546,7 +2536,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 debug!("{:#?}, {:#?}, {:#?}, {:#?}", def_id, item_def_id, generics, index);
 
                 //tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
-                tcx.mk_hkt_param(index, tcx.hir().ty_param_name(def_id), hkt_parameters, substs)
+                tcx.mk_hkt_param(index, tcx.hir().ty_param_name(def_id), substs)
                 //todo!("{:#?}", path)
             }
             Res::SelfTyParam { .. } => {

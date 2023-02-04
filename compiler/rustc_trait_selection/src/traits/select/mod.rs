@@ -354,7 +354,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         stack: &TraitObligationStack<'o, 'tcx>,
     ) -> SelectionResult<'tcx, SelectionCandidate<'tcx>> {
 
-        info!("candidate_from_obligation_no_cache");
+        debug!("candidate_from_obligation_no_cache");
 
         if let Err(conflict) = self.is_knowable(stack) {
             debug!("coherence stage: not knowable");
@@ -1443,7 +1443,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     }
 
     fn is_knowable<'o>(&mut self, stack: &TraitObligationStack<'o, 'tcx>) -> Result<(), Conflict> {
-        info!("is_knowable(intercrate={:?})", self.is_intercrate());
+        debug!("is_knowable(intercrate={:?})", self.is_intercrate());
 
         if !self.is_intercrate() || stack.obligation.polarity() == ty::ImplPolarity::Negative {
             return Ok(());

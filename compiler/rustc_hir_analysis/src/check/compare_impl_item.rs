@@ -1337,12 +1337,12 @@ fn compare_synthetic_generics<'tcx>(
     let impl_m_type_params = impl_m_generics.params.iter().filter_map(|param| match param.kind {
         GenericParamDefKind::Type { synthetic, .. } => Some((param.def_id, synthetic)),
         GenericParamDefKind::Lifetime | GenericParamDefKind::Const { .. } => None,
-        GenericParamDefKind::HKT(..) => todo!("hoch"),
+        GenericParamDefKind::HKT => todo!("hoch"),
     });
     let trait_m_type_params = trait_m_generics.params.iter().filter_map(|param| match param.kind {
         GenericParamDefKind::Type { synthetic, .. } => Some((param.def_id, synthetic)),
         GenericParamDefKind::Lifetime | GenericParamDefKind::Const { .. } => None,
-        GenericParamDefKind::HKT(..) => todo!("hoch"),
+        GenericParamDefKind::HKT => todo!("hoch"),
     });
     for ((impl_def_id, impl_synthetic), (trait_def_id, trait_synthetic)) in
         iter::zip(impl_m_type_params, trait_m_type_params)
@@ -1512,7 +1512,7 @@ fn compare_generic_param_kinds<'tcx>(
             // this is exhaustive so that anyone adding new generic param kinds knows
             // to make sure this error is reported for them.
             (Const { .. }, Const { .. }) | (Type { .. }, Type { .. }) => false,
-            (HKT(..), _) | (_, HKT(..)) => todo!("hoch"),
+            (HKT, _) | (_, HKT) => todo!("hoch"),
             (Lifetime { .. }, _) | (_, Lifetime { .. }) => unreachable!(),
         } {
             let param_impl_span = tcx.def_span(param_impl.def_id);
@@ -1534,7 +1534,7 @@ fn compare_generic_param_kinds<'tcx>(
                 }
                 Type { .. } => format!("{} type parameter", prefix),
                 Lifetime { .. } => unreachable!(),
-                HKT(..) => format!("{} hkt parameter", prefix),
+                HKT => format!("{} hkt parameter", prefix),
             };
 
             let trait_header_span = tcx.def_ident_span(tcx.parent(trait_item.def_id)).unwrap();
@@ -1869,7 +1869,7 @@ pub(super) fn check_type_bounds<'tcx>(
             )
             .into()
         }
-        GenericParamDefKind::HKT(..) => todo!("enbe")
+        GenericParamDefKind::HKT => todo!("enbe")
     });
     let bound_vars = tcx.mk_bound_variable_kinds(bound_vars.into_iter());
     let impl_ty_substs = tcx.intern_substs(&substs);

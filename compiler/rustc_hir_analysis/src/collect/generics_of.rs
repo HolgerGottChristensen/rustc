@@ -293,15 +293,9 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
                 kind: ty::GenericParamDefKind::Const { has_default: default.is_some() },
             })
         }
-        GenericParamKind::HKT(ref parameters) => {
+        GenericParamKind::HKT(..) => {
             // TODO(hoch)
-            let kind = ty::GenericParamDefKind::HKT(
-                parameters.iter().map(|param|  {
-                    match param { HKTKind::Atomic(ident) => {
-                        ident.name
-                    } }
-                }).collect()
-            );
+            let kind = ty::GenericParamDefKind::HKT;
 
             Some(ty::GenericParamDef {
                 index: next_index(),

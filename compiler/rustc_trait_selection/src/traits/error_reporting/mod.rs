@@ -444,7 +444,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                             && !(error2.index >= error.index
                                 && self.error_implies(error.predicate, error2.predicate))
                         {
-                            info!("skipping {:?} (implied by {:?})", error, error2);
+                            debug!("skipping {:?} (implied by {:?})", error, error2);
                             is_suppressed[index] = true;
                             break;
                         }

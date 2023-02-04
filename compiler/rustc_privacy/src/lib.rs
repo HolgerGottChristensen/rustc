@@ -846,7 +846,7 @@ impl ReachEverythingInTheInterfaceVisitor<'_, '_> {
                         self.visit(self.ev.tcx.const_param_default(param.def_id));
                     }
                 }
-                GenericParamDefKind::HKT(..) => {
+                GenericParamDefKind::HKT => {
                     todo!("hoch")
                 }
             }
@@ -1750,7 +1750,7 @@ impl SearchInterfaceForPrivateItemsVisitor<'_> {
                 GenericParamDefKind::Const { .. } => {
                     self.visit(self.tcx.type_of(param.def_id));
                 }
-                GenericParamDefKind::HKT(..) => {
+                GenericParamDefKind::HKT => {
                     // Since we dont have a default, we should not traverse further
                 }
             }

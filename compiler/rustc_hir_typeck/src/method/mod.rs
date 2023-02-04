@@ -281,7 +281,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         return input_types[param.index as usize - 1].into();
                     }
                 }
-                GenericParamDefKind::HKT(..) => {
+                GenericParamDefKind::HKT => {
                     todo!("hoch")
                 }
             }

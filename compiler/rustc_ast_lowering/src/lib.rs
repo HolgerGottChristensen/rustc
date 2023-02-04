@@ -2198,22 +2198,16 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             }
             GenericParamKind::HKT(kinds) => {
                 // TODO(hoch)
+
+                let itctx = ImplTraitContext::Disallowed(ImplTraitPosition::Type);
+
+                warn!("{:#?}", kinds);
+
                 let kind = hir::GenericParamKind::HKT (
-                    kinds.iter().map(|a| self.lower_hkt_kind(a)).collect()
+                    self.lower_generics(kinds, param.id, &itctx, |_| {()}).0
                 );
 
                 (hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
-            }
-        }
-    }
-
-    fn lower_hkt_kind(&mut self, kind: &HKTKind) -> hir::HKTKind {
-        match kind {
-            HKTKind::Atomic(ident) => {
-                hir::HKTKind::Atomic(self.lower_ident(*ident))
-            }
-            HKTKind::Composition(..) => {
-                unreachable!("This should be disallowed in ast_validation and thus be unreachable")
             }
         }
     }

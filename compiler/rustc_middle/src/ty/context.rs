@@ -75,7 +75,6 @@ use std::iter;
 use std::mem;
 use std::ops::{Bound, Deref};
 use std::sync::Arc;
-use smallvec::SmallVec;
 
 pub trait OnDiskCache<'tcx>: rustc_data_structures::sync::Sync {
     /// Creates a new `OnDiskCache` instance from the serialized data in `data`.
@@ -1812,7 +1811,7 @@ impl<'tcx> TyCtxt<'tcx> {
                         self.bound_type_of(param.def_id).subst(self, substs).into()
                     }
                 }
-                GenericParamDefKind::HKT(..) => todo!("hoch")
+                GenericParamDefKind::HKT => todo!("hoch")
             });
         self.mk_ty(Adt(adt_def, substs))
     }
@@ -2005,8 +2004,8 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     #[inline]
-    pub fn mk_hkt_param(self, index: u32, name: Symbol, parameters: SmallVec<[Symbol; 3]>, subst: SubstsRef<'tcx>) -> Ty<'tcx> {
-        self.mk_ty(HKT(ParamTy::HKT { index, name, parameters }, subst))
+    pub fn mk_hkt_param(self, index: u32, name: Symbol, subst: SubstsRef<'tcx>) -> Ty<'tcx> {
+        self.mk_ty(HKT(ParamTy::HKT { index, name }, subst))
     }
 
     pub fn mk_param_from_def(self, param: &ty::GenericParamDef) -> GenericArg<'tcx> {
@@ -2023,8 +2022,8 @@ impl<'tcx> TyCtxt<'tcx> {
                     self.type_of(param.def_id),
                 )
                 .into(),
-            GenericParamDefKind::HKT(ref parameters) => {
-                self.mk_hkt_param(param.index, param.name, parameters.clone(), self.intern_substs(&[])).into()
+            GenericParamDefKind::HKT => {
+                self.mk_hkt_param(param.index, param.name, self.intern_substs(&[])).into()
             }
         }
     }

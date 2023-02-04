@@ -1,6 +1,6 @@
 use super::{ForceCollect, Parser, TrailingToken};
 
-use rustc_ast::{HKTKind, token};
+use rustc_ast::{Generics, token};
 use rustc_ast::{
     self as ast, AttrVec, GenericBounds, GenericParam, GenericParamKind, TyKind, WhereClause,
 };
@@ -25,7 +25,7 @@ impl<'a> Parser<'a> {
         lifetimes
     }
 
-    fn parse_hkt_param_helper1(&mut self) -> PResult<'a, HKTKind> {
+    fn parse_hkt_param_helper1(&mut self) -> PResult<'a, GenericParam> {
         let _ = self.expect(&token::Question)?;
 
         let ident = self.parse_ident()?;
@@ -36,13 +36,34 @@ impl<'a> Parser<'a> {
 
             self.expect_gt()?;
 
-            Ok(HKTKind::Composition(ident, params))
+
+            Ok(GenericParam {
+                ident,
+                id: ast::DUMMY_NODE_ID,
+                attrs: AttrVec::new(),
+                bounds: GenericBounds::new(),
+                kind: GenericParamKind::HKT(Generics {
+                    params,
+                    where_clause: Default::default(),
+                    span: Default::default(), // Todo: hoch fix spans
+                }),
+                is_placeholder: false,
+                colon_span: None,
+            })
         } else {
-            Ok(HKTKind::Atomic(ident))
+            Ok(GenericParam {
+                ident,
+                id: ast::DUMMY_NODE_ID,
+                attrs: AttrVec::new(),
+                bounds: GenericBounds::new(),
+                kind: GenericParamKind::Type { default: None },
+                is_placeholder: false,
+                colon_span: None,
+            })
         }
     }
 
-    fn parse_hkt_param_helper(&mut self) -> PResult<'a, Vec<HKTKind>> {
+    fn parse_hkt_param_helper(&mut self) -> PResult<'a, Vec<GenericParam>> {
         let mut inner = vec![];
         let mut done = false;
 
@@ -74,7 +95,11 @@ impl<'a> Parser<'a> {
 
             self.expect_gt()?;
 
-            GenericParamKind::HKT(p)
+            GenericParamKind::HKT( Generics {
+                params: p,
+                where_clause: Default::default(),
+                span: Default::default(), // Todo: hoch fix spans
+            })
         } else {
             GenericParamKind::Type { default: None }
         };

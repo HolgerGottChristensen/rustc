@@ -247,7 +247,7 @@ fn vtable_entries<'tcx>(
                             | GenericParamDefKind::Const { .. } => {
                                 trait_ref.substs[param.index as usize]
                             }
-                            GenericParamDefKind::HKT(..) => todo!("hoch")
+                            GenericParamDefKind::HKT => todo!("hoch")
                         })
                     });
 

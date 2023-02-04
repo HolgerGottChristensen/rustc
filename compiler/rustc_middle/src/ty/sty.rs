@@ -26,7 +26,6 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::marker::PhantomData;
 use std::ops::{ControlFlow, Deref, Range};
-use smallvec::SmallVec;
 use ty::util::IntTypeExt;
 
 use rustc_type_ir::sty::TyKind::*;
@@ -1300,7 +1299,6 @@ pub enum ParamTy {
     HKT {
         index: u32,
         name: Symbol,
-        parameters: SmallVec<[Symbol; 3]>,
     }
 }
 
@@ -1309,8 +1307,8 @@ impl<'tcx> ParamTy {
         ParamTy::Param { index, name }
     }
 
-    pub fn new_hkt(index: u32, name: Symbol, parameters: SmallVec<[Symbol; 3]>) -> ParamTy {
-        ParamTy::HKT { index, name, parameters }
+    pub fn new_hkt(index: u32, name: Symbol) -> ParamTy {
+        ParamTy::HKT { index, name }
     }
 
     pub fn for_def(def: &ty::GenericParamDef) -> ParamTy {
@@ -1320,8 +1318,8 @@ impl<'tcx> ParamTy {
             GenericParamDefKind::Const { .. } => {
                 ParamTy::new_param(def.index, def.name)
             }
-            GenericParamDefKind::HKT(ref parameters) => {
-                ParamTy::new_hkt(def.index, def.name, parameters.clone())
+            GenericParamDefKind::HKT => {
+                ParamTy::new_hkt(def.index, def.name)
             }
         }
     }
@@ -1330,7 +1328,7 @@ impl<'tcx> ParamTy {
     pub fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
         match self {
             ParamTy::Param { index, name } => tcx.mk_ty_param(*index, *name),
-            ParamTy::HKT { index, name, parameters} => tcx.mk_hkt_param(*index, *name, parameters.clone(), tcx.intern_substs(&[]))
+            ParamTy::HKT { index, name} => tcx.mk_hkt_param(*index, *name,  tcx.intern_substs(&[]))
         }
     }
 

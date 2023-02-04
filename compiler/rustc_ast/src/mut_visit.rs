@@ -899,8 +899,8 @@ pub fn noop_flat_map_generic_param<T: MutVisitor>(
             vis.visit_ty(ty);
             visit_opt(default, |default| vis.visit_anon_const(default));
         }
-        GenericParamKind::HKT(_) => {
-            // TODO(hoch)
+        GenericParamKind::HKT(generics) => {
+            noop_visit_generics(generics, vis)
         }
     }
 

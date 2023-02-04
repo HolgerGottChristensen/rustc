@@ -93,7 +93,7 @@ impl<'cx, 'tcx> QueryNormalizeExt<'tcx> for At<'cx, 'tcx> {
             }
         }
         let result = value.try_fold_with(&mut normalizer);
-        info!(
+        debug!(
             "normalize::<{}>: result={:?} with {} obligations",
             std::any::type_name::<T>(),
             result,

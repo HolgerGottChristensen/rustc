@@ -11,7 +11,7 @@ use rustc_ast::tokenstream::{TokenStream, TokenTree};
 use rustc_ast::util::classify;
 use rustc_ast::util::comments::{gather_comments, Comment, CommentStyle};
 use rustc_ast::util::parser;
-use rustc_ast::{self as ast, AttrArgs, AttrArgsEq, BlockCheckMode, GenericParamKind, HKTKind, PatKind};
+use rustc_ast::{self as ast, AttrArgs, AttrArgsEq, BlockCheckMode, GenericParamKind, Generics, PatKind};
 use rustc_ast::{attr, BindingAnnotation, ByRef, DelimArgs, RangeEnd, RangeSyntax, Term};
 use rustc_ast::{GenericArg, GenericBound, SelfKind, TraitBoundModifier};
 use rustc_ast::{InlineAsmOperand, InlineAsmRegOrRegClass};
@@ -1599,10 +1599,12 @@ impl<'a> State<'a> {
         }
     }
 
-    pub(crate) fn print_hkt_kind(&mut self, kinds: &[HKTKind]) {
+    pub(crate) fn print_hkt_kind(&mut self, kinds: &Generics) {
 
-        self.commasep(Inconsistent, kinds, |s, kind| {
-            match kind {
+        self.commasep(Inconsistent, &kinds.params, |s, kind| {
+            s.word("?");
+            s.print_ident(kind.ident);
+            /*match kind {
                 HKTKind::Atomic(ident) => {
                     s.word("?");
                     s.print_ident(*ident);
@@ -1614,7 +1616,7 @@ impl<'a> State<'a> {
                     s.print_hkt_kind(nested);
                     s.word(">");
                 }
-            }
+            }*/
         });
     }
 

@@ -367,10 +367,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expected: Expectation<'tcx>,
     ) -> Ty<'tcx> {
 
-        warn!("Call expr: {:#?}", call_expr);
-        warn!("Callee expr: {:#?}", callee_expr);
-        warn!("Callee type kind: {:#?}", callee_ty.kind());
-        warn!("Arg expr: {:#?}", arg_exprs);
+        //warn!("Call expr: {:#?}", call_expr);
+        //warn!("Callee expr: {:#?}", callee_expr);
+        //warn!("Callee type kind: {:#?}", callee_ty.kind());
+        //warn!("Arg expr: {:#?}", arg_exprs);
 
 
 
@@ -443,7 +443,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         };
 
-        warn!("Fn sig: {:#?}", fn_sig);
+        //warn!("Fn sig: {:#?}", fn_sig);
 
         // Replace any late-bound regions that appear in the function
         // signature with region variables. We also have to
@@ -453,7 +453,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let fn_sig = self.replace_bound_vars_with_fresh_vars(call_expr.span, infer::FnCall, fn_sig);
         let fn_sig = self.normalize(call_expr.span, fn_sig);
 
-        warn!("Fn sig: {:#?}", fn_sig);
+        //warn!("Fn sig: {:#?}", fn_sig);
 
         // Call the generic checker.
         let expected_arg_tys = self.expected_inputs_for_expected_output(

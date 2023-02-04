@@ -139,13 +139,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         method.sig.output()
     }
 
-    fn evaluate_type_functions(&self, fn_def_id: Option<DefId>, _arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
+    /*fn evaluate_type_functions(&self, fn_def_id: Option<DefId>, _arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
         let fn_def_id = fn_def_id.expect("Investigation needed hoch");
 
         let sig = self.tcx.bound_fn_sig(fn_def_id);
 
         todo!("{:#?}", sig)
-    }
+    }*/
 
     /// Generic function that factors out common logic from function calls,
     /// method calls and overloaded operators.
@@ -169,16 +169,16 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // The DefId for the function being called, for better error messages
         fn_def_id: Option<DefId>,
     ) {
-        warn!("{:#?}", fn_def_id);
-        warn!("{:#?}", call_expr);
-        warn!("{:#?}", formal_input_tys);
-        warn!("{:#?}", expected_input_tys);
-        warn!("{:#?}", provided_args);
+        //warn!("{:#?}", fn_def_id);
+        //warn!("{:#?}", call_expr);
+        //warn!("{:#?}", formal_input_tys);
+        //warn!("{:#?}", expected_input_tys);
+        //warn!("{:#?}", provided_args);
         let tcx = self.tcx;
 
 
         // Simplify the types and evaluate the type functions
-        let formal_input_tys = &self.evaluate_type_functions(fn_def_id, formal_input_tys)[..];
+        //let formal_input_tys = &self.evaluate_type_functions(fn_def_id, formal_input_tys)[..];
 
 
 

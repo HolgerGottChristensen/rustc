@@ -32,7 +32,7 @@ use rustc_macros::HashStable_Generic;
 use rustc_serialize::{Decodable, Decoder, Encodable, Encoder};
 use rustc_span::source_map::{respan, Spanned};
 use rustc_span::symbol::{kw, sym, Ident, Symbol};
-use rustc_span::{Span, DUMMY_SP, BytePos};
+use rustc_span::{Span, DUMMY_SP};
 use std::fmt;
 use std::mem;
 use thin_vec::{thin_vec, ThinVec};
@@ -353,15 +353,6 @@ impl fmt::Display for ParamKindOrd {
     }
 }
 
-/// Everything parsed inside a HKT parameter
-#[derive(Clone, Encodable, Decodable, Debug)]
-pub enum HKTKind {
-    /// ?A
-    Atomic(Ident),
-    /// ?A<?I, ?J>
-    Composition(Ident, Vec<HKTKind>),
-}
-
 #[derive(Clone, Encodable, Decodable, Debug)]
 pub enum GenericParamKind {
     /// A lifetime definition (e.g., `'a: 'b + 'c + 'd`).
@@ -377,7 +368,7 @@ pub enum GenericParamKind {
         default: Option<AnonConst>,
     },
     /// A HKT definition parameter list. It is the `?A, ?B, ?C<?I, ?J>` part of `T<?A, ?B, ?C<?I, ?J>>`
-    HKT(Vec<HKTKind>),
+    HKT(Generics),
 }
 
 #[derive(Clone, Encodable, Decodable, Debug)]
@@ -407,7 +398,8 @@ impl GenericParam {
         }
 
 
-        if let GenericParamKind::HKT (nested) = &self.kind {
+        // TODO: hoch
+        /*if let GenericParamKind::HKT (nested) = &self.kind {
             let mut gts = 1;
             let mut current = nested.last();
 
@@ -428,7 +420,7 @@ impl GenericParam {
                     }
                 }
             }
-        }
+        }*/
 
 
         self.ident.span
@@ -440,7 +432,7 @@ impl GenericParam {
         }
 
 
-        if let GenericParamKind::HKT (nested) = &self.kind {
+        /*if let GenericParamKind::HKT (nested) = &self.kind {
             let mut gts = 1;
             let mut current = nested.last();
 
@@ -461,7 +453,7 @@ impl GenericParam {
                     }
                 }
             }
-        }
+        }*/
 
 
         self.ident.span

@@ -745,7 +745,7 @@ fn bound_vars_for_item(tcx: TyCtxt<'_>, def_id: DefId) -> SubstsRef<'_> {
                 tcx.type_of(param.def_id),
             )
             .into(),
-        GenericParamDefKind::HKT(..) => todo!("hoch")
+        GenericParamDefKind::HKT => todo!("hoch")
     })
 }
 

@@ -564,7 +564,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                                 )
                                 .into()
                             }
-                            GenericParamDefKind::HKT(..) => todo!("hoch")
+                            GenericParamDefKind::HKT => todo!("hoch")
                         });
                         let bound_vars = tcx.mk_bound_variable_kinds(bound_vars.into_iter());
                         let assoc_ty_substs = tcx.intern_substs(&substs);

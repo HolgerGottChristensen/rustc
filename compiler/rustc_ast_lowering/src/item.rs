@@ -1256,7 +1256,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
     /// Return the pair of the lowered `generics` as `hir::Generics` and the evaluation of `f` with
     /// the carried impl trait definitions and bounds.
     #[instrument(level = "debug", skip(self, f))]
-    fn lower_generics<T>(
+    pub(crate) fn lower_generics<T>(
         &mut self,
         generics: &Generics,
         parent_node_id: NodeId,
@@ -1426,10 +1426,11 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     in_where_clause: false,
                 }))
             }
-            GenericParamKind::HKT(_) => {
+            GenericParamKind::HKT(..) => {
                 // TODO(hoch)
                 let def_id = self.local_def_id(id).to_def_id();
                 let hir_id = self.next_id();
+
                 let res = Res::Def(DefKind::HKTParam, def_id);
                 let ty_path = self.arena.alloc(hir::Path {
                     span: param_span,
