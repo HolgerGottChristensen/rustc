@@ -119,7 +119,7 @@ fn enforce_impl_params_are_constrained(tcx: TyCtxt<'_>, impl_def_id: LocalDefId)
             // Disallow ANY unconstrained type parameters.
             ty::GenericParamDefKind::Type { .. } => {
                 let param_ty = ty::ParamTy::for_def(param);
-                if !input_parameters.contains(&cgp::Parameter::from(param_ty)) {
+                if !input_parameters.contains(&cgp::Parameter::from(param_ty.clone())) {
                     report_unused_parameter(tcx, tcx.def_span(param.def_id), "type", param_ty.name());
                 }
             }

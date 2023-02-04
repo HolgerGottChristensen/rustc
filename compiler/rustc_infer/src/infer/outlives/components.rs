@@ -122,12 +122,12 @@ fn compute_components<'tcx>(
 
         // OutlivesTypeParameterEnv -- the actual checking that `X:'a`
         // is implied by the environment is done in regionck.
-        ty::Param(p) => {
-            out.push(Component::Param(p));
+        ty::Param(ref p) => {
+            out.push(Component::Param(p.clone()));
         }
 
-        ty::HKT(p, ..) => {
-            out.push(Component::HKT(p));
+        ty::HKT(ref p, ..) => {
+            out.push(Component::HKT(p.clone()));
             // todo!("hoch")
         }
 

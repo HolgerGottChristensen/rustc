@@ -159,7 +159,7 @@ impl<'tcx> TypeFolder<'tcx> for ReverseMapper<'tcx> {
             ty::HKT(..) => {
                 todo!("hoch")
             }
-            ty::Param(param) => {
+            ty::Param(ref param) => {
                 // Look it up in the substitution list.
                 match self.map.get(&ty.into()).map(|k| k.unpack()) {
                     // Found it in the substitution list; replace with the parameter from the

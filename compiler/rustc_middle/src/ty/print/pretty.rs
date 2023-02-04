@@ -2523,7 +2523,7 @@ macro_rules! forward_display_to_print {
         $(#[allow(unused_lifetimes)] impl<'tcx> fmt::Display for $ty {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 ty::tls::with(|tcx| {
-                    let cx = tcx.lift(*self)
+                    let cx = tcx.lift(self.clone())
                         .expect("could not lift for printing")
                         .print(FmtPrinter::new(tcx, Namespace::TypeNS))?;
                     f.write_str(&cx.into_buffer())?;

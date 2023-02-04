@@ -851,11 +851,11 @@ impl<'tcx> RegionInferenceContext<'tcx> {
             }
 
             // Type-test failed. Report the error.
-            let erased_generic_kind = infcx.tcx.erase_regions(type_test.generic_kind);
+            let erased_generic_kind = infcx.tcx.erase_regions(type_test.generic_kind.clone());
 
             // Skip duplicate-ish errors.
             if deduplicate_errors.insert((
-                erased_generic_kind,
+                erased_generic_kind.clone(),
                 type_test.lower_bound,
                 type_test.span,
             )) {

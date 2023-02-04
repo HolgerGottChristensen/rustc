@@ -642,7 +642,7 @@ impl<'cx, 'tcx> LexicalResolver<'cx, 'tcx> {
 
             errors.push(RegionResolutionError::GenericBoundFailure(
                 verify.origin.clone(),
-                verify.kind,
+                verify.kind.clone(),
                 sub,
             ));
         }

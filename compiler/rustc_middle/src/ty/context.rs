@@ -2024,7 +2024,7 @@ impl<'tcx> TyCtxt<'tcx> {
                 )
                 .into(),
             GenericParamDefKind::HKT(ref parameters) => {
-                self.mk_hkt_param(param.index, param.name, parameters, self.intern_substs(&[])).into()
+                self.mk_hkt_param(param.index, param.name, parameters.clone(), self.intern_substs(&[])).into()
             }
         }
     }

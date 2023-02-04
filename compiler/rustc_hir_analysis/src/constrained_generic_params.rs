@@ -63,10 +63,10 @@ impl<'tcx> TypeVisitor<'tcx> for ParameterCollector {
                 // projections are not injective
                 return ControlFlow::CONTINUE;
             }
-            ty::Param(data) => {
-                self.parameters.push(Parameter::from(data));
+            ty::Param(ref data) => {
+                self.parameters.push(Parameter::from(data.clone()));
             }
-            ty::HKT(_data, _) => {
+            ty::HKT(ref _data, _) => {
                 todo!("hoch");
                 //self.parameters.push(Parameter::from(data));
             }

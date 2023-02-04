@@ -341,12 +341,12 @@ impl<'a, 'tcx> TypeVisitor<'tcx> for MarkUsedGenericParams<'a, 'tcx> {
                 self.visit_child_body(def_id, substs);
                 ControlFlow::CONTINUE
             }
-            ty::Param(param) => {
+            ty::Param(ref param) => {
                 debug!(?param);
                 self.unused_parameters.clear(param.index());
                 ControlFlow::CONTINUE
             }
-            ty::HKT(param, ..) => {
+            ty::HKT(ref param, ..) => {
                 debug!(?param);
                 self.unused_parameters.clear(param.index());
                 ControlFlow::CONTINUE

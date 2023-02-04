@@ -118,8 +118,8 @@ impl fmt::Debug for ty::ParamTy {
             ParamTy::Param { .. } => {
                 write!(f, "{}/#{}", self.name(), self.index())
             }
-            ParamTy::HKT { .. } => {
-                write!(f, "{}/{}", self.name(), self.index())
+            ParamTy::HKT { parameters, .. } => {
+                write!(f, "{}/{}, {:?}", self.name(), self.index(), parameters)
             }
         }
     }

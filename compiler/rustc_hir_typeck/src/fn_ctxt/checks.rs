@@ -2141,9 +2141,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 ty::HKT(..) => {
                     todo!("hoch")
                 }
-                ty::Param(param) => {
+                ty::Param(ref param) => {
                     let param =
-                        self.tcx.generics_of(self.body_id.owner).type_param(&param, self.tcx);
+                        self.tcx.generics_of(self.body_id.owner).type_param(param, self.tcx);
                     if param.kind.is_synthetic() {
                         // if it's `impl Fn() -> ..` then just fall down to the def-id based logic
                         def_id = param.def_id;

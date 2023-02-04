@@ -66,7 +66,7 @@ pub struct CastCheck<'tcx> {
 /// The kind of pointer and associated metadata (thin, length or vtable) - we
 /// only allow casts between fat pointers if their metadata have the same
 /// kind.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, TypeVisitable, TypeFoldable)]
+#[derive(Debug, Clone, PartialEq, Eq, TypeVisitable, TypeFoldable)]
 enum PointerKind<'tcx> {
     /// No metadata attached, ie pointer to sized type or foreign type
     Thin,
@@ -119,7 +119,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ty::Foreign(..) => Some(PointerKind::Thin),
             // We should really try to normalize here.
             ty::Alias(_, pi) => Some(PointerKind::OfAlias(pi)),
-            ty::Param(p) => Some(PointerKind::OfParam(p)),
+            ty::Param(ref p) => Some(PointerKind::OfParam(p.clone())),
             ty::HKT(..) => {
                 todo!("hoch")
             },

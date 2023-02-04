@@ -42,7 +42,7 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
         // Start with anything like `T: 'a` we can scrape from the
         // environment. If the environment contains something like
         // `for<'a> T: 'a`, then we know that `T` outlives everything.
-        let declared_bounds_from_env = self.declared_generic_bounds_from_env(param_ty);
+        let declared_bounds_from_env = self.declared_generic_bounds_from_env(param_ty.clone());
         debug!(?declared_bounds_from_env);
         let mut param_bounds = vec![];
         for declared_bound in declared_bounds_from_env {
@@ -85,7 +85,7 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
         // Start with anything like `T: 'a` we can scrape from the
         // environment. If the environment contains something like
         // `for<'a> T: 'a`, then we know that `T` outlives everything.
-        let declared_bounds_from_env = self.declared_generic_bounds_from_env(hkt_ty);
+        let declared_bounds_from_env = self.declared_generic_bounds_from_env(hkt_ty.clone());
         debug!(?declared_bounds_from_env);
         let mut hkt_bounds = vec![];
         for declared_bound in declared_bounds_from_env {
@@ -212,7 +212,7 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
     ) -> VerifyBound<'tcx> {
         match *component {
             Component::Region(lt) => VerifyBound::OutlivedBy(lt),
-            Component::Param(param_ty) => self.param_bound(param_ty),
+            Component::Param(ref param_ty) => self.param_bound(param_ty.clone()),
             Component::Opaque(did, substs) => self.projection_opaque_bounds(
                 GenericKind::Opaque(did, substs),
                 did,
@@ -295,7 +295,7 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
         // well-formed, then, A must outlive `'a`, but we don't know that
         // this holds from first principles.
         let from_region_bound_pairs =
-            self.region_bound_pairs.iter().filter_map(|&OutlivesPredicate(p, r)| {
+            self.region_bound_pairs.iter().filter_map(|&OutlivesPredicate(ref p, r)| {
                 debug!(
                     "declared_generic_bounds_from_env_for_erased_ty: region_bound_pair = {:?}",
                     (r, p)

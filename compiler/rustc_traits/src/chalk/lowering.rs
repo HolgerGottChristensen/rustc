@@ -1070,22 +1070,22 @@ impl<'tcx> TypeFolder<'tcx> for ParamsSubstitutor<'tcx> {
 
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
         match *t.kind() {
-            ty::Param(param) => match self.list.iter().position(|r| r == &param) {
+            ty::Param(ref param) => match self.list.iter().position(|r| r == param) {
                 Some(idx) => self.tcx.mk_ty(ty::Placeholder(ty::PlaceholderType {
                     universe: ty::UniverseIndex::from_usize(0),
                     name: ty::BoundVar::from_usize(idx),
                 })),
                 None => {
-                    self.list.push(param);
+                    self.list.push(param.clone());
                     let idx = self.list.len() - 1 + self.next_ty_placeholder;
-                    self.params.insert(idx, param);
+                    self.params.insert(idx, param.clone());
                     self.tcx.mk_ty(ty::Placeholder(ty::PlaceholderType {
                         universe: ty::UniverseIndex::from_usize(0),
                         name: ty::BoundVar::from_usize(idx),
                     }))
                 }
             },
-            ty::HKT(_param, ..) => {
+            ty::HKT(ref _param, ..) => {
                 todo!()
                 /*match self.list.iter().position(|r| r == &param) {
                     Some(idx) => self.tcx.mk_ty(ty::Placeholder(ty::PlaceholderType {
@@ -1160,7 +1160,7 @@ impl<'tcx> TypeFolder<'tcx> for ReverseParamsSubstitutor<'tcx> {
             ty::Placeholder(ty::PlaceholderType { universe: ty::UniverseIndex::ROOT, name }) => {
                 // TODO(hoch)
                 match self.params.get(&name.as_usize()) {
-                    Some(param) => self.tcx.mk_ty(ty::Param(*param)),
+                    Some(param) => self.tcx.mk_ty(ty::Param(param.clone())),
                     None => t,
                 }
             }

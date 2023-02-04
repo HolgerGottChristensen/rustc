@@ -339,8 +339,8 @@ impl<'tcx> Ty<'tcx> {
             ty::Infer(ty::FreshIntTy(_)) => "fresh integral type".into(),
             ty::Infer(ty::FreshFloatTy(_)) => "fresh floating-point type".into(),
             ty::Alias(ty::Projection, _) => "associated type".into(),
-            ty::Param(p) => format!("type parameter `{}`", p).into(),
-            ty::HKT(p, _) => format!("hkt parameter `{}`", p).into(),
+            ty::Param(ref p) => format!("type parameter `{}`", p).into(),
+            ty::HKT(ref p, _) => format!("hkt parameter `{}`", p).into(),
             ty::Alias(ty::Opaque, ..) => "opaque type".into(),
             ty::Error(_) => "type error".into(),
         }

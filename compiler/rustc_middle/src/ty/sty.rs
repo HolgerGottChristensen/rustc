@@ -26,6 +26,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::marker::PhantomData;
 use std::ops::{ControlFlow, Deref, Range};
+use smallvec::SmallVec;
 use ty::util::IntTypeExt;
 
 use rustc_type_ir::sty::TyKind::*;
@@ -1289,7 +1290,7 @@ impl<'tcx> PolyFnSig<'tcx> {
 
 pub type CanonicalPolyFnSig<'tcx> = Canonical<'tcx, Binder<'tcx, FnSig<'tcx>>>;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
 #[derive(HashStable)]
 pub enum ParamTy {
     Param {
@@ -1299,7 +1300,7 @@ pub enum ParamTy {
     HKT {
         index: u32,
         name: Symbol,
-        parameters: HKTParametersRef,
+        parameters: SmallVec<[Symbol; 3]>,
     }
 }
 
@@ -1308,7 +1309,7 @@ impl<'tcx> ParamTy {
         ParamTy::Param { index, name }
     }
 
-    pub fn new_hkt(index: u32, name: Symbol, parameters: List<Symbol>) -> ParamTy {
+    pub fn new_hkt(index: u32, name: Symbol, parameters: SmallVec<[Symbol; 3]>) -> ParamTy {
         ParamTy::HKT { index, name, parameters }
     }
 
@@ -1320,17 +1321,16 @@ impl<'tcx> ParamTy {
                 ParamTy::new_param(def.index, def.name)
             }
             GenericParamDefKind::HKT(ref parameters) => {
-                todo!("hoch")
-                //ParamTy::new_hkt(def.index, def.name, &parameters[..])
+                ParamTy::new_hkt(def.index, def.name, parameters.clone())
             }
         }
     }
 
     #[inline]
-    pub fn to_ty(self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
+    pub fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
         match self {
-            ParamTy::Param { index, name } => tcx.mk_ty_param(index, name),
-            ParamTy::HKT { index, name, parameters} => tcx.mk_hkt_param(index, name, parameters, tcx.intern_substs(&[]))
+            ParamTy::Param { index, name } => tcx.mk_ty_param(*index, *name),
+            ParamTy::HKT { index, name, parameters} => tcx.mk_hkt_param(*index, *name, parameters.clone(), tcx.intern_substs(&[]))
         }
     }
 

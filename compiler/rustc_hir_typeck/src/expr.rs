@@ -2387,10 +2387,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ty::Adt(def, _) if !def.is_enum() => {
                 self.suggest_fields_on_recordish(&mut err, def, ident, expr.span);
             }
-            ty::Param(param_ty) => {
-                self.point_at_param_definition(&mut err, param_ty);
+            ty::Param(ref param_ty) => {
+                self.point_at_param_definition(&mut err, param_ty.clone());
             }
-            ty::HKT(_param_ty, ..) => {
+            ty::HKT(ref _param_ty, ..) => {
                 todo!("hoch");
                 //self.point_at_param_definition(&mut err, param_ty);
             }

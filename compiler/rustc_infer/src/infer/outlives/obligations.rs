@@ -283,7 +283,7 @@ where
                     self.delegate.push_sub_region_constraint(origin, region, *region1, category);
                 }
                 Component::Param(param_ty) => {
-                    self.param_ty_must_outlive(origin, region, *param_ty);
+                    self.param_ty_must_outlive(origin, region, param_ty.clone());
                 }
                 Component::Opaque(def_id, substs) => {
                     self.opaque_must_outlive(*def_id, substs, origin, region)
@@ -304,7 +304,7 @@ where
                     );
                 }
                 Component::HKT(hkt_ty) => {
-                    self.hkt_ty_must_outlive(origin, region, *hkt_ty);
+                    self.hkt_ty_must_outlive(origin, region, hkt_ty.clone());
                 }
             }
         }
@@ -321,7 +321,7 @@ where
             region, param_ty, origin
         );
 
-        let generic = GenericKind::Param(param_ty);
+        let generic = GenericKind::Param(param_ty.clone());
         let verify_bound = self.verify_bound.param_bound(param_ty);
         self.delegate.push_verify(origin, generic, region, verify_bound);
     }
@@ -337,7 +337,7 @@ where
             region, hkt_ty, origin
         );
 
-        let generic = GenericKind::HKT(hkt_ty);
+        let generic = GenericKind::HKT(hkt_ty.clone());
         let verify_bound = self.verify_bound.hkt_bound(hkt_ty);
         self.delegate.push_verify(origin, generic, region, verify_bound);
     }
@@ -428,7 +428,7 @@ where
         // Compute the bounds we can derive from the environment. This
         // is an "approximate" match -- in some cases, these bounds
         // may not apply.
-        let mut approx_env_bounds = self.verify_bound.approx_declared_bounds_from_env(generic);
+        let mut approx_env_bounds = self.verify_bound.approx_declared_bounds_from_env(generic.clone());
         debug!(?approx_env_bounds);
 
         // Remove outlives bounds that we get from the environment but
@@ -508,7 +508,7 @@ where
         // edges into the inference graph, leading to inference failures
         // even though a satisfactory solution exists.
         let verify_bound = self.verify_bound.projection_opaque_bounds(
-            generic,
+            generic.clone(),
             def_id,
             substs,
             &mut Default::default(),
