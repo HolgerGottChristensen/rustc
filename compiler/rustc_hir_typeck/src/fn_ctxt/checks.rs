@@ -26,10 +26,10 @@ use rustc_infer::infer::InferOk;
 use rustc_infer::infer::TypeTrace;
 use rustc_middle::ty::adjustment::AllowTwoPhase;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, DefIdTree, IsSuggestable, Ty, TypeSuperVisitable, TypeVisitor};
+use rustc_middle::ty::{self, DefIdTree, FnSig, GenericArgKind, IsSuggestable, ParamTy, SubstsRef, Ty, TyKind, TypeSuperVisitable, TypeVisitor};
 use rustc_session::Session;
 use rustc_span::symbol::{kw, Ident};
-use rustc_span::{self, sym, Span};
+use rustc_span::{self, sym, Span, Symbol};
 use rustc_trait_selection::traits::{self, ObligationCauseCode, SelectionContext};
 
 use std::iter;
@@ -139,13 +139,70 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         method.sig.output()
     }
 
-    /*fn evaluate_type_functions(&self, fn_def_id: Option<DefId>, _arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
+
+    #[allow(rustc::usage_of_ty_tykind)]
+    fn ty_kind_substitution(&self, ty: &'tcx ty::TyKind<'tcx>, with: &ty::TyKind<'tcx>, name: Symbol) -> ty::TyKind<'tcx> {
+        match ty {
+            TyKind::Argument(arg_name) if name == *arg_name => {
+                with.clone()
+            }
+            TyKind::Bool
+            | TyKind::Char
+            | TyKind::Int(_)
+            | TyKind::Uint(_)
+            | TyKind::Error(_)
+            | TyKind::Argument(_)
+            | TyKind::Param(_)
+            | TyKind::HKT(_, _)
+            | TyKind::Float(_) => {
+                ty.clone()
+            }
+            TyKind::Adt(a, substs) => {
+                let substs: &SubstsRef<'_> = substs;
+
+                let new_substs = substs.iter().map(|a| {
+                    match a.unpack() {
+                        GenericArgKind::Const(_)
+                        | GenericArgKind::Lifetime(_) => a,
+                        GenericArgKind::Type(t) => {
+                            self.tcx.mk_ty(self.ty_kind_substitution(t.kind(), with, name)).into()
+                        }
+                    }
+                }).collect::<Vec<_>>();
+
+                TyKind::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter()))
+            }
+            _ => {
+                todo!("here: {:#?}", ty)
+            }
+        }
+    }
+
+    ///
+    fn evaluate_type_functions(&self, fn_def_id: Option<DefId>, arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
         let fn_def_id = fn_def_id.expect("Investigation needed hoch");
 
-        let sig = self.tcx.bound_fn_sig(fn_def_id);
+        let sig: FnSig<'_> = self.tcx.fn_sig(fn_def_id).skip_binder();
+        let generics: &ty::Generics = self.tcx.generics_of(fn_def_id);
 
-        todo!("{:#?}", sig)
-    }*/
+        let mut evaluated = vec![];
+
+        for (input, argument) in sig.inputs().iter().zip(arguments) {
+            match input.kind() {
+                ty::HKT(ParamTy::HKT { index, .. }, substs) => {
+                    let substs: &SubstsRef<'_> = substs;
+                    let hkt_generics: &ty::Generics = self.tcx.generics_of(generics.params[*index as usize].def_id);
+
+                    let res_type = self.ty_kind_substitution(argument.kind(), substs[0].expect_ty().kind(), hkt_generics.params[0].name);
+                    //todo!("{:#?}, {:#?}, {:#?}, {:#?}", argument, hkt_generics, substs, res_type)
+                    evaluated.push(self.tcx.mk_ty(res_type))
+                }
+                _ => evaluated.push(*argument)
+            }
+        }
+
+        evaluated
+    }
 
     /// Generic function that factors out common logic from function calls,
     /// method calls and overloaded operators.
@@ -178,7 +235,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
 
         // Simplify the types and evaluate the type functions
-        //let formal_input_tys = &self.evaluate_type_functions(fn_def_id, formal_input_tys)[..];
+        let formal_input_tys = &self.evaluate_type_functions(fn_def_id, formal_input_tys)[..];
 
 
 

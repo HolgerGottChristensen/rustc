@@ -34,4 +34,3 @@ fn main() {
     test::<u32, Option<%j>>(42, Some(42));
 }
 
-// HKT(I/1, {%j: u32, %k: String})
