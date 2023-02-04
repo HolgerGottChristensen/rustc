@@ -21,6 +21,9 @@
 // I (j) -> String
 // I<u32> -> String
 
+// Only allow hkt of first order in ast_passes
+
+// Require the same amount of parameters in the I<u32> as is expected by the signature
 
 fn test<T, I<?j>>(int: T, input: I<u32>) {
     //println!("Hej verden!");

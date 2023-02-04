@@ -623,6 +623,34 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         args
     }
 
+    pub fn create_substs_for_type_application(
+        &self,
+        span: Span,
+        item_def_id: DefId,
+        item_segment: &hir::PathSegment<'_>,
+    ) -> SubstsRef<'tcx> {
+        debug!(
+            "create_substs_for_type_application(span: {:?}, item_def_id: {:?}, item_segment: {:?}",
+            span, item_def_id, item_segment
+        );
+        let (args, _) = self.create_substs_for_ast_path(
+            span,
+            item_def_id,
+            &[],
+            item_segment,
+            item_segment.args(),
+            false,
+            None,
+            ty::BoundConstness::NotConst,
+        );
+
+        if let Some(b) = item_segment.args().bindings.first() {
+            Self::prohibit_assoc_ty_binding(self.tcx(), b.span);
+        }
+
+        args
+    }
+
     /// Instantiates the path for the given trait reference, assuming that it's
     /// bound to a valid trait type. Returns the `DefId` of the defining trait.
     /// The type _cannot_ be a type other than a trait type.
@@ -2491,6 +2519,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                     }
                 });
 
+                let substs = self.create_substs_for_type_application(span, def_id, path.segments.last().unwrap());
 
                 // Get the local def_id and the owners def_id
                 let def_id = def_id.expect_local();
@@ -2512,12 +2541,13 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 };
 
 
+                //self.normalize_ty(span, self.tcx().at(span).bound_type_of(did).subst(self.tcx(), substs))
 
                 debug!("{:#?}, {:#?}, {:#?}, {:#?}", def_id, item_def_id, generics, index);
 
                 //tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
-                tcx.mk_hkt_param(index, tcx.hir().ty_param_name(def_id), hkt_parameters, tcx.intern_substs(&[]))
-                //todo!()
+                tcx.mk_hkt_param(index, tcx.hir().ty_param_name(def_id), hkt_parameters, substs)
+                //todo!("{:#?}", path)
             }
             Res::SelfTyParam { .. } => {
                 // `Self` in trait or type alias.
