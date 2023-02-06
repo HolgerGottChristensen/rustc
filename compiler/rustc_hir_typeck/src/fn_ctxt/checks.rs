@@ -26,7 +26,7 @@ use rustc_infer::infer::InferOk;
 use rustc_infer::infer::TypeTrace;
 use rustc_middle::ty::adjustment::AllowTwoPhase;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, DefIdTree, FnSig, GenericArgKind, IsSuggestable, ParamTy, SubstsRef, Ty, TyKind, TypeSuperVisitable, TypeVisitor};
+use rustc_middle::ty::{self, DefIdTree, FnSig, GenericArgKind, IsSuggestable, SubstsRef, Ty, TyKind, TypeParameter, TypeSuperVisitable, TypeVisitor};
 use rustc_session::Session;
 use rustc_span::symbol::{kw, Ident};
 use rustc_span::{self, sym, Span, Symbol};
@@ -189,9 +189,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         for (input, argument) in sig.inputs().iter().zip(arguments) {
             match input.kind() {
-                ty::HKT(ParamTy::HKT { index, .. }, substs) => {
+                ty::HKT(p, substs) => {
                     let substs: &SubstsRef<'_> = substs;
-                    let hkt_generics: &ty::Generics = self.tcx.generics_of(generics.params[*index as usize].def_id);
+                    let hkt_generics: &ty::Generics = self.tcx.generics_of(generics.params[(*p).index() as usize].def_id);
 
                     let res_type = self.ty_kind_substitution(argument.kind(), substs[0].expect_ty().kind(), hkt_generics.params[0].name);
                     //todo!("{:#?}, {:#?}, {:#?}, {:#?}", argument, hkt_generics, substs, res_type)
@@ -1860,12 +1860,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // Prefer generics that are local to the fn item, since these are likely
         // to be the cause of the unsatisfied predicate.
         let mut param_to_point_at = find_param_matching(&|param_ty| {
-            self.tcx.parent(generics.type_param(param_ty, self.tcx).def_id) == def_id
+            self.tcx.parent(generics.type_param(*param_ty, self.tcx).def_id) == def_id
         });
         // Fall back to generic that isn't local to the fn item. This will come
         // from a trait or impl, for example.
         let mut fallback_param_to_point_at = find_param_matching(&|param_ty| {
-            self.tcx.parent(generics.type_param(param_ty, self.tcx).def_id) != def_id
+            self.tcx.parent(generics.type_param(*param_ty, self.tcx).def_id) != def_id
                 && param_ty.name() != rustc_span::symbol::kw::SelfUpper
         });
         // Finally, the `Self` parameter is possibly the reason that the predicate
@@ -2200,7 +2200,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 }
                 ty::Param(ref param) => {
                     let param =
-                        self.tcx.generics_of(self.body_id.owner).type_param(param, self.tcx);
+                        self.tcx.generics_of(self.body_id.owner).type_param(*param, self.tcx);
                     if param.kind.is_synthetic() {
                         // if it's `impl Fn() -> ..` then just fall down to the def-id based logic
                         def_id = param.def_id;

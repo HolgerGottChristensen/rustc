@@ -3,7 +3,7 @@
 use rustc_hir::def::DefKind;
 use rustc_index::bit_set::BitSet;
 use rustc_middle::ty::query::Providers;
-use rustc_middle::ty::{self, Representability, Ty, TyCtxt};
+use rustc_middle::ty::{self, Representability, Ty, TyCtxt, TypeParameter};
 use rustc_span::def_id::{DefId, LocalDefId};
 
 pub fn provide(providers: &mut Providers) {

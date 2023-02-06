@@ -28,6 +28,8 @@ use std::fmt::{self, Write as _};
 use std::iter;
 use std::ops::{ControlFlow, Deref, DerefMut};
 
+use rustc_middle::ty::TypeParameter;
+
 // `pretty` is a separate module only for organization.
 use super::*;
 
@@ -2718,6 +2720,10 @@ define_print_and_forward_display! {
     }
 
     ty::ParamTy {
+        p!(write("{}", self.name()))
+    }
+
+    ty::HKTTy {
         p!(write("{}", self.name()))
     }
 

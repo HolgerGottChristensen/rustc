@@ -792,7 +792,7 @@ impl<'cx, 'tcx> MirBorrowckCtxt<'cx, 'tcx> {
                 PredicateKind::Clause(ty::Clause::Trait(predicate)) => {
                     match predicate.self_ty().kind() {
                         ty::Param(param_ty) => Ok((
-                            generics.type_param(param_ty, tcx),
+                            generics.type_param(*param_ty, tcx),
                             predicate.trait_ref.print_only_trait_path().to_string(),
                         )),
                         ty::HKT(_param_ty, ..) => {

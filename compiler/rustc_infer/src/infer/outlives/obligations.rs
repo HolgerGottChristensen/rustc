@@ -330,7 +330,7 @@ where
         &mut self,
         origin: infer::SubregionOrigin<'tcx>,
         region: ty::Region<'tcx>,
-        hkt_ty: ty::ParamTy,
+        hkt_ty: ty::HKTTy,
     ) {
         debug!(
             "hkt_ty_must_outlive(region={:?}, hkt_ty={:?}, origin={:?})",
@@ -338,7 +338,7 @@ where
         );
 
         let generic = GenericKind::HKT(hkt_ty.clone());
-        let verify_bound = self.verify_bound.hkt_bound(hkt_ty);
+        let verify_bound = self.verify_bound.param_bound(hkt_ty);
         self.delegate.push_verify(origin, generic, region, verify_bound);
     }
 

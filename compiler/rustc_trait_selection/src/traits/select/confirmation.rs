@@ -13,7 +13,7 @@ use rustc_infer::infer::InferOk;
 use rustc_infer::infer::LateBoundRegionConversionTime::HigherRankedType;
 use rustc_middle::ty::{
     self, Binder, GenericArg, GenericArgKind, GenericParamDefKind, InternalSubsts, SubstsRef,
-    ToPolyTraitRef, ToPredicate, TraitRef, Ty, TyCtxt,
+    ToPolyTraitRef, ToPredicate, TraitRef, Ty, TyCtxt, TypeParameter
 };
 use rustc_session::config::TraitSolver;
 use rustc_span::def_id::DefId;
@@ -1069,7 +1069,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             (&ty::Adt(def, substs_a), &ty::Adt(_, substs_b)) => {
                 let maybe_unsizing_param_idx = |arg: GenericArg<'tcx>| match arg.unpack() {
                     GenericArgKind::Type(ty) => match ty.kind() {
-                        ty::Param(p) => Some(p.index()),
+                        ty::Param(p) => Some((*p).index()),
                         ty::HKT(..) => todo!("hoch"),
                         _ => None,
                     },

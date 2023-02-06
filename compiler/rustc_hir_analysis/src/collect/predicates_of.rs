@@ -9,7 +9,7 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::intravisit::{self, Visitor};
 use rustc_middle::ty::subst::InternalSubsts;
-use rustc_middle::ty::ToPredicate;
+use rustc_middle::ty::{ToPredicate, TypeParameter};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::symbol::{sym, Ident};
 use rustc_span::{Span, DUMMY_SP};
@@ -158,7 +158,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             GenericParamKind::Lifetime { .. } => (),
             GenericParamKind::Type { .. } => {
                 let name = param.name.ident().name;
-                let param_ty = ty::ParamTy::new_param(index, name).to_ty(tcx);
+                let param_ty = ty::ParamTy::new(index, name).to_ty(tcx);
                 index += 1;
 
                 let mut bounds = Bounds::default();
@@ -181,7 +181,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             GenericParamKind::HKT(..) => {
                 // TODO(hoch)
                 let name = param.name.ident().name;
-                let param_ty = ty::ParamTy::new_hkt(index, name).to_ty(tcx);
+                let param_ty = ty::ParamTy::new(index, name).to_ty(tcx);
                 index += 1;
 
                 let mut bounds = Bounds::default();

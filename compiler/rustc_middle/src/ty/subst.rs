@@ -21,6 +21,7 @@ use std::mem;
 use std::num::NonZeroUsize;
 use std::ops::{ControlFlow, Deref};
 use std::slice;
+use rustc_middle::ty::TypeParameter;
 use rustc_span::Symbol;
 
 /// An entity in the Rust type system, which can be one of
@@ -808,7 +809,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
-    fn ty_for_param(&self, p: ty::ParamTy, source_ty: Ty<'tcx>) -> Ty<'tcx> {
+    fn ty_for_param(&self, p: impl TypeParameter<'tcx>, source_ty: Ty<'tcx>) -> Ty<'tcx> {
         // Look up the type in the substitutions. It really should be in there.
         let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
         let ty = match opt_ty {
@@ -822,7 +823,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
     #[cold]
     #[inline(never)]
-    fn type_param_expected(&self, p: ty::ParamTy, ty: Ty<'tcx>, kind: GenericArgKind<'tcx>) -> ! {
+    fn type_param_expected(&self, p: impl TypeParameter<'tcx>, ty: Ty<'tcx>, kind: GenericArgKind<'tcx>) -> ! {
         bug!(
             "expected type for `{:?}` ({:?}/{}) but found {:?} when substituting, substs={:?}",
             p,
@@ -835,7 +836,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
     #[cold]
     #[inline(never)]
-    fn type_param_out_of_range(&self, p: ty::ParamTy, ty: Ty<'tcx>) -> ! {
+    fn type_param_out_of_range(&self, p: impl TypeParameter<'tcx>, ty: Ty<'tcx>) -> ! {
         bug!(
             "type parameter `{:?}` ({:?}/{}) out of range when substituting, substs={:?}",
             p,

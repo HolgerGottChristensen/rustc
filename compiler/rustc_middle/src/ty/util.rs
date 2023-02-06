@@ -22,6 +22,7 @@ use rustc_macros::HashStable;
 use rustc_span::{sym, DUMMY_SP};
 use rustc_target::abi::{Integer, IntegerType, Size, TargetDataLayout};
 use rustc_target::spec::abi::Abi;
+use rustc_middle::ty::TypeParameter;
 use smallvec::SmallVec;
 use std::{fmt, iter};
 
@@ -437,8 +438,8 @@ impl<'tcx> TyCtxt<'tcx> {
                         _ => false,
                     },
                     GenericArgKind::Type(ty) => match ty.kind() {
-                        ty::Param(ref pt) => !impl_generics.type_param(pt, self).pure_wrt_drop,
-                        ty::HKT(ref pt, ..) => !impl_generics.type_param(pt, self).pure_wrt_drop,
+                        ty::Param(ref pt) => !impl_generics.type_param(*pt, self).pure_wrt_drop,
+                        ty::HKT(ref pt, ..) => !impl_generics.type_param(*pt, self).pure_wrt_drop,
                         // Error: not a type param
                         _ => false,
                     },
@@ -478,12 +479,12 @@ impl<'tcx> TyCtxt<'tcx> {
                 }
                 GenericArgKind::Type(t) => match t.kind() {
                     ty::Param(p) => {
-                        if !seen.insert(p.index()) {
+                        if !seen.insert((*p).index()) {
                             return Err(NotUniqueParam::DuplicateParam(t.into()));
                         }
                     }
                     ty::HKT(p, ..) => {
-                        if !seen.insert(p.index()) {
+                        if !seen.insert((*p).index()) {
                             return Err(NotUniqueParam::DuplicateParam(t.into()));
                         }
                     }

@@ -26,7 +26,7 @@ use rustc_middle::traits::util::supertraits;
 use rustc_middle::ty::fast_reject::DeepRejectCtxt;
 use rustc_middle::ty::fast_reject::{simplify_type, TreatParams};
 use rustc_middle::ty::print::{with_crate_prefix, with_forced_trimmed_paths};
-use rustc_middle::ty::{self, DefIdTree, GenericArgKind, Ty, TyCtxt, TypeVisitable};
+use rustc_middle::ty::{self, DefIdTree, GenericArgKind, Ty, TyCtxt, TypeVisitable, TypeParameter};
 use rustc_middle::ty::{IsSuggestable, ToPolyTraitRef};
 use rustc_span::symbol::{kw, sym, Ident};
 use rustc_span::Symbol;
@@ -2376,12 +2376,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             candidates.sort_by(|a, b| a.cmp(b).reverse());
             candidates.dedup();
 
-            let param_type = match rcvr_ty.kind() {
-                ty::Param(param) => Some(param),
-                ty::HKT(param, ..) => Some(param),
+            let param_type: Option<Box<dyn TypeParameter>> = match rcvr_ty.kind() {
+                ty::Param(param) => Some(Box::new(param)),
+                ty::HKT(param, ..) => Some(Box::new(param)),
                 ty::Ref(_, ty, _) => match ty.kind() {
-                    ty::Param(param) => Some(param),
-                    ty::HKT(param, ..) => Some(param),
+                    ty::Param(param) => Some(Box::new(param)),
+                    ty::HKT(param, ..) => Some(Box::new(param)),
                     _ => None,
                 },
                 _ => None,

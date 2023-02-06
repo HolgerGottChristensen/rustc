@@ -178,7 +178,7 @@ pub enum TyKind<I: Interner> {
     /// expected to be provided.
     /// Furthermore it contains a substsref, which contains the corresponding
     /// values that are substituted with the parameter names.
-    HKT(I::ParamTy, I::SubstsRef),
+    HKT(I::HKTTy, I::SubstsRef),
 
     /// Bound type variable, used to represent the `'a` in `for<'a> fn(&'a ())`.
     ///
@@ -518,6 +518,7 @@ where
     I::ListTy: Encodable<E>,
     I::AliasTy: Encodable<E>,
     I::ParamTy: Encodable<E>,
+    I::HKTTy: Encodable<E>,
     I::BoundTy: Encodable<E>,
     I::PlaceholderType: Encodable<E>,
     I::InferTy: Encodable<E>,
@@ -640,6 +641,7 @@ where
     I::ListTy: Decodable<D>,
     I::AliasTy: Decodable<D>,
     I::ParamTy: Decodable<D>,
+    I::HKTTy: Decodable<D>,
     I::AliasTy: Decodable<D>,
     I::BoundTy: Decodable<D>,
     I::PlaceholderType: Decodable<D>,
@@ -709,6 +711,7 @@ where
     I::AliasTy: HashStable<CTX>,
     I::BoundTy: HashStable<CTX>,
     I::ParamTy: HashStable<CTX>,
+    I::HKTTy: HashStable<CTX>,
     I::PlaceholderType: HashStable<CTX>,
     I::InferTy: HashStable<CTX>,
     I::ErrorGuaranteed: HashStable<CTX>,

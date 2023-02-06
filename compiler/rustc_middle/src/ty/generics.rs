@@ -3,10 +3,11 @@ use crate::ty::{EarlyBinder, SubstsRef};
 use rustc_ast as ast;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::def_id::DefId;
+use rustc_middle::ty::sty::TypeParameter;
 use rustc_span::symbol::{kw, Symbol};
 use rustc_span::Span;
 
-use super::{EarlyBoundRegion, InstantiatedPredicates, ParamConst, ParamTy, Predicate, TyCtxt};
+use super::{EarlyBoundRegion, InstantiatedPredicates, ParamConst, Predicate, TyCtxt};
 
 #[derive(Clone, Debug, TyEncodable, TyDecodable, HashStable)]
 pub enum GenericParamDefKind {
@@ -268,10 +269,11 @@ impl<'tcx> Generics {
     }
 
     /// Returns the `GenericParamDef` associated with this `ParamTy`.
-    pub fn type_param(&'tcx self, param: &ParamTy, tcx: TyCtxt<'tcx>) -> &'tcx GenericParamDef {
+    pub fn type_param(&'tcx self, param: impl TypeParameter<'tcx>, tcx: TyCtxt<'tcx>) -> &'tcx GenericParamDef {
         let param = self.param_at(param.index() as usize, tcx);
         match param.kind {
             GenericParamDefKind::Type { .. } => param,
+            GenericParamDefKind::HKT { .. } => todo!("hoch"),
             _ => bug!("expected type parameter, but found another generic parameter"),
         }
     }
