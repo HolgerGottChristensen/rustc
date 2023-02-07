@@ -26,7 +26,7 @@ use rustc_middle::traits::util::supertraits;
 use rustc_middle::ty::fast_reject::DeepRejectCtxt;
 use rustc_middle::ty::fast_reject::{simplify_type, TreatParams};
 use rustc_middle::ty::print::{with_crate_prefix, with_forced_trimmed_paths};
-use rustc_middle::ty::{self, DefIdTree, GenericArgKind, Ty, TyCtxt, TypeVisitable, TypeParameter};
+use rustc_middle::ty::{self, DefIdTree, GenericArgKind, Ty, TyCtxt, TypeVisitable, TypeParameter, TypeParamResult};
 use rustc_middle::ty::{IsSuggestable, ToPolyTraitRef};
 use rustc_span::symbol::{kw, sym, Ident};
 use rustc_span::Symbol;
@@ -2376,12 +2376,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             candidates.sort_by(|a, b| a.cmp(b).reverse());
             candidates.dedup();
 
-            let param_type: Option<Box<dyn TypeParameter>> = match rcvr_ty.kind() {
-                ty::Param(param) => Some(Box::new(param)),
-                ty::HKT(param, ..) => Some(Box::new(param)),
+            let param_type = match rcvr_ty.kind() {
+                ty::Param(param) => Some(TypeParamResult::Param(*param)),
+                ty::HKT(param, ..) => Some(TypeParamResult::HKT(*param)),
                 ty::Ref(_, ty, _) => match ty.kind() {
-                    ty::Param(param) => Some(Box::new(param)),
-                    ty::HKT(param, ..) => Some(Box::new(param)),
+                    ty::Param(param) => Some(TypeParamResult::Param(*param)),
+                    ty::HKT(param, ..) => Some(TypeParamResult::HKT(*param)),
                     _ => None,
                 },
                 _ => None,
@@ -2404,87 +2404,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 )
             };
             // Obtain the span for `param` and use it for a structured suggestion.
-            if let Some(param) = param_type {
-                let generics = self.tcx.generics_of(self.body_id.owner.to_def_id());
-                let type_param = generics.type_param(param, self.tcx);
-                let hir = self.tcx.hir();
-                if let Some(def_id) = type_param.def_id.as_local() {
-                    let id = hir.local_def_id_to_hir_id(def_id);
-                    // Get the `hir::Param` to verify whether it already has any bounds.
-                    // We do this to avoid suggesting code that ends up as `T: FooBar`,
-                    // instead we suggest `T: Foo + Bar` in that case.
-                    match hir.get(id) {
-                        Node::GenericParam(param) => {
-                            enum Introducer {
-                                Plus,
-                                Colon,
-                                Nothing,
-                            }
-                            let ast_generics = hir.get_generics(id.owner.def_id).unwrap();
-                            let (sp, mut introducer) = if let Some(span) =
-                                ast_generics.bounds_span_for_suggestions(def_id)
-                            {
-                                (span, Introducer::Plus)
-                            } else if let Some(colon_span) = param.colon_span {
-                                (colon_span.shrink_to_hi(), Introducer::Nothing)
-                            } else {
-                                (param.span.shrink_to_hi(), Introducer::Colon)
-                            };
-                            if matches!(
-                                param.kind,
-                                hir::GenericParamKind::Type { synthetic: true, .. },
-                            ) {
-                                introducer = Introducer::Plus
-                            }
-                            let trait_def_ids: FxHashSet<DefId> = ast_generics
-                                .bounds_for_param(def_id)
-                                .flat_map(|bp| bp.bounds.iter())
-                                .filter_map(|bound| bound.trait_ref()?.trait_def_id())
-                                .collect();
-                            if !candidates.iter().any(|t| trait_def_ids.contains(&t.def_id)) {
-                                err.span_suggestions(
-                                    sp,
-                                    &message(format!(
-                                        "restrict type parameter `{}` with",
-                                        param.name.ident(),
-                                    )),
-                                    candidates.iter().map(|t| {
-                                        format!(
-                                            "{} {}",
-                                            match introducer {
-                                                Introducer::Plus => " +",
-                                                Introducer::Colon => ":",
-                                                Introducer::Nothing => "",
-                                            },
-                                            self.tcx.def_path_str(t.def_id),
-                                        )
-                                    }),
-                                    Applicability::MaybeIncorrect,
-                                );
-                            }
-                            return;
-                        }
-                        Node::Item(hir::Item {
-                            kind: hir::ItemKind::Trait(.., bounds, _),
-                            ident,
-                            ..
-                        }) => {
-                            let (sp, sep, article) = if bounds.is_empty() {
-                                (ident.span.shrink_to_hi(), ":", "a")
-                            } else {
-                                (bounds.last().unwrap().span().shrink_to_hi(), " +", "another")
-                            };
-                            err.span_suggestions(
-                                sp,
-                                &message(format!("add {} supertrait for", article)),
-                                candidates.iter().map(|t| {
-                                    format!("{} {}", sep, self.tcx.def_path_str(t.def_id),)
-                                }),
-                                Applicability::MaybeIncorrect,
-                            );
-                            return;
-                        }
-                        _ => {}
+            if let Some(param) = &param_type {
+
+                match param {
+                    TypeParamResult::Param(param_ty) => {
+                        self.use_param_span_for_structured_suggestion(err, &mut candidates, &message, param_ty)
+                    }
+                    TypeParamResult::HKT(hkt_ty) => {
+                        self.use_param_span_for_structured_suggestion(err, &mut candidates, &message, hkt_ty)
                     }
                 }
             }
@@ -2524,8 +2451,15 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 (candidates, Vec::new())
             };
 
-            let action = if let Some(param) = param_type {
-                format!("restrict type parameter `{}` with", param)
+            let action = if let Some(param) = &param_type {
+                match param {
+                    TypeParamResult::Param(param_ty) => {
+                        format!("restrict type parameter `{}` with", *param_ty)
+                    }
+                    TypeParamResult::HKT(hkt_ty) => {
+                        format!("restrict type parameter `{}` with", *hkt_ty)
+                    }
+                }
             } else {
                 // FIXME: it might only need to be imported into scope, not implemented.
                 "implement".to_string()
@@ -2575,6 +2509,97 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     }
                     err.note(&msg);
                 }
+            }
+        }
+    }
+
+    fn use_param_span_for_structured_suggestion(
+        &self,
+        err: &mut Diagnostic,
+        candidates: &mut Vec<TraitInfo>,
+        message: &impl Fn(String) -> String,
+        param: &impl TypeParameter<'tcx>
+    ) {
+        let generics = self.tcx.generics_of(self.body_id.owner.to_def_id());
+        let type_param = generics.type_param(*param, self.tcx);
+        let hir = self.tcx.hir();
+        if let Some(def_id) = type_param.def_id.as_local() {
+            let id = hir.local_def_id_to_hir_id(def_id);
+            // Get the `hir::Param` to verify whether it already has any bounds.
+            // We do this to avoid suggesting code that ends up as `T: FooBar`,
+            // instead we suggest `T: Foo + Bar` in that case.
+            match hir.get(id) {
+                Node::GenericParam(param) => {
+                    enum Introducer {
+                        Plus,
+                        Colon,
+                        Nothing,
+                    }
+                    let ast_generics = hir.get_generics(id.owner.def_id).unwrap();
+                    let (sp, mut introducer) = if let Some(span) =
+                        ast_generics.bounds_span_for_suggestions(def_id)
+                    {
+                        (span, Introducer::Plus)
+                    } else if let Some(colon_span) = param.colon_span {
+                        (colon_span.shrink_to_hi(), Introducer::Nothing)
+                    } else {
+                        (param.span.shrink_to_hi(), Introducer::Colon)
+                    };
+                    if matches!(
+                                param.kind,
+                                hir::GenericParamKind::Type { synthetic: true, .. },
+                            ) {
+                        introducer = Introducer::Plus
+                    }
+                    let trait_def_ids: FxHashSet<DefId> = ast_generics
+                        .bounds_for_param(def_id)
+                        .flat_map(|bp| bp.bounds.iter())
+                        .filter_map(|bound| bound.trait_ref()?.trait_def_id())
+                        .collect();
+                    if !candidates.iter().any(|t| trait_def_ids.contains(&t.def_id)) {
+                        err.span_suggestions(
+                            sp,
+                            &message(format!(
+                                "restrict type parameter `{}` with",
+                                param.name.ident(),
+                            )),
+                            candidates.iter().map(|t| {
+                                format!(
+                                    "{} {}",
+                                    match introducer {
+                                        Introducer::Plus => " +",
+                                        Introducer::Colon => ":",
+                                        Introducer::Nothing => "",
+                                    },
+                                    self.tcx.def_path_str(t.def_id),
+                                )
+                            }),
+                            Applicability::MaybeIncorrect,
+                        );
+                    }
+                    return;
+                }
+                Node::Item(hir::Item {
+                               kind: hir::ItemKind::Trait(.., bounds, _),
+                               ident,
+                               ..
+                           }) => {
+                    let (sp, sep, article) = if bounds.is_empty() {
+                        (ident.span.shrink_to_hi(), ":", "a")
+                    } else {
+                        (bounds.last().unwrap().span().shrink_to_hi(), " +", "another")
+                    };
+                    err.span_suggestions(
+                        sp,
+                        &message(format!("add {} supertrait for", article)),
+                        candidates.iter().map(|t| {
+                            format!("{} {}", sep, self.tcx.def_path_str(t.def_id), )
+                        }),
+                        Applicability::MaybeIncorrect,
+                    );
+                    return;
+                }
+                _ => {}
             }
         }
     }

@@ -1319,6 +1319,27 @@ pub trait TypeParameter<'tcx>: Clone + Copy + PartialEq + Eq + PartialOrd + Ord 
     }
 }
 
+pub enum TypeParamResult {
+    Param(ParamTy),
+    HKT(HKTTy)
+}
+
+impl TypeParamResult {
+    pub fn name(&self) -> Symbol {
+        match self {
+            TypeParamResult::Param(p) => p.name,
+            TypeParamResult::HKT(h) => h.name
+        }
+    }
+
+    pub fn index(&self) -> u32 {
+        match self {
+            TypeParamResult::Param(p) => p.index,
+            TypeParamResult::HKT(h) => h.index
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
 #[derive(HashStable)]
 pub struct ParamTy {
@@ -1334,14 +1355,22 @@ pub struct HKTTy {
 }
 
 impl Debug for ParamTy {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-        todo!("hoch");
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ParamTy")
+            .field("name", &self.name)
+            .field("index", &self.index)
+            .finish()
+        //TODO: hoch, is this implemented correctly in the correct place?
     }
 }
 
 impl Debug for HKTTy {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-        todo!("hoch");
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HKTTy")
+            .field("name", &self.name)
+            .field("index", &self.index)
+            .finish()
+        //TODO: hoch, is this implemented correctly in the correct place?
     }
 }
 
