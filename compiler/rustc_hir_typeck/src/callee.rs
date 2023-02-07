@@ -96,8 +96,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         while result.is_none() && autoderef.next().is_some() {
             result = self.try_overloaded_call_step(call_expr, callee_expr, arg_exprs, &autoderef);
         }
-        self.register_predicates(autoderef.into_obligations());
+        let obligations = autoderef.into_obligations();
+        info!("Obligations to register: {:#?}", obligations);
+        self.register_predicates(obligations);
+        info!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
+        info!("result: {:#?}", result);
         let output = match result {
             None => {
                 // this will report an error since original_callee_ty is not a fn
@@ -366,7 +370,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         arg_exprs: &'tcx [hir::Expr<'tcx>],
         expected: Expectation<'tcx>,
     ) -> Ty<'tcx> {
-
+        // TODO WE FAIL HERE SOMEWHERE
         //warn!("Call expr: {:#?}", call_expr);
         //warn!("Callee expr: {:#?}", callee_expr);
         //warn!("Callee type kind: {:#?}", callee_ty.kind());

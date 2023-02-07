@@ -178,7 +178,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
     }
 
-    ///
+    // #[allow(dead_code)]
     fn evaluate_type_functions(&self, fn_def_id: Option<DefId>, arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
         let fn_def_id = fn_def_id.expect("Investigation needed hoch");
 
@@ -226,11 +226,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // The DefId for the function being called, for better error messages
         fn_def_id: Option<DefId>,
     ) {
-        //warn!("{:#?}", fn_def_id);
-        //warn!("{:#?}", call_expr);
-        //warn!("{:#?}", formal_input_tys);
-        //warn!("{:#?}", expected_input_tys);
-        //warn!("{:#?}", provided_args);
+        // info!("{:#?}", fn_def_id);
+        // info!("{:#?}", call_expr);
+        // info!("{:#?}", formal_input_tys);
+        // info!("{:#?}", expected_input_tys);
+        // info!("{:#?}", provided_args);
         let tcx = self.tcx;
 
 

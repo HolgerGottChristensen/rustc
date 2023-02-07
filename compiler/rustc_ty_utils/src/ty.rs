@@ -32,7 +32,7 @@ fn sized_constraint_for_ty<'tcx>(
         Adt(adt, substs) => {
             // recursive case
             let adt_tys = adt.sized_constraint(tcx);
-            debug!("sized_constraint_for_ty({:?}) intermediate = {:?}", ty, adt_tys);
+            info!("sized_constraint_for_ty({:?}) intermediate = {:?}", ty, adt_tys);
             adt_tys
                 .0
                 .iter()
@@ -67,7 +67,7 @@ fn sized_constraint_for_ty<'tcx>(
             bug!("unexpected type `{:?}` in sized_constraint_for_ty", ty)
         }
     };
-    debug!("sized_constraint_for_ty({:?}) = {:?}", ty, result);
+    info!("sized_constraint_for_ty({:?}) = {:?}", ty, result);
     result
 }
 

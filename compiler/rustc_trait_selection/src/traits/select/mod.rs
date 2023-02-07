@@ -2067,7 +2067,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             ),
 
             ty::Adt(def, substs) => {
-                let sized_crit = def.sized_constraint(self.tcx());
+                let sized_crit: ty::EarlyBinder<&'tcx [Ty<'tcx>]> = def.sized_constraint(self.tcx());
                 // (*) binder moved here
                 Where(obligation.predicate.rebind({
                     sized_crit
@@ -2078,7 +2078,10 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }))
             }
 
-            ty::Argument(_) => None, // TODO: hoch
+            ty::Argument(_def) => {
+                // TODO: hoch
+                None
+            },
             ty::Alias(..) | ty::Param(_) | ty::HKT(..) => None,
             ty::Infer(ty::TyVar(_)) => Ambiguous,
 
