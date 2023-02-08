@@ -181,7 +181,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             GenericParamKind::HKT(..) => {
                 // TODO(hoch)
                 let name = param.name.ident().name;
-                let param_ty = ty::ParamTy::new(index, name).to_ty(tcx);
+                let param_ty = ty::HKTTy::new(index, name).to_ty(tcx);
                 index += 1;
 
                 let mut bounds = Bounds::default();

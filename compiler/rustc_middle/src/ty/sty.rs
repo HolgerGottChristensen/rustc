@@ -1291,21 +1291,6 @@ impl<'tcx> PolyFnSig<'tcx> {
 
 pub type CanonicalPolyFnSig<'tcx> = Canonical<'tcx, Binder<'tcx, FnSig<'tcx>>>;
 
-/*
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
-#[derive(HashStable)]
-pub enum ParamTy {
-    Param {
-        index: u32,
-        name: Symbol,
-    },
-    HKT {
-        index: u32,
-        name: Symbol,
-    }
-}
-*/
-
 pub trait TypeParameter<'tcx>: Clone + Copy + PartialEq + Eq + PartialOrd + Ord + Hash + Debug {
     fn new(index: u32, name: Symbol) -> Self;
     fn for_def(def: &ty::GenericParamDef) -> Self;
@@ -1428,7 +1413,7 @@ impl<'tcx> TypeParameter<'tcx> for HKTTy {
 
     #[inline]
     fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
-        tcx.mk_ty_param(self.index, self.name)
+        tcx.mk_hkt_param(self.index, self.name, tcx.intern_substs(&[]))
     }
 
     #[inline]
