@@ -72,6 +72,20 @@ enum CallStep<'tcx> {
 }
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
+
+    /// Type check that a call function has the expected type
+    ///
+    /// # Arguments
+    ///
+    /// * `call_expr`: The expression containing the function being called and the arguments being called with
+    /// * `callee_expr`: An expression pointing to the function being called
+    /// * `arg_exprs`: The list of expressions which are the arguments of the function call
+    /// * `expected`: The expected type of the expression. This could for example be when you explicitly
+    /// specify a type in a let, then the expected for the rhs of the let would be expected to return the
+    /// specified type.
+    ///
+    /// returns: The return type of the function call.
+    #[instrument(level = "debug", skip(self, call_expr, callee_expr, arg_exprs), ret)]
     pub fn check_call(
         &self,
         call_expr: &'tcx hir::Expr<'tcx>,
@@ -79,6 +93,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         arg_exprs: &'tcx [hir::Expr<'tcx>],
         expected: Expectation<'tcx>,
     ) -> Ty<'tcx> {
+
+        info!("Pending obligations1: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
+        // Check if we have a simple function call as the callee or some expression that should
+        // be evaluated to get the type of the callee.
         let original_callee_ty = match &callee_expr.kind {
             hir::ExprKind::Path(hir::QPath::Resolved(..) | hir::QPath::TypeRelative(..)) => self
                 .check_expr_with_expectation_and_args(
@@ -89,22 +108,28 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             _ => self.check_expr(callee_expr),
         };
 
+        info!("Pending obligations2: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
         let expr_ty = self.structurally_resolved_type(call_expr.span, original_callee_ty);
 
+        // Try to automatically deref the expression type until either it cant anymore or we
+        // reach some valid call
         let mut autoderef = self.autoderef(callee_expr.span, expr_ty);
         let mut result = None;
         while result.is_none() && autoderef.next().is_some() {
             result = self.try_overloaded_call_step(call_expr, callee_expr, arg_exprs, &autoderef);
         }
+
+        // The auto deref will result in a set of obligations, for example that something should
+        // implement deref. We register these obligations.
         let obligations = autoderef.into_obligations();
-        info!("Obligations to register: {:#?}", obligations);
         self.register_predicates(obligations);
+
         info!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
-        info!("result: {:#?}", result);
         let output = match result {
             None => {
-                // this will report an error since original_callee_ty is not a fn
+                // This will report an error since original_callee_ty is not a fn
                 self.confirm_builtin_call(
                     call_expr,
                     callee_expr,
@@ -127,7 +152,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         };
 
-        // we must check that return type of called functions is WF:
+        // We must check that return type of called functions is well-formed:
         self.register_wf_obligation(output.into(), call_expr.span, traits::WellFormed(None));
 
         output
@@ -361,6 +386,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         false
     }
 
+    /// Check that the function call is the same type as the expectation
+    ///
+    /// # Arguments
+    ///
+    /// * `call_expr`: The expression containing a function being called and the arguments being called with
+    /// * `callee_expr`: The expression being called `function` in `function(arg1, arg2, ...)`
+    /// * `callee_ty`: The type of the calle expression
+    /// * `arg_exprs`: The argument expressions being called with. `arg1, arg2, ...` in `function(arg1, arg2, ...)`
+    /// * `expected`: The expected type of the function call if any
+    ///
+    /// returns: The type of the function call expression
     #[instrument(level = "debug", skip(self, call_expr, callee_expr, callee_ty, arg_exprs, expected))]
     fn confirm_builtin_call(
         &self,
@@ -377,9 +413,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         //warn!("Arg expr: {:#?}", arg_exprs);
 
 
-
+        // Try to get the signature of the function being called and its definition ID.
         let (fn_sig, def_id) = match *callee_ty.kind() {
+            // We are calling a function that is defines somewhere
             ty::FnDef(def_id, subst) => {
+
+                // Retrieve the function signature
                 let fn_sig = self.tcx.bound_fn_sig(def_id).subst(self.tcx, subst);
 
                 // Unit testing: function items annotated with
@@ -408,9 +447,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                             .emit();
                     }
                 }
+
+
                 (fn_sig, Some(def_id))
             }
+            // If all we have is a function ptr, for example a closure.
             ty::FnPtr(sig) => (sig, None),
+            // If we are trying to check a function call, but the expression being called was not a function
             _ => {
                 for arg in arg_exprs {
                     self.check_expr(arg);
@@ -449,7 +492,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         // Replace any late-bound regions that appear in the function
         // signature with region variables. We also have to
-        // renormalize the associated types at this point, since they
+        // re-normalize the associated types at this point, since they
         // previously appeared within a `Binder<>` and hence would not
         // have been normalized before.
         let fn_sig = self.replace_bound_vars_with_fresh_vars(call_expr.span, infer::FnCall, fn_sig);
@@ -462,6 +505,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             fn_sig.output(),
             fn_sig.inputs(),
         );
+
+
         self.check_argument_types(
             call_expr.span,
             call_expr,

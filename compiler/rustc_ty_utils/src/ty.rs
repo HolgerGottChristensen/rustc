@@ -105,7 +105,7 @@ fn adt_sized_constraint(tcx: TyCtxt<'_>, def_id: DefId) -> &[Ty<'_>] {
             .flat_map(|f| sized_constraint_for_ty(tcx, def, tcx.type_of(f.did))),
     );
 
-    debug!("adt_sized_constraint: {:?} => {:?}", def, result);
+    info!("adt_sized_constraint: {:?} => {:?}", def, result);
 
     result
 }

@@ -269,7 +269,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             vec![]
         };
 
-        debug!(?obligations);
+        info!(?obligations);
 
         ImplSourceBuiltinData { nested: obligations }
     }

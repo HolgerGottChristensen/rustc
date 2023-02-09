@@ -71,7 +71,7 @@ pub fn obligations<'tcx>(
     debug!("wf::obligations({:?}, body_id={:?}) = {:?}", arg, body_id, wf.out);
 
     let result = wf.normalize(infcx);
-    debug!("wf::obligations({:?}, body_id={:?}) ~~> {:?}", arg, body_id, result);
+    info!("wf::obligations({:?}, body_id={:?}) ~~> {:?}", arg, body_id, result);
     Some(result)
 }
 

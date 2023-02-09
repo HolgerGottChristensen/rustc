@@ -80,7 +80,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.resolve_vars_with_obligations_and_mutate_fulfillment(ty, |_| {})
     }
 
-    #[instrument(skip(self, mutate_fulfillment_errors), level = "debug", ret)]
+    #[instrument(skip(self, mutate_fulfillment_errors), level = "info", ret)]
     pub(in super::super) fn resolve_vars_with_obligations_and_mutate_fulfillment(
         &self,
         mut ty: Ty<'tcx>,
@@ -562,6 +562,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         &self,
         mutate_fulfillment_errors: impl Fn(&mut Vec<traits::FulfillmentError<'tcx>>),
     ) {
+        info!("select_obligations_where_possible Obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         let mut result = self.fulfillment_cx.borrow_mut().select_where_possible(self);
         if !result.is_empty() {
             mutate_fulfillment_errors(&mut result);
@@ -569,7 +570,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             self.err_ctxt().report_fulfillment_errors(&result, self.inh.body_id);
             todo!("asdf");
         }
-
     }
 
     /// For the overloaded place expressions (`*x`, `x[3]`), the trait
@@ -685,7 +685,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let formal_ret = self.resolve_vars_with_obligations(formal_ret);
         let ret_ty = expected_ret.only_has_type(self)?;
 
-        // HACK(oli-obk): This is a hack to keep RPIT and TAIT in sync wrt their behaviour.
+        // HACK(oli-obk): This is a hack to keep RPIT and TAIT in sync with regard to their behaviour.
         // Without it, the inference
         // variable will get instantiated with the opaque type. The inference variable often
         // has various helpful obligations registered for it that help closures figure out their
@@ -1386,6 +1386,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Resolves `typ` by a single level if `typ` is a type variable.
     /// If no resolution is possible, then an error is reported.
     /// Numeric inference variables may be left unresolved.
+    #[instrument(level = "info", skip(self, sp), ret)]
     pub fn structurally_resolved_type(&self, sp: Span, ty: Ty<'tcx>) -> Ty<'tcx> {
         let ty = self.resolve_vars_with_obligations(ty);
         if !ty.is_ty_var() {

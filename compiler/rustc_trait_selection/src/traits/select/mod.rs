@@ -404,13 +404,13 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         let candidate_set = self.assemble_candidates(stack)?;
 
         if candidate_set.ambiguous {
-            debug!("candidate set contains ambig");
+            info!("candidate set contains ambig");
             return Ok(None);
         }
 
         let candidates = candidate_set.vec;
 
-        debug!(?stack, ?candidates, "assembled {} candidates", candidates.len());
+        info!(?stack, ?candidates, "assembled {} candidates", candidates.len());
 
         // At this point, we know that each of the entries in the
         // candidate set is *individually* applicable. Now we have to
@@ -457,7 +457,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             .flat_map(Result::transpose)
             .collect::<Result<Vec<_>, _>>()?;
 
-        debug!(?stack, ?candidates, "winnowed to {} candidates", candidates.len());
+        info!(?stack, ?candidates, "winnowed to {} candidates", candidates.len());
 
         let needs_infer = stack.obligation.predicate.has_non_region_infer();
 
@@ -604,7 +604,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     }
 
     #[instrument(
-        level = "debug",
+        level = "info",
         skip(self, previous_stack),
         fields(previous_stack = ?previous_stack.head())
         ret,
@@ -976,6 +976,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         previous_stack: TraitObligationStackList<'o, 'tcx>,
         mut obligation: TraitObligation<'tcx>,
     ) -> Result<EvaluationResult, OverflowError> {
+
+        // This is only for caching
         if !self.is_intercrate()
             && obligation.is_global()
             && obligation.param_env.caller_bounds().iter().all(|bound| bound.needs_subst())
@@ -1020,7 +1022,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             return Ok(cycle_result);
         }
 
-        let (result, dep_node) = self.in_task(|this| this.evaluate_stack(&stack));
+        let (result, dep_node) =
+            self.in_task(|this| this.evaluate_stack(&stack));
+
         let result = result?;
 
         if !result.must_apply_modulo_regions() {
@@ -1029,12 +1033,12 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         let reached_depth = stack.reached_depth.get();
         if reached_depth >= stack.depth {
-            debug!("CACHE MISS");
+            info!("CACHE MISS");
             self.insert_evaluation_cache(param_env, fresh_trait_pred, dep_node, result);
             stack.cache().on_completion(stack.dfn);
         } else {
-            debug!("PROVISIONAL");
-            debug!(
+            info!("PROVISIONAL");
+            info!(
                 "caching provisionally because {:?} \
                  is a cycle participant (at depth {}, reached depth {})",
                 fresh_trait_pred, stack.depth, reached_depth,
@@ -1112,30 +1116,32 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
     ) -> Result<EvaluationResult, OverflowError> {
-        // In intercrate mode, whenever any of the generics are unbound,
-        // there can always be an impl. Even if there are no impls in
-        // this crate, perhaps the type would be unified with
-        // something from another crate that does provide an impl.
-        //
-        // In intra mode, we must still be conservative. The reason is
-        // that we want to avoid cycles. Imagine an impl like:
-        //
-        //     impl<T:Eq> Eq for Vec<T>
-        //
-        // and a trait reference like `$0 : Eq` where `$0` is an
-        // unbound variable. When we evaluate this trait-reference, we
-        // will unify `$0` with `Vec<$1>` (for some fresh variable
-        // `$1`), on the condition that `$1 : Eq`. We will then wind
-        // up with many candidates (since that are other `Eq` impls
-        // that apply) and try to winnow things down. This results in
-        // a recursive evaluation that `$1 : Eq` -- as you can
-        // imagine, this is just where we started. To avoid that, we
-        // check for unbound variables and return an ambiguous (hence possible)
-        // match if we've seen this trait before.
-        //
-        // This suffices to allow chains like `FnMut` implemented in
-        // terms of `Fn` etc, but we could probably make this more
-        // precise still.
+        /*
+        In intercrate mode, whenever any of the generics are unbound,
+        there can always be an impl. Even if there are no impls in
+        this crate, perhaps the type would be unified with
+        something from another crate that does provide an impl.
+
+        In intra mode, we must still be conservative. The reason is
+        that we want to avoid cycles. Imagine an impl like:
+
+            impl<T:Eq> Eq for Vec<T>
+
+        and a trait reference like `$0 : Eq` where `$0` is an
+        unbound variable. When we evaluate this trait-reference, we
+        will unify `$0` with `Vec<$1>` (for some fresh variable
+        `$1`), on the condition that `$1 : Eq`. We will then wind
+        up with many candidates (since that are other `Eq` impls
+        that apply) and try to winnow things down. This results in
+        a recursive evaluation that `$1 : Eq` -- as you can
+        imagine, this is just where we started. To avoid that, we
+        check for unbound variables and return an ambiguous (hence possible)
+        match if we've seen this trait before.
+
+        This suffices to allow chains like `FnMut` implemented in
+        terms of `Fn` etc, but we could probably make this more
+        precise still.
+        */
         let unbound_input_types =
             stack.fresh_trait_pred.skip_binder().trait_ref.substs.types().any(|ty| ty.is_fresh());
 
@@ -1181,7 +1187,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     /// obligations are met. Returns whether `candidate` remains viable after this further
     /// scrutiny.
     #[instrument(
-        level = "debug",
+        level = "info",
         skip(self, stack),
         fields(depth = stack.obligation.recursion_depth),
         ret
@@ -1195,7 +1201,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             let candidate = (*candidate).clone();
             match this.confirm_candidate(stack.obligation, candidate) {
                 Ok(selection) => {
-                    debug!(?selection);
+                    info!(?selection);
                     this.evaluate_predicates_recursively(
                         stack.list(),
                         selection.nested_obligations().into_iter(),
@@ -1543,7 +1549,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
     }
 
-    #[instrument(skip(self, param_env, cache_fresh_trait_pred, dep_node), level = "debug")]
+    #[instrument(skip(self, param_env, cache_fresh_trait_pred, dep_node), level = "info")]
     fn insert_candidate_cache(
         &mut self,
         mut param_env: ty::ParamEnv<'tcx>,
@@ -1566,7 +1572,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 // Don't cache overflow globally; we only produce this in certain modes.
             } else if !pred.needs_infer() {
                 if !candidate.needs_infer() {
-                    debug!(?pred, ?candidate, "insert_candidate_cache global");
+                    info!(?pred, ?candidate, "insert_candidate_cache global");
                     debug!(?pred.trait_ref.def_id);
                     let mut s = vec![];
                     for arg in pred.trait_ref.substs {
@@ -1584,7 +1590,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             }
         }
 
-        debug!(?pred, ?candidate, "insert_candidate_cache local");
+        info!(?pred, ?candidate, "insert_candidate_cache local");
         self.infcx.selection_cache.insert((param_env, pred), dep_node, candidate);
 
     }
@@ -2029,6 +2035,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
     }
 
+    #[instrument(skip(self, obligation), level = "info", ret)]
     fn sized_conditions(
         &mut self,
         obligation: &TraitObligation<'tcx>,

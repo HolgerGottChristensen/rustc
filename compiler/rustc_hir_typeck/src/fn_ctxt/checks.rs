@@ -204,26 +204,31 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         evaluated
     }
 
+
     /// Generic function that factors out common logic from function calls,
     /// method calls and overloaded operators.
+    ///
+    /// # Arguments
+    ///
+    /// * `call_span`: Span enclosing the call site
+    /// * `call_expr`: Expression of the call site
+    /// * `formal_input_tys`: Types (as defined in the *signature* of the target function)
+    /// * `expected_input_tys`: More specific expected types, after unifying with caller output types
+    /// * `provided_args`: The expressions for each provided argument
+    /// * `c_variadic`: Whether the function is variadic, for example when imported from C
+    /// * `tuple_arguments`: Whether the arguments have been bundled in a tuple (ex: closures)
+    /// * `fn_def_id`: The DefId for the function being called, for better error messages
+    ///
     #[instrument(level = "debug", skip(self, call_span, call_expr, formal_input_tys, expected_input_tys, provided_args, c_variadic, tuple_arguments))]
     pub(in super::super) fn check_argument_types(
         &self,
-        // Span enclosing the call site
         call_span: Span,
-        // Expression of the call site
         call_expr: &'tcx hir::Expr<'tcx>,
-        // Types (as defined in the *signature* of the target function)
         formal_input_tys: &[Ty<'tcx>],
-        // More specific expected types, after unifying with caller output types
         expected_input_tys: Option<Vec<Ty<'tcx>>>,
-        // The expressions for each provided argument
         provided_args: &'tcx [hir::Expr<'tcx>],
-        // Whether the function is variadic, for example when imported from C
         c_variadic: bool,
-        // Whether the arguments have been bundled in a tuple (ex: closures)
         tuple_arguments: TupleArgumentsFlag,
-        // The DefId for the function being called, for better error messages
         fn_def_id: Option<DefId>,
     ) {
         // info!("{:#?}", fn_def_id);
@@ -261,7 +266,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         // If the arguments should be wrapped in a tuple (ex: closures), unwrap them here
         let (formal_input_tys, expected_input_tys) = if tuple_arguments == TupleArguments {
+
             let tuple_type = self.structurally_resolved_type(call_span, formal_input_tys[0]);
+
             match tuple_type.kind() {
                 // We expected a tuple and got a tuple
                 ty::Tuple(arg_types) => {
@@ -299,7 +306,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             (formal_input_tys.to_vec(), expected_input_tys)
         };
 
-        // If there are no external expectations at the call site, just use the types from the function defn
+        // If there are no external expectations at the call site, just use the types from the function definition
         let expected_input_tys = if let Some(expected_input_tys) = expected_input_tys {
             assert_eq!(expected_input_tys.len(), formal_input_tys.len());
             expected_input_tys
@@ -328,20 +335,25 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // We're on the happy path here, so we'll do a more involved check and write back types
             // To check compatibility, we'll do 3 things:
             // 1. Unify the provided argument with the expected type
+            info!("pre Expectation::rvalue_hint");
             let expectation = Expectation::rvalue_hint(self, expected_input_ty);
 
+            info!("pre check_expr_with_expectation");
             let checked_ty = self.check_expr_with_expectation(provided_arg, expectation);
 
             // 2. Coerce to the most detailed type that could be coerced
             //    to, which is `expected_ty` if `rvalue_hint` returns an
             //    `ExpectHasType(expected_ty)`, or the `formal_ty` otherwise.
+            info!("pre expectation.only_has_type(self)");
             let coerced_ty = expectation.only_has_type(self).unwrap_or(formal_input_ty);
 
             // Cause selection errors caused by resolving a single argument to point at the
             // argument and not the call. This lets us customize the span pointed to in the
             // fulfillment error to be more accurate.
+            info!("pre self.resolve_vars_with_obligations");
             let coerced_ty = self.resolve_vars_with_obligations(coerced_ty);
 
+            info!("pre try_coerce");
             let coerce_error = self
                 .try_coerce(provided_arg, checked_ty, coerced_ty, AllowTwoPhase::Yes, None)
                 .err();
@@ -411,6 +423,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             provided_arg_count == minimum_input_count
         };
 
+
+        info!("Pre check closures");
         // Check the arguments.
         // We do this in a pretty awful way: first we type-check any arguments
         // that are not closures, then we type-check the closures. This is so
@@ -420,8 +434,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // More awful hacks: before we check argument types, try to do
             // an "opportunistic" trait resolution of any trait bounds on
             // the call. This helps coercions.
+            info!("Check closures: {}", check_closures);
             if check_closures {
-                self.select_obligations_where_possible(|_| {})
+                info!("Pre select where possible");
+                self.select_obligations_where_possible(|_| {});
+                info!("Post select where possible");
             }
 
             // Check each argument, to satisfy the input it was provided for
@@ -448,7 +465,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     continue;
                 }
 
+                info!("Pre demand compatible arg: {}", idx);
                 let compatible = demand_compatible(idx);
+                info!("Post demand compatible arg: {}", idx);
                 let is_compatible = matches!(compatible, Compatibility::Compatible);
                 compatibility_diagonal[idx] = compatible;
 
@@ -457,6 +476,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 }
             }
         }
+
+        info!("Post check closures");
 
         if c_variadic && provided_arg_count < minimum_input_count {
             err_code = "E0060";
@@ -506,6 +527,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
 
         if !call_appears_satisfied {
+            info!("Not satisfied");
             let compatibility_diagonal = IndexVec::from_raw(compatibility_diagonal);
             let provided_args = IndexVec::from_iter(provided_args.iter().take(if c_variadic {
                 minimum_input_count
@@ -535,6 +557,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 call_span,
                 call_expr,
             );
+        } else {
+            info!("Satisfied");
         }
     }
 

@@ -238,21 +238,22 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
         let obligation = &mut pending_obligation.obligation;
 
 
-        debug!(?obligation, "pre-resolve");
-        debug!("{:#?}", obligation.cause);
+        info!(?obligation, "pre-resolve");
+        info!("{:#?}", obligation.cause);
 
         if obligation.predicate.has_non_region_infer() {
-            debug!("Has non region infer");
+            info!("Has non region infer");
             obligation.predicate = self.selcx.infcx.resolve_vars_if_possible(obligation.predicate);
+            info!(?obligation, "post-resolve-vars-if-possible");
         }
-        debug!(?obligation, "post-resolve-vars-if-possible");
+
 
         let obligation = &pending_obligation.obligation;
 
         let infcx = self.selcx.infcx;
 
         if obligation.predicate.has_projections() {
-            debug!("Has projections");
+            info!("Has projections");
             let mut obligations = Vec::new();
             let predicate = project::try_normalize_with_depth_to(
                 &mut self.selcx,
@@ -272,7 +273,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 
         match binder.no_bound_vars() {
             None => {
-                debug!("Contains bound vars");
+                info!("Contains bound vars: NONE");
 
                 match binder.skip_binder() {
                     // Evaluation will discard candidates using the leak check.
@@ -316,10 +317,10 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                 }
             },
             Some(pred) => {
-                debug!("Contains NO bound vars at all");
+                info!("Contains NO bound vars at all: SOME");
                 match pred {
                     ty::PredicateKind::Clause(ty::Clause::Trait(data)) => {
-                        debug!("Clause trait obligation: {:?}", data);
+                        info!("Clause trait obligation: {:?}", data);
                         let trait_obligation = obligation.with(infcx.tcx, Binder::dummy(data));
 
                         self.process_trait_obligation(
@@ -608,7 +609,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
-    #[instrument(level = "debug", skip(self, obligation, stalled_on))]
+    #[instrument(level = "info", skip(self, obligation, stalled_on))]
     fn process_trait_obligation(
         &mut self,
         obligation: &PredicateObligation<'tcx>,
@@ -617,12 +618,12 @@ impl<'a, 'tcx> FulfillProcessor<'a, 'tcx> {
     ) -> ProcessResult<PendingPredicateObligation<'tcx>, FulfillmentErrorCode<'tcx>> {
         let infcx = self.selcx.infcx;
         if obligation.predicate.is_global() {
-            debug!("Predicate is global");
+            info!("Predicate is global");
             // no type variables present, can use evaluation for better caching.
             // FIXME: consider caching errors too.
             if infcx.predicate_must_hold_considering_regions(obligation) {
-                debug!("predicate_must_hold_considering_regions");
-                debug!(
+                info!("predicate_must_hold_considering_regions");
+                info!(
                     "selecting trait at depth {} evaluated to holds",
                     obligation.recursion_depth
                 );

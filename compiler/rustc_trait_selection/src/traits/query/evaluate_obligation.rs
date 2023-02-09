@@ -77,6 +77,8 @@ impl<'tcx> InferCtxtExt<'tcx> for InferCtxt<'tcx> {
             _ => obligation.param_env.without_const(),
         };
 
+        info!("Trying to prove in environment: {:#?}", param_env);
+
         let c_pred = self
             .canonicalize_query_keep_static(param_env.and(obligation.predicate), &mut _orig_values);
         // Run canonical query. If overflow occurs, rerun from scratch but this time
@@ -85,9 +87,9 @@ impl<'tcx> InferCtxtExt<'tcx> for InferCtxt<'tcx> {
         self.tcx.at(obligation.cause.span()).evaluate_obligation(c_pred)
     }
 
-    // Helper function that canonicalizes and runs the query. If an
-    // overflow results, we re-run it in the local context so we can
-    // report a nice error.
+    /// Helper function that canonicalizes and runs the query. If an
+    /// overflow results, we re-run it in the local context so we can
+    /// report a nice error.
     fn evaluate_obligation_no_overflow(
         &self,
         obligation: &PredicateObligation<'tcx>,
