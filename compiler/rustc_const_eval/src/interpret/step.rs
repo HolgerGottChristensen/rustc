@@ -74,7 +74,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
     ///
     /// This does NOT move the statement counter forward, the caller has to do that!
     pub fn statement(&mut self, stmt: &mir::Statement<'tcx>) -> InterpResult<'tcx> {
-        info!("{:?}", stmt);
+        debug!("{:?}", stmt);
 
         use rustc_middle::mir::StatementKind::*;
 
@@ -329,12 +329,12 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
 
     /// Evaluate the given terminator. Will also adjust the stack frame and statement position accordingly.
     fn terminator(&mut self, terminator: &mir::Terminator<'tcx>) -> InterpResult<'tcx> {
-        info!("{:?}", terminator.kind);
+        debug!("{:?}", terminator.kind);
 
         self.eval_terminator(terminator)?;
         if !self.stack().is_empty() {
             if let Either::Left(loc) = self.frame().loc {
-                info!("// executing {:?}", loc.block);
+                debug!("// executing {:?}", loc.block);
             }
         }
         Ok(())

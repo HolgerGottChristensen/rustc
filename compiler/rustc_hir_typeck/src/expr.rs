@@ -194,10 +194,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expected: Expectation<'tcx>,
         args: &'tcx [hir::Expr<'tcx>],
     ) -> Ty<'tcx> {
-        //info!("expr = {:#?}", expr);
-        //info!("expected = {:#?}", expected);
-        info!("args = {:#?}", args.len());
-        info!("Pending obligations args: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        //debug!("expr = {:#?}", expr);
+        //debug!("expected = {:#?}", expected);
+        debug!("args = {:#?}", args.len());
+        debug!("Pending obligations args: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         if self.tcx().sess.verbose() {
             // make this code only run with -Zverbose because it is probably slow
@@ -242,10 +242,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             _ => self.check_expr_kind(expr, expected),
         });
 
-        info!("pre resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("pre resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         let ty = self.resolve_vars_if_possible(ty);
-        info!("post resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("post resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
 
         // Warn for non-block expressions with diverging children.
@@ -279,8 +279,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // Combine the diverging and has_error flags.
         self.diverges.set(self.diverges.get() | old_diverges);
 
-        info!("type of {} is...", self.tcx.hir().node_to_string(expr.hir_id));
-        info!("... {:?}, expected is {:?}", ty, expected);
+        debug!("type of {} is...", self.tcx.hir().node_to_string(expr.hir_id));
+        debug!("... {:?}, expected is {:?}", ty, expected);
 
         ty
     }
@@ -303,7 +303,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     ) -> Ty<'tcx> {
         trace!("expr={:#?}", expr);
 
-        info!("Pending obligations0: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("Pending obligations0: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
 
         let tcx = self.tcx;
@@ -578,7 +578,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.resolve_lang_item_path(lang_item, expr.span, expr.hir_id, hir_id).1
     }
 
-    #[instrument(skip(self, expr, args, qpath), level = "info")]
+    #[instrument(skip(self, expr, args, qpath), level = "debug")]
     pub(crate) fn check_expr_path(
         &self,
         qpath: &'tcx hir::QPath<'tcx>,
@@ -589,7 +589,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let (res, opt_ty, segs) =
             self.resolve_ty_and_res_fully_qualified_call(qpath, expr.hir_id, expr.span);
 
-        info!("pre let ty = match res  = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("pre let ty = match res  = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         let ty = match res {
             Res::Err => {
@@ -639,7 +639,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         infer::LateBoundRegionConversionTime::FnCall,
                         fn_sig.input(i),
                     );
-                    info!("pre require_type_is_sized_deferred = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+                    debug!("pre require_type_is_sized_deferred = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
                     self.require_type_is_sized_deferred(
                         input,
@@ -669,12 +669,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // a type parameter outlives the moment of instantiation.
             let substs = self.typeck_results.borrow().node_substs(expr.hir_id);
 
-            info!("deferred sized = {:#?}", self.deferred_sized_obligations);
-            info!("param environment to add = {:#?}", self.param_env);
-            info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+            debug!("deferred sized = {:#?}", self.deferred_sized_obligations);
+            debug!("param environment to add = {:#?}", self.param_env);
+            debug!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
             let generics: &ty::Generics = self.tcx.generics_of(did);
-            info!("GNERINRECS = {:?}", generics);
+            debug!("GNERINRECS = {:?}", generics);
 
 
             for (arg, param) in substs.iter().zip(generics.params.iter()).filter(|(arg, _)| {
@@ -727,9 +727,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // a type parameter outlives the moment of instantiation.
             let substs = self.typeck_results.borrow().node_substs(expr.hir_id);
 
-            info!("deferred sized = {:#?}", self.deferred_sized_obligations);
-            info!("param environment to add = {:#?}", self.param_env);
-            info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+            debug!("deferred sized = {:#?}", self.deferred_sized_obligations);
+            debug!("param environment to add = {:#?}", self.param_env);
+            debug!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
             self.add_wf_bounds(substs, expr);
         }
 

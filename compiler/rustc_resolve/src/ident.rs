@@ -1286,14 +1286,14 @@ impl<'a> Resolver<'a> {
     ) -> PathResult<'a> {
         debug!("resolve_path(path={:?}, opt_ns={:?}, finalize={:?})", path, opt_ns, finalize);
 
-        info!("{:#?}", ribs);
+        debug!("{:#?}", ribs);
 
         let mut module = None;
         let mut allow_super = true;
         let mut second_binding = None;
 
         for (i, &Segment { ident, id, .. }) in path.iter().enumerate() {
-            info!("resolve_path ident {} {:?} {:?}", i, ident, id);
+            debug!("resolve_path ident {} {:?} {:?}", i, ident, id);
             let record_segment_res = |this: &mut Self, res| {
                 if finalize.is_some() {
                     if let Some(id) = id {

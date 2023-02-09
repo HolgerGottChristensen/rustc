@@ -71,7 +71,7 @@ pub fn obligations<'tcx>(
     debug!("wf::obligations({:?}, body_id={:?}) = {:?}", arg, body_id, wf.out);
 
     let result = wf.normalize(infcx);
-    info!("wf::obligations({:?}, body_id={:?}) ~~> {:?}", arg, body_id, result);
+    debug!("wf::obligations({:?}, body_id={:?}) ~~> {:?}", arg, body_id, result);
     Some(result)
 }
 
@@ -722,7 +722,7 @@ impl<'tcx> WfPredicates<'tcx> {
         }
     }
 
-    #[instrument(level = "info", skip(self))]
+    #[instrument(level = "debug", skip(self))]
     fn nominal_obligations_inner(
         &mut self,
         def_id: DefId,
@@ -738,8 +738,8 @@ impl<'tcx> WfPredicates<'tcx> {
         }
 
         let predicates = predicates.instantiate(self.tcx, substs);
-        info!("{:#?}", predicates);
-        info!("{:#?}", self.param_env);
+        debug!("{:#?}", predicates);
+        debug!("{:#?}", self.param_env);
         debug_assert_eq!(predicates.predicates.len(), origins.len());
 
         iter::zip(iter::zip(predicates.predicates, predicates.spans), origins.into_iter().rev())

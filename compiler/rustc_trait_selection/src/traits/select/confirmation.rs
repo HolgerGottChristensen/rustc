@@ -237,7 +237,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         obligation: &TraitObligation<'tcx>,
         has_nested: bool,
     ) -> ImplSourceBuiltinData<PredicateObligation<'tcx>> {
-        info!(?obligation, ?has_nested, "confirm_builtin_candidate");
+        debug!(?obligation, ?has_nested, "confirm_builtin_candidate");
 
         let lang_items = self.tcx().lang_items();
         let obligations = if has_nested {
@@ -269,7 +269,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             vec![]
         };
 
-        info!(?obligations);
+        debug!(?obligations);
 
         ImplSourceBuiltinData { nested: obligations }
     }

@@ -77,7 +77,7 @@ impl<'tcx> InferCtxtExt<'tcx> for InferCtxt<'tcx> {
             _ => obligation.param_env.without_const(),
         };
 
-        info!("Trying to prove in environment: {:#?}", param_env);
+        debug!("Trying to prove in environment: {:#?}", param_env);
 
         let c_pred = self
             .canonicalize_query_keep_static(param_env.and(obligation.predicate), &mut _orig_values);

@@ -62,14 +62,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 // but since a Dummy binder is used to fill in the FnOnce trait's arguments,
                 // type resolution always gives a "maybe" here.
                 if self.autoderef(span, ty).any(|(ty, _)| {
-                    info!("check deref {:?} error", ty);
+                    debug!("check deref {:?} error", ty);
                     matches!(ty.kind(), ty::Error(_) | ty::Infer(_))
                 }) {
                     return false;
                 }
 
                 self.autoderef(span, ty).any(|(ty, _)| {
-                    info!("check deref {:?} impl FnOnce", ty);
+                    debug!("check deref {:?} impl FnOnce", ty);
                     self.probe(|_| {
                         let trait_ref = tcx.mk_trait_ref(
                             fn_once,
@@ -722,7 +722,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 let bound_list =
                     bound_list.into_iter().map(|(_, path)| path).collect::<Vec<_>>().join("\n");
                 let actual_prefix = rcvr_ty.prefix_string(self.tcx);
-                info!("unimplemented_traits.len() == {}", unimplemented_traits.len());
+                debug!("unimplemented_traits.len() == {}", unimplemented_traits.len());
                 let (primary_message, label) = if unimplemented_traits.len() == 1
                     && unimplemented_traits_only
                 {

@@ -1566,7 +1566,7 @@ impl<'tcx> Liveness<'_, 'tcx> {
         }
     }
 
-    #[instrument(skip(self), level = "INFO")]
+    #[instrument(skip(self), level = "debug")]
     fn report_unused(
         &self,
         hir_ids_and_spans: Vec<(HirId, Span, Span)>,

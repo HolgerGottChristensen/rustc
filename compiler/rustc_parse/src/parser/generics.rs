@@ -349,7 +349,7 @@ impl<'a> Parser<'a> {
         }
 
         use rustc_ast_pretty::pprust::PrintState;
-        info!("{}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
+        debug!("{}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
 
         Ok(params)
     }
@@ -373,7 +373,7 @@ impl<'a> Parser<'a> {
         };
 
         use rustc_ast_pretty::pprust::PrintState;
-        info!("Parsed: {}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
+        debug!("Parsed: {}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
 
 
         Ok(ast::Generics {

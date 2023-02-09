@@ -146,9 +146,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         + has_own_self as u32
         + super::early_bound_lifetimes_from_generics(tcx, ast_generics).count() as u32;
 
-    info!("predicates = {:#?}", predicates);
-    info!("ast_generics = {:#?}", ast_generics);
-    info!("generics = {:#?}", generics);
+    debug!("predicates = {:#?}", predicates);
+    debug!("ast_generics = {:#?}", ast_generics);
+    debug!("generics = {:#?}", generics);
 
     // Collect the predicates that were written inline by the user on each
     // type parameter (e.g., `<T: Foo>`).
@@ -193,9 +193,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                     Some((param.def_id, ast_generics.predicates)),
                     param.span,
                 );
-                info!(?bounds);
+                debug!(?bounds);
                 predicates.extend(bounds.predicates(tcx, param_ty));
-                info!(?predicates);
+                debug!(?predicates);
             }
         }
     }

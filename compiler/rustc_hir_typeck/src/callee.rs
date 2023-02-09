@@ -94,7 +94,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expected: Expectation<'tcx>,
     ) -> Ty<'tcx> {
 
-        info!("Pending obligations1: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("Pending obligations1: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         // Check if we have a simple function call as the callee or some expression that should
         // be evaluated to get the type of the callee.
@@ -108,7 +108,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             _ => self.check_expr(callee_expr),
         };
 
-        info!("Pending obligations2: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("Pending obligations2: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         let expr_ty = self.structurally_resolved_type(call_expr.span, original_callee_ty);
 
@@ -125,7 +125,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let obligations = autoderef.into_obligations();
         self.register_predicates(obligations);
 
-        info!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         let output = match result {
             None => {

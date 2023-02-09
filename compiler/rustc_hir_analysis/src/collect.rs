@@ -561,7 +561,7 @@ fn get_new_lifetime_name<'tcx>(
 
 fn convert_item(tcx: TyCtxt<'_>, item_id: hir::ItemId) {
     let it = tcx.hir().item(item_id);
-    info!("convert: item {} with id {}", it.ident, it.hir_id());
+    debug!("convert: item {} with id {}", it.ident, it.hir_id());
     let def_id = item_id.owner_id.def_id;
 
     match it.kind {

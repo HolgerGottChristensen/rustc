@@ -416,7 +416,7 @@ impl<O: ForestObligation> ObligationForest<O> {
     {
         let mut outcome = P::OUT::new();
 
-        info!("nodes: {:#?}", self.nodes);
+        debug!("nodes: {:#?}", self.nodes);
         // Fixpoint computation: we repeat until the inner loop stalls.
         loop {
             let mut has_changed = false;
@@ -431,7 +431,7 @@ impl<O: ForestObligation> ObligationForest<O> {
             // nodes. Therefore we use a `while` loop.
             let mut index = 0;
             while let Some(node) = self.nodes.get_mut(index) {
-                info!("Process node: {:#?}", node);
+                debug!("Process node: {:#?}", node);
                 if node.state.get() != NodeState::Pending || !processor.needs_process_obligation(&node.obligation) {
                     index += 1;
                     continue;
@@ -452,7 +452,7 @@ impl<O: ForestObligation> ObligationForest<O> {
                         has_changed = true;
                         node.state.set(NodeState::Success);
 
-                        info!(?children);
+                        debug!(?children);
 
                         for child in children {
                             let st = self.register_obligation_at(child, Some(index));

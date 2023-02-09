@@ -443,7 +443,7 @@ impl<'a> CrateLocator<'a> {
                     continue;
                 };
 
-                info!("lib candidate: {}", spf.path.display());
+                debug!("lib candidate: {}", spf.path.display());
 
                 let (rlibs, rmetas, dylibs) = candidates.entry(hash.to_string()).or_default();
                 let path = fs::canonicalize(&spf.path).unwrap_or_else(|_| spf.path.clone());
@@ -568,7 +568,7 @@ impl<'a> CrateLocator<'a> {
         let mut ret: Option<(PathBuf, PathKind)> = None;
         let mut err_data: Option<Vec<PathBuf>> = None;
         for (lib, kind) in m {
-            info!("{} reading metadata from: {}", flavor, lib.display());
+            debug!("{} reading metadata from: {}", flavor, lib.display());
             if flavor == CrateFlavor::Rmeta && lib.metadata().map_or(false, |m| m.len() == 0) {
                 // Empty files will cause get_metadata_section to fail. Rmeta
                 // files can be empty, for example with binaries (which can
@@ -584,12 +584,12 @@ impl<'a> CrateLocator<'a> {
                         if let Some(h) = self.crate_matches(&blob, &lib) {
                             (h, blob)
                         } else {
-                            info!("metadata mismatch");
+                            debug!("metadata mismatch");
                             continue;
                         }
                     }
                     Err(MetadataError::LoadFailure(err)) => {
-                        info!("no metadata found: {}", err);
+                        debug!("no metadata found: {}", err);
                         // The file was present and created by the same compiler version, but we
                         // couldn't load it for some reason.  Give a hard error instead of silently
                         // ignoring it, but only if we would have given an error anyway.
@@ -599,7 +599,7 @@ impl<'a> CrateLocator<'a> {
                         continue;
                     }
                     Err(err @ MetadataError::NotPresent(_)) => {
-                        info!("no metadata found: {}", err);
+                        debug!("no metadata found: {}", err);
                         continue;
                     }
                 };
@@ -661,7 +661,7 @@ impl<'a> CrateLocator<'a> {
         let rustc_version = rustc_version();
         let found_version = metadata.get_rustc_version();
         if found_version != rustc_version {
-            info!("Rejecting via version: expected {} got {}", rustc_version, found_version);
+            debug!("Rejecting via version: expected {} got {}", rustc_version, found_version);
             self.crate_rejections
                 .via_version
                 .push(CrateMismatch { path: libpath.to_path_buf(), got: found_version });
@@ -670,7 +670,7 @@ impl<'a> CrateLocator<'a> {
 
         let root = metadata.get_root();
         if root.is_proc_macro_crate() != self.is_proc_macro {
-            info!(
+            debug!(
                 "Rejecting via proc macro: expected {} got {}",
                 self.is_proc_macro,
                 root.is_proc_macro_crate(),
@@ -679,12 +679,12 @@ impl<'a> CrateLocator<'a> {
         }
 
         if self.exact_paths.is_empty() && self.crate_name != root.name() {
-            info!("Rejecting via crate name");
+            debug!("Rejecting via crate name");
             return None;
         }
 
         if root.triple() != &self.triple {
-            info!("Rejecting via crate triple: expected {} got {}", self.triple, root.triple());
+            debug!("Rejecting via crate triple: expected {} got {}", self.triple, root.triple());
             self.crate_rejections.via_triple.push(CrateMismatch {
                 path: libpath.to_path_buf(),
                 got: root.triple().to_string(),
@@ -695,7 +695,7 @@ impl<'a> CrateLocator<'a> {
         let hash = root.hash();
         if let Some(expected_hash) = self.hash {
             if hash != expected_hash {
-                info!("Rejecting via hash: expected {} got {}", expected_hash, hash);
+                debug!("Rejecting via hash: expected {} got {}", expected_hash, hash);
                 self.crate_rejections
                     .via_hash
                     .push(CrateMismatch { path: libpath.to_path_buf(), got: hash.to_string() });
@@ -868,7 +868,7 @@ fn find_plugin_registrar_impl<'a>(
     metadata_loader: &dyn MetadataLoader,
     name: Symbol,
 ) -> Result<PathBuf, CrateError> {
-    info!("find plugin registrar `{}`", name);
+    debug!("find plugin registrar `{}`", name);
     let mut locator = CrateLocator::new(
         sess,
         metadata_loader,

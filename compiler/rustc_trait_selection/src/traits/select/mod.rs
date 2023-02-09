@@ -404,13 +404,13 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         let candidate_set = self.assemble_candidates(stack)?;
 
         if candidate_set.ambiguous {
-            info!("candidate set contains ambig");
+            debug!("candidate set contains ambig");
             return Ok(None);
         }
 
         let candidates = candidate_set.vec;
 
-        info!(?stack, ?candidates, "assembled {} candidates", candidates.len());
+        debug!(?stack, ?candidates, "assembled {} candidates", candidates.len());
 
         // At this point, we know that each of the entries in the
         // candidate set is *individually* applicable. Now we have to
@@ -457,7 +457,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             .flat_map(Result::transpose)
             .collect::<Result<Vec<_>, _>>()?;
 
-        info!(?stack, ?candidates, "winnowed to {} candidates", candidates.len());
+        debug!(?stack, ?candidates, "winnowed to {} candidates", candidates.len());
 
         let needs_infer = stack.obligation.predicate.has_non_region_infer();
 
@@ -604,7 +604,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     }
 
     #[instrument(
-        level = "info",
+        level = "debug",
         skip(self, previous_stack),
         fields(previous_stack = ?previous_stack.head())
         ret,
@@ -1033,12 +1033,12 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         let reached_depth = stack.reached_depth.get();
         if reached_depth >= stack.depth {
-            info!("CACHE MISS");
+            debug!("CACHE MISS");
             self.insert_evaluation_cache(param_env, fresh_trait_pred, dep_node, result);
             stack.cache().on_completion(stack.dfn);
         } else {
-            info!("PROVISIONAL");
-            info!(
+            debug!("PROVISIONAL");
+            debug!(
                 "caching provisionally because {:?} \
                  is a cycle participant (at depth {}, reached depth {})",
                 fresh_trait_pred, stack.depth, reached_depth,
@@ -1187,7 +1187,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     /// obligations are met. Returns whether `candidate` remains viable after this further
     /// scrutiny.
     #[instrument(
-        level = "info",
+        level = "debug",
         skip(self, stack),
         fields(depth = stack.obligation.recursion_depth),
         ret
@@ -1201,7 +1201,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             let candidate = (*candidate).clone();
             match this.confirm_candidate(stack.obligation, candidate) {
                 Ok(selection) => {
-                    info!(?selection);
+                    debug!(?selection);
                     this.evaluate_predicates_recursively(
                         stack.list(),
                         selection.nested_obligations().into_iter(),
@@ -1549,7 +1549,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
     }
 
-    #[instrument(skip(self, param_env, cache_fresh_trait_pred, dep_node), level = "info")]
+    #[instrument(skip(self, param_env, cache_fresh_trait_pred, dep_node), level = "debug")]
     fn insert_candidate_cache(
         &mut self,
         mut param_env: ty::ParamEnv<'tcx>,
@@ -1572,7 +1572,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 // Don't cache overflow globally; we only produce this in certain modes.
             } else if !pred.needs_infer() {
                 if !candidate.needs_infer() {
-                    info!(?pred, ?candidate, "insert_candidate_cache global");
+                    debug!(?pred, ?candidate, "insert_candidate_cache global");
                     debug!(?pred.trait_ref.def_id);
                     let mut s = vec![];
                     for arg in pred.trait_ref.substs {
@@ -1590,7 +1590,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             }
         }
 
-        info!(?pred, ?candidate, "insert_candidate_cache local");
+        debug!(?pred, ?candidate, "insert_candidate_cache local");
         self.infcx.selection_cache.insert((param_env, pred), dep_node, candidate);
 
     }
@@ -2035,7 +2035,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
     }
 
-    #[instrument(skip(self, obligation), level = "info", ret)]
+    #[instrument(skip(self, obligation), level = "debug", ret)]
     fn sized_conditions(
         &mut self,
         obligation: &TraitObligation<'tcx>,

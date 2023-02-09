@@ -923,7 +923,7 @@ impl<'a> DumpHandler<'a> {
             }
         };
 
-        info!("Writing output to {}", file_name.display());
+        debug!("Writing output to {}", file_name.display());
 
         let output_file = BufWriter::new(File::create(&file_name).unwrap_or_else(|e| {
             sess.emit_fatal(errors::CouldNotOpen { file_name: file_name.as_path(), err: e })
@@ -967,7 +967,7 @@ pub fn process_crate<H: SaveHandler>(
 ) {
     with_no_trimmed_paths!({
         tcx.dep_graph.with_ignore(|| {
-            info!("Dumping crate {}", cratename);
+            debug!("Dumping crate {}", cratename);
 
             // Privacy checking must be done outside of type inference; use a
             // fallback in case effective visibilities couldn't have been correctly computed.

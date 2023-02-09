@@ -201,7 +201,7 @@ impl<'tcx> ProjectionCache<'_, 'tcx> {
         let mut map = self.map();
         match map.get(&key) {
             Some(ProjectionCacheEntry::NormalizedTy { ty, complete: _ }) => {
-                info!("ProjectionCacheEntry::complete({:?}) - completing {:?}", key, ty);
+                debug!("ProjectionCacheEntry::complete({:?}) - completing {:?}", key, ty);
                 let mut ty = ty.clone();
                 if result.must_apply_considering_regions() {
                     ty.obligations = vec![];
@@ -211,7 +211,7 @@ impl<'tcx> ProjectionCache<'_, 'tcx> {
             ref value => {
                 // Type inference could "strand behind" old cache entries. Leave
                 // them alone for now.
-                info!("ProjectionCacheEntry::complete({:?}) - ignoring {:?}", key, value);
+                debug!("ProjectionCacheEntry::complete({:?}) - ignoring {:?}", key, value);
             }
         };
     }

@@ -400,7 +400,7 @@ impl<'a> CrateLoader<'a> {
         // Claim this crate number and cache it
         let cnum = self.cstore.alloc_new_crate_num();
 
-        info!(
+        debug!(
             "register crate `{}` (cnum = {}. private_dep = {})",
             crate_root.name(),
             cnum,
@@ -561,7 +561,7 @@ impl<'a> CrateLoader<'a> {
         let result = if let Some(cnum) = self.existing_match(name, hash, path_kind) {
             (LoadResult::Previous(cnum), None)
         } else {
-            info!("falling back to a load");
+            debug!("falling back to a load");
             let mut locator = CrateLocator::new(
                 self.sess,
                 &*self.metadata_loader,
@@ -623,7 +623,7 @@ impl<'a> CrateLoader<'a> {
             for (cnum, data) in self.cstore.iter_crate_data() {
                 if data.name() == root.name() && root.hash() == data.hash() {
                     assert!(locator.hash.is_none());
-                    info!("load success, going to previous cnum: {}", cnum);
+                    debug!("load success, going to previous cnum: {}", cnum);
                     result = LoadResult::Previous(cnum);
                     break;
                 }
@@ -666,7 +666,7 @@ impl<'a> CrateLoader<'a> {
         let mut crate_num_map = CrateNumMap::with_capacity(1 + deps.len());
         crate_num_map.push(krate);
         for dep in deps {
-            info!(
+            debug!(
                 "resolving dep crate {} hash: `{}` extra filename: `{}`",
                 dep.name, dep.hash, dep.extra_filename
             );
@@ -709,7 +709,7 @@ impl<'a> CrateLoader<'a> {
         // panic runtime, so we just skip this section entirely.
         let any_non_rlib = self.sess.crate_types().iter().any(|ct| *ct != CrateType::Rlib);
         if !any_non_rlib {
-            info!("panic runtime injection skipped, only generating rlib");
+            debug!("panic runtime injection skipped, only generating rlib");
             return;
         }
 
@@ -760,7 +760,7 @@ impl<'a> CrateLoader<'a> {
             PanicStrategy::Unwind => sym::panic_unwind,
             PanicStrategy::Abort => sym::panic_abort,
         };
-        info!("panic runtime not found -- loading {}", name);
+        debug!("panic runtime not found -- loading {}", name);
 
         let Some(cnum) = self.resolve_crate(name, DUMMY_SP, CrateDepKind::Implicit) else { return; };
         let data = self.cstore.get_crate_data(cnum);
@@ -787,7 +787,7 @@ impl<'a> CrateLoader<'a> {
             return;
         }
 
-        info!("loading profiler");
+        debug!("loading profiler");
 
         let name = Symbol::intern(&self.sess.opts.unstable_opts.profiler_runtime);
         if name == sym::profiler_builtins && self.sess.contains_name(&krate.attrs, sym::no_core) {
@@ -931,7 +931,7 @@ impl<'a> CrateLoader<'a> {
         // crates on the command line correctly).
         for (cnum, data) in self.cstore.iter_crate_data() {
             if needs_dep(data) {
-                info!("injecting a dep from {} to {}", cnum, krate);
+                debug!("injecting a dep from {} to {}", cnum, krate);
                 data.add_dependency(krate);
             }
         }
@@ -981,7 +981,7 @@ impl<'a> CrateLoader<'a> {
 
         self.report_unused_deps(krate);
 
-        info!("{:?}", CrateDump(&self.cstore));
+        debug!("{:?}", CrateDump(&self.cstore));
     }
 
     pub fn process_extern_crate(

@@ -141,7 +141,7 @@ impl<'a, 'tcx> Annotator<'a, 'tcx> {
         } else if let Some(parent_depr) = self.parent_depr {
             if inherit_deprecation.yes() {
                 is_deprecated = true;
-                info!("tagging child {:?} as deprecated from parent", def_id);
+                debug!("tagging child {:?} as deprecated from parent", def_id);
                 self.index.depr_map.insert(def_id, parent_depr);
             }
         }

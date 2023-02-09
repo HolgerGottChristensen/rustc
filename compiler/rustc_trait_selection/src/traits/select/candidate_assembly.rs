@@ -21,7 +21,7 @@ use super::SelectionCandidate::*;
 use super::{SelectionCandidateSet, SelectionContext, TraitObligationStack};
 
 impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
-    #[instrument(skip(self, stack), level = "info")]
+    #[instrument(skip(self, stack), level = "debug")]
     pub(super) fn assemble_candidates<'o>(
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
@@ -80,7 +80,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 // `Pointee` is automatically implemented for every type.
                 candidates.vec.push(BuiltinCandidate { has_nested: false });
             } else if lang_items.sized_trait() == Some(def_id) {
-                info!("Sized condition hit");
+                debug!("Sized condition hit");
                 // Sized is never implementable by end-users, it is
                 // always automatically computed.
                 let sized_conditions = self.sized_conditions(obligation);
@@ -702,7 +702,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
     /// Assembles the trait which are built-in to the language itself:
     /// `Copy`, `Clone` and `Sized`.
-    #[instrument(level = "info", skip(self, candidates))]
+    #[instrument(level = "debug", skip(self, candidates))]
     fn assemble_builtin_bound_candidates(
         &mut self,
         conditions: BuiltinImplConditions<'tcx>,

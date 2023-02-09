@@ -450,7 +450,7 @@ impl<'tcx> AdtDef<'tcx> {
                     trace!("discriminants: {} ({:?})", b, repr_type);
                     Some(Discr { val: b, ty })
                 } else {
-                    info!("invalid enum discriminant: {:#?}", val);
+                    debug!("invalid enum discriminant: {:#?}", val);
                     tcx.sess.emit_err(crate::error::ConstEvalNonIntError {
                         span: tcx.def_span(expr_did),
                     });

@@ -1296,11 +1296,11 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
     let infcx = wfcx.infcx;
     let tcx = wfcx.tcx();
 
-    info!("Hejsa1");
+    debug!("Hejsa1");
     let predicates = tcx.bound_predicates_of(def_id.to_def_id());
-    info!("post bound_predicates_of - {:#?}", predicates);
+    debug!("post bound_predicates_of - {:#?}", predicates);
     let generics = tcx.generics_of(def_id);
-    info!("Hejsa3");
+    debug!("Hejsa3");
 
     let is_our_default = |def: &ty::GenericParamDef| match def.kind {
         GenericParamDefKind::Type { has_default, .. }
@@ -1405,7 +1405,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
         }
     });
 
-    info!("substs = {:?}", substs);
+    debug!("substs = {:?}", substs);
 
     // Now we build the substituted predicates.
     let default_obligations = predicates
@@ -1445,7 +1445,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             let has_region = pred.visit_with(&mut param_count).is_break();
             let substituted_pred = predicates.rebind(pred).subst(tcx, substs);
 
-            info!(?substituted_pred);
+            debug!(?substituted_pred);
             // Don't check non-defaulted params, dependent defaults (including lifetimes)
             // or preds with multiple params.
             if substituted_pred.has_non_region_param() || param_count.params.len() > 1 || has_region
@@ -1468,9 +1468,9 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             // Note the subtle difference from how we handle `predicates`
             // below: there, we are not trying to prove those predicates
             // to be *true* but merely *well-formed*.
-            info!(?pred, "pre");
+            debug!(?pred, "pre");
             let pred = wfcx.normalize(sp, None, pred);
-            info!(?pred, "post");
+            debug!(?pred, "post");
             let cause = traits::ObligationCause::new(
                 sp,
                 wfcx.body_id,
@@ -1479,13 +1479,13 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             traits::Obligation::new(tcx, cause, wfcx.param_env, pred)
         });
 
-    info!("pre instantiate_identity - {:#?}", predicates);
+    debug!("pre instantiate_identity - {:#?}", predicates);
     let predicates = predicates.0.instantiate_identity(tcx);
-    info!("pre normalize - {:#?}", predicates);
+    debug!("pre normalize - {:#?}", predicates);
     let predicates = wfcx.normalize(span, None, predicates);
-    info!("post normalize - {:#?}", predicates);
+    debug!("post normalize - {:#?}", predicates);
 
-    info!(?predicates.predicates);
+    debug!(?predicates.predicates);
     assert_eq!(predicates.predicates.len(), predicates.spans.len());
     let wf_obligations =
         iter::zip(&predicates.predicates, &predicates.spans).flat_map(|(&p, &sp)| {
@@ -1511,9 +1511,9 @@ fn check_fn_or_method<'tcx>(
     def_id: LocalDefId,
 ) {
     let tcx = wfcx.tcx();
-    info!("sig = {:?}", sig);
+    debug!("sig = {:?}", sig);
     let sig = tcx.liberate_late_bound_regions(def_id.to_def_id(), sig);
-    info!("post-liberate_late_bound_regions sig = {:?}", sig);
+    debug!("post-liberate_late_bound_regions sig = {:?}", sig);
     // Normalize the input and output types one at a time, using a different
     // `WellFormedLoc` for each. We cannot call `normalize_associated_types`
     // on the entire `FnSig`, since this would use the same `WellFormedLoc`
@@ -1543,11 +1543,11 @@ fn check_fn_or_method<'tcx>(
         abi: wfcx.normalize(span, None, abi),
     };
 
-    info!("post-normalize sig = {:?}", sig);
+    debug!("post-normalize sig = {:?}", sig);
 
     // All inputs are obligated to be well-formed
     for (i, (&input_ty, ty)) in iter::zip(sig.inputs(), hir_decl.inputs).enumerate() {
-        //info!("ty = {:#?}", ty);
+        //debug!("ty = {:#?}", ty);
         wfcx.register_wf_obligation(
             ty.span,
             Some(WellFormedLoc::Param { function: def_id, param_idx: i.try_into().unwrap() }),
@@ -1565,11 +1565,11 @@ fn check_fn_or_method<'tcx>(
         sig.output().into(),
     );
 
-    info!("Preparing from where clauses");
+    debug!("Preparing from where clauses");
 
     check_where_clauses(wfcx, span, def_id);
 
-    info!("Before check_return_position_impl_trait_in_trait_bounds");
+    debug!("Before check_return_position_impl_trait_in_trait_bounds");
     check_return_position_impl_trait_in_trait_bounds(
         wfcx,
         def_id,
@@ -1578,7 +1578,7 @@ fn check_fn_or_method<'tcx>(
     );
 
     if sig.abi == Abi::RustCall {
-        info!("I am wrong");
+        debug!("I am wrong");
         let span = tcx.def_span(def_id);
         let has_implicit_self = hir_decl.implicit_self != hir::ImplicitSelfKind::None;
         let mut inputs = sig.inputs().iter().skip(if has_implicit_self { 1 } else { 0 });

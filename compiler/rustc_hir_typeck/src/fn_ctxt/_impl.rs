@@ -79,7 +79,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.resolve_vars_with_obligations_and_mutate_fulfillment(ty, |_| {})
     }
 
-    #[instrument(skip(self, mutate_fulfillment_errors), level = "info", ret)]
+    #[instrument(skip(self, mutate_fulfillment_errors), level = "debug", ret)]
     pub(in super::super) fn resolve_vars_with_obligations_and_mutate_fulfillment(
         &self,
         mut ty: Ty<'tcx>,
@@ -519,7 +519,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     ) {
         // WF obligations never themselves fail, so no real need to give a detailed cause:
         let cause = traits::ObligationCause::new(span, self.body_id, code);
-        info!("Register predicate {:#?} with env: {:#?}", arg, param_env);
+        debug!("Register predicate {:#?} with env: {:#?}", arg, param_env);
         self.register_predicate(traits::Obligation::new(
             self.tcx,
             cause,
@@ -579,7 +579,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         &self,
         mutate_fulfillment_errors: impl Fn(&mut Vec<traits::FulfillmentError<'tcx>>),
     ) {
-        info!("select_obligations_where_possible Obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("select_obligations_where_possible Obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         let mut result = self.fulfillment_cx.borrow_mut().select_where_possible(self);
         if !result.is_empty() {
             mutate_fulfillment_errors(&mut result);
@@ -1001,7 +1001,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     /// Instantiates the given path, which must refer to an item with the given
     /// number of type parameters and type.
-    #[instrument(skip(self, span), level = "info")]
+    #[instrument(skip(self, span), level = "debug")]
     pub fn instantiate_value_path(
         &self,
         segments: &[hir::PathSegment<'_>],
@@ -1256,7 +1256,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                             Constness::NotConst
                         );
 
-                        info!("Hereee: {:?}", generics);
+                        debug!("Hereee: {:?}", generics);
                         self.fcx.to_ty_with_param_env(ty, param_env).into()
                         //todo!("hoch")
                     }
@@ -1309,7 +1309,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         }
 
-        info!("pre create_substs_for_generic_args = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("pre create_substs_for_generic_args = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         let substs = self_ctor_substs.unwrap_or_else(|| {
             <dyn AstConv<'_>>::create_substs_for_generic_args(
@@ -1332,7 +1332,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // First, store the "user substs" for later.
         self.write_user_type_annotation_from_substs(hir_id, def_id, substs, user_self_ty);
 
-        info!("pre add_required_obligations_for_hir = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        debug!("pre add_required_obligations_for_hir = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         self.add_required_obligations_for_hir(span, def_id, &substs, hir_id);
 
         // Substitute the values for the type parameters into the type of
@@ -1438,7 +1438,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Resolves `typ` by a single level if `typ` is a type variable.
     /// If no resolution is possible, then an error is reported.
     /// Numeric inference variables may be left unresolved.
-    #[instrument(level = "info", skip(self, sp), ret)]
+    #[instrument(level = "debug", skip(self, sp), ret)]
     pub fn structurally_resolved_type(&self, sp: Span, ty: Ty<'tcx>) -> Ty<'tcx> {
         let ty = self.resolve_vars_with_obligations(ty);
         if !ty.is_ty_var() {

@@ -279,7 +279,7 @@ impl<'tcx> Cx<'tcx> {
                 // is guaranteed to exist, since a method call always has a receiver.
                 let old_adjustment_span =
                     self.adjustment_span.replace((receiver.hir_id, expr_span));
-                info!("Using method span: {:?}", expr.span);
+                debug!("Using method span: {:?}", expr.span);
                 let args = std::iter::once(receiver)
                     .chain(args.iter())
                     .map(|expr| self.mirror_expr(expr))

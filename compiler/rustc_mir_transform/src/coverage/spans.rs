@@ -406,7 +406,7 @@ impl<'a, 'tcx> CoverageSpans<'a, 'tcx> {
                 // ordering based on CFG dominator priority.
                 if self.prev().is_macro_expansion() && self.curr().is_macro_expansion() {
                     // Macros that expand to include branching (such as
-                    // `assert_eq!()`, `assert_ne!()`, `info!()`, `debug!()`, or
+                    // `assert_eq!()`, `assert_ne!()`, `debug!()`, `debug!()`, or
                     // `trace!()) typically generate callee spans with identical
                     // ranges (typically the full span of the macro) for all
                     // `BasicBlocks`. This makes it impossible to distinguish
