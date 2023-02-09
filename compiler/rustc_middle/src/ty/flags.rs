@@ -96,7 +96,7 @@ impl FlagComputation {
             }
 
             &ty::Argument(_) => {
-                // TODO: hoch
+                // FIXMIG: hoch
             }
 
             &ty::HKT(..) => {

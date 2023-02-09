@@ -380,6 +380,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                     }
 
                     ty::PredicateKind::WellFormed(arg) => {
+                        info!("wf::obligations param_env: {:#?}", obligation.param_env);
                         match wf::obligations(
                             self.selcx.infcx,
                             obligation.param_env,

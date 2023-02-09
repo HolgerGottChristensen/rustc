@@ -722,7 +722,7 @@ impl<'tcx> WfPredicates<'tcx> {
         }
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     fn nominal_obligations_inner(
         &mut self,
         def_id: DefId,
@@ -738,7 +738,8 @@ impl<'tcx> WfPredicates<'tcx> {
         }
 
         let predicates = predicates.instantiate(self.tcx, substs);
-        trace!("{:#?}", predicates);
+        info!("{:#?}", predicates);
+        info!("{:#?}", self.param_env);
         debug_assert_eq!(predicates.predicates.len(), origins.len());
 
         iter::zip(iter::zip(predicates.predicates, predicates.spans), origins.into_iter().rev())

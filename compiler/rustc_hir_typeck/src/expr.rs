@@ -31,7 +31,7 @@ use rustc_hir::def::{CtorKind, DefKind, Res};
 use rustc_hir::def_id::DefId;
 use rustc_hir::intravisit::Visitor;
 use rustc_hir::lang_items::LangItem;
-use rustc_hir::{ExprKind, HirId, QPath};
+use rustc_hir::{Constness, ExprKind, HirId, QPath};
 use rustc_hir_analysis::astconv::AstConv as _;
 use rustc_hir_analysis::check::ty_kind_suggestion;
 use rustc_infer::infer;
@@ -39,10 +39,11 @@ use rustc_infer::infer::type_variable::{TypeVariableOrigin, TypeVariableOriginKi
 use rustc_infer::infer::InferOk;
 use rustc_infer::traits::ObligationCause;
 use rustc_middle::middle::stability;
+use rustc_middle::traits::Reveal;
 use rustc_middle::ty::adjustment::{Adjust, Adjustment, AllowTwoPhase};
 use rustc_middle::ty::error::TypeError::FieldMisMatch;
 use rustc_middle::ty::subst::SubstsRef;
-use rustc_middle::ty::{self, AdtKind, Ty, TypeVisitable};
+use rustc_middle::ty::{self, AdtKind, Ty, TypeVisitable, GenericArgKind, GenericParamDefKind, Binder, PredicateKind, Clause, TraitPredicate, BoundConstness, ImplPolarity, ParamEnv};
 use rustc_session::errors::ExprParenthesesNeeded;
 use rustc_session::parse::feature_err;
 use rustc_span::hygiene::DesugaringKind;
@@ -587,6 +588,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let tcx = self.tcx;
         let (res, opt_ty, segs) =
             self.resolve_ty_and_res_fully_qualified_call(qpath, expr.hir_id, expr.span);
+
+        info!("pre let ty = match res  = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
         let ty = match res {
             Res::Err => {
                 self.suggest_assoc_method_call(segs);
@@ -601,6 +605,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
             _ => self.instantiate_value_path(segs, opt_ty, res, expr.span, expr.hir_id).0,
         };
+
+
 
         if let ty::FnDef(did, ..) = *ty.kind() {
             let fn_sig = ty.fn_sig(tcx);
@@ -633,12 +639,18 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         infer::LateBoundRegionConversionTime::FnCall,
                         fn_sig.input(i),
                     );
+                    info!("pre require_type_is_sized_deferred = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
                     self.require_type_is_sized_deferred(
                         input,
                         span,
                         traits::SizedArgumentType(None),
                     );
+
                 }
+
+
+
             }
             // Here we want to prevent struct constructors from returning unsized types.
             // There were two cases this happened: fn pointer coercion in stable
@@ -652,15 +664,74 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 fn_sig.output(),
             );
             self.require_type_is_sized_deferred(output, expr.span, traits::SizedReturnType);
+
+            // We always require that the type provided as the value for
+            // a type parameter outlives the moment of instantiation.
+            let substs = self.typeck_results.borrow().node_substs(expr.hir_id);
+
+            info!("deferred sized = {:#?}", self.deferred_sized_obligations);
+            info!("param environment to add = {:#?}", self.param_env);
+            info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
+            let generics: &ty::Generics = self.tcx.generics_of(did);
+            info!("GNERINRECS = {:?}", generics);
+
+
+            for (arg, param) in substs.iter().zip(generics.params.iter()).filter(|(arg, _)| {
+                matches!(arg.unpack(), GenericArgKind::Type(..) | GenericArgKind::Const(..))
+            }) {
+                match param.kind {
+                    GenericParamDefKind::HKT => {
+                        let generics: &ty::Generics = self.tcx.generics_of(param.def_id);
+
+                        // FIXMIG: extract to method and remove duplication
+                        let mut bounds = self.param_env.caller_bounds().iter().collect::<Vec<_>>();
+
+                        for param in &generics.params {
+
+                            let sized = self.tcx.lang_items().sized_trait().expect("Needs to be investigated if it can even fail");
+                            let trait_ref = ty::Binder::dummy(self.tcx.mk_trait_ref(sized, [
+                                self.tcx.mk_ty(ty::Argument(param.name))
+                            ]));
+
+                            let new_bound = self.tcx.mk_predicate(Binder::dummy(
+                                PredicateKind::Clause(Clause::Trait(TraitPredicate {
+                                    trait_ref: trait_ref.skip_binder(),
+                                    constness: BoundConstness::NotConst,
+                                    polarity: ImplPolarity::Positive,
+                                }))
+                            ));
+
+                            bounds.push(new_bound);
+                        }
+
+                        let param_env = ParamEnv::new(
+                            self.tcx.mk_predicates(bounds.iter()),
+                            Reveal::UserFacing,
+                            Constness::NotConst
+                        );
+
+                        self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
+                    }
+                    GenericParamDefKind::Lifetime
+                    | GenericParamDefKind::Type { .. }
+                    | GenericParamDefKind::Const { .. } => {
+                        self.register_wf_obligation(arg, expr.span, traits::WellFormed(None));
+                    }
+                }
+
+            }
+
+        } else {
+            // We always require that the type provided as the value for
+            // a type parameter outlives the moment of instantiation.
+            let substs = self.typeck_results.borrow().node_substs(expr.hir_id);
+
+            info!("deferred sized = {:#?}", self.deferred_sized_obligations);
+            info!("param environment to add = {:#?}", self.param_env);
+            info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+            self.add_wf_bounds(substs, expr);
         }
-
-        // We always require that the type provided as the value for
-        // a type parameter outlives the moment of instantiation.
-        let substs = self.typeck_results.borrow().node_substs(expr.hir_id);
-
-        info!("param environment to add = {:#?}", self.param_env);
-        info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
-        self.add_wf_bounds(substs, expr);
 
         ty
     }

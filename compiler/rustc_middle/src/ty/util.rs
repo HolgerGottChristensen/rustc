@@ -687,7 +687,6 @@ impl<'tcx> TyCtxt<'tcx> {
         self,
         def_id: DefId,
     ) -> ty::EarlyBinder<ty::generics::GenericPredicates<'tcx>> {
-        info!("awdoaiwdawd");
         ty::EarlyBinder(self.predicates_of(def_id))
     }
 

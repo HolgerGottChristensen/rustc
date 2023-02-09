@@ -9,7 +9,7 @@ use rustc_hir as hir;
 use rustc_hir::def::{CtorOf, DefKind, Res};
 use rustc_hir::def_id::DefId;
 use rustc_hir::lang_items::LangItem;
-use rustc_hir::{ExprKind, GenericArg, Node, QPath};
+use rustc_hir::{Constness, ExprKind, GenericArg, Node, QPath};
 use rustc_hir_analysis::astconv::{
     AstConv, CreateSubstsForGenericArgsCtxt, ExplicitLateBound, GenericArgCountMismatch,
     GenericArgCountResult, IsMethodCall, PathSeg,
@@ -21,9 +21,7 @@ use rustc_middle::ty::adjustment::{Adjust, Adjustment, AutoBorrow, AutoBorrowMut
 use rustc_middle::ty::error::TypeError;
 use rustc_middle::ty::fold::TypeFoldable;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{
-    self, AdtKind, CanonicalUserType, DefIdTree, GenericParamDefKind, Ty, UserType,
-};
+use rustc_middle::ty::{self, AdtKind, Binder, BoundConstness, CanonicalUserType, Clause, DefIdTree, GenericParamDefKind, ImplPolarity, ParamEnv, PredicateKind, TraitPredicate, Ty, UserType};
 use rustc_middle::ty::{GenericArgKind, InternalSubsts, SubstsRef, UserSelfTy, UserSubsts};
 use rustc_session::lint;
 use rustc_span::def_id::LocalDefId;
@@ -35,6 +33,7 @@ use rustc_trait_selection::traits::{self, NormalizeExt, ObligationCauseCode, Obl
 
 use std::collections::hash_map::Entry;
 use std::slice;
+use rustc_middle::traits::Reveal;
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Produces warning on the given node, if the current point in the
@@ -416,6 +415,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         t
     }
 
+    pub fn to_ty_with_param_env(&self, ast_t: &hir::Ty<'_>, param_env: ParamEnv<'tcx>) -> Ty<'tcx> {
+        let t = <dyn AstConv<'_>>::ast_ty_to_ty(self, ast_t);
+        self.register_wf_obligation_with_param_env(t.into(), ast_t.span, traits::WellFormed(None), param_env);
+        t
+    }
+
     pub fn to_ty_saving_user_provided_ty(&self, ast_ty: &hir::Ty<'_>) -> Ty<'tcx> {
         let ty = self.to_ty(ast_ty);
         debug!("to_ty_saving_user_provided_ty: ty={:?}", ty);
@@ -501,12 +506,24 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         span: Span,
         code: traits::ObligationCauseCode<'tcx>,
     ) {
+        self.register_wf_obligation_with_param_env(arg, span, code, self.param_env.clone())
+    }
+
+    /// Registers an obligation for checking later, during regionck, that `arg` is well-formed.
+    pub fn register_wf_obligation_with_param_env(
+        &self,
+        arg: ty::GenericArg<'tcx>,
+        span: Span,
+        code: traits::ObligationCauseCode<'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
+    ) {
         // WF obligations never themselves fail, so no real need to give a detailed cause:
         let cause = traits::ObligationCause::new(span, self.body_id, code);
+        info!("Register predicate {:#?} with env: {:#?}", arg, param_env);
         self.register_predicate(traits::Obligation::new(
             self.tcx,
             cause,
-            self.param_env,
+            param_env,
             ty::Binder::dummy(ty::PredicateKind::WellFormed(arg)),
         ));
     }
@@ -982,9 +999,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         ));
     }
 
-    // Instantiates the given path, which must refer to an item with the given
-    // number of type parameters and type.
-    #[instrument(skip(self, span), level = "debug")]
+    /// Instantiates the given path, which must refer to an item with the given
+    /// number of type parameters and type.
+    #[instrument(skip(self, span), level = "info")]
     pub fn instantiate_value_path(
         &self,
         segments: &[hir::PathSegment<'_>],
@@ -1006,9 +1023,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let mut user_self_ty = None;
         let mut is_alias_variant_ctor = false;
         match res {
-            Res::Def(DefKind::Ctor(CtorOf::Variant, _), _)
-                if let Some(self_ty) = self_ty =>
-            {
+            Res::Def(DefKind::Ctor(CtorOf::Variant, _), _) if let Some(self_ty) = self_ty => {
                 let adt_def = self_ty.ty_adt_def().unwrap();
                 user_self_ty = Some(UserSelfTy { impl_def_id: adt_def.did(), self_ty });
                 is_alias_variant_ctor = true;
@@ -1044,6 +1059,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // errors if type parameters are provided in an inappropriate place.
 
         let generic_segs: FxHashSet<_> = path_segs.iter().map(|PathSeg(_, index)| index).collect();
+
         let generics_has_err = <dyn AstConv<'_>>::prohibit_generics(
             self,
             segments.iter().enumerate().filter_map(|(index, seg)| {
@@ -1208,7 +1224,40 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         self.fcx.ct_infer(tcx.type_of(param.def_id), Some(param), inf.span).into()
                     }
                     (GenericParamDefKind::HKT, GenericArg::Type(ty)) => {
-                        self.fcx.to_ty(ty).into()
+                        let generics: &ty::Generics = self.fcx.tcx.generics_of(param.def_id);
+
+                        // FIXMIG: muki, we need to make sure that only parameters that are required
+                        // to be sized, are added here.
+
+                        let mut bounds = self.fcx.param_env.caller_bounds().iter().collect::<Vec<_>>();
+
+                        for param in &generics.params {
+
+
+                            let sized = self.fcx.tcx.lang_items().sized_trait().expect("Needs to be investigated if it can even fail");
+                            let trait_ref = ty::Binder::dummy(self.fcx.tcx.mk_trait_ref(sized, [
+                                self.fcx.tcx.mk_ty(ty::Argument(param.name))
+                            ]));
+
+                            let new_bound = self.fcx.tcx.mk_predicate(Binder::dummy(
+                                PredicateKind::Clause(Clause::Trait(TraitPredicate {
+                                    trait_ref: trait_ref.skip_binder(),
+                                    constness: BoundConstness::NotConst,
+                                    polarity: ImplPolarity::Positive,
+                                }))
+                            ));
+
+                            bounds.push(new_bound);
+                        }
+
+                        let param_env = ParamEnv::new(
+                            self.fcx.tcx.mk_predicates(bounds.iter()),
+                            Reveal::UserFacing,
+                            Constness::NotConst
+                        );
+
+                        info!("Hereee: {:?}", generics);
+                        self.fcx.to_ty_with_param_env(ty, param_env).into()
                         //todo!("hoch")
                     }
                     _ => unreachable!(),
@@ -1260,6 +1309,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         }
 
+        info!("pre create_substs_for_generic_args = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
         let substs = self_ctor_substs.unwrap_or_else(|| {
             <dyn AstConv<'_>>::create_substs_for_generic_args(
                 tcx,
@@ -1281,6 +1332,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // First, store the "user substs" for later.
         self.write_user_type_annotation_from_substs(hir_id, def_id, substs, user_self_ty);
 
+        info!("pre add_required_obligations_for_hir = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         self.add_required_obligations_for_hir(span, def_id, &substs, hir_id);
 
         // Substitute the values for the type parameters into the type of

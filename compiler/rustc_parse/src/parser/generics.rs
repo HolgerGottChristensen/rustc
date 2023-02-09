@@ -45,7 +45,7 @@ impl<'a> Parser<'a> {
                 kind: GenericParamKind::HKT(Generics {
                     params,
                     where_clause: Default::default(),
-                    span: Default::default(), // Todo: hoch fix spans
+                    span: Default::default(), // FIXMIG: hoch fix spans
                 }),
                 is_placeholder: false,
                 colon_span: None,
@@ -98,7 +98,7 @@ impl<'a> Parser<'a> {
             GenericParamKind::HKT( Generics {
                 params: p,
                 where_clause: Default::default(),
-                span: Default::default(), // Todo: hoch fix spans
+                span: Default::default(), // FIXMIG: hoch fix spans
             })
         } else {
             GenericParamKind::Type { default: None }

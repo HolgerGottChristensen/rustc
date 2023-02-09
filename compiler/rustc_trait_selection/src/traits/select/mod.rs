@@ -2086,7 +2086,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             }
 
             ty::Argument(_def) => {
-                // TODO: hoch
+                // FIXMIG: hoch
                 None
             },
             ty::Alias(..) | ty::Param(_) | ty::HKT(..) => None,
