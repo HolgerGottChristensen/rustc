@@ -696,7 +696,8 @@ pub trait PrettyPrinter<'tcx>:
             ty::Error(_) => p!("[type error]"),
             ty::Param(ref param_ty) => p!(print(param_ty)),
             ty::HKT(ref param_ty, ..) => p!(print(param_ty)),
-            ty::Argument(ref s) => {
+            ty::Argument(ref s, ..) => {
+                // FIXMIG: Include def_id too
                 p!("%", write("{}", s))
             }
             ty::Bound(debruijn, bound_ty) => match bound_ty.kind {

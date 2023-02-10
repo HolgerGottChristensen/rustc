@@ -216,7 +216,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
                 // leaf type -- noop
             }
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 

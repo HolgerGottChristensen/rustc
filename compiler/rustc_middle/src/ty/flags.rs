@@ -95,7 +95,7 @@ impl FlagComputation {
                 self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE);
             }
 
-            &ty::Argument(_) => {
+            &ty::Argument(..) => {
                 // FIXMIG: hoch
             }
 

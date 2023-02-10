@@ -122,7 +122,7 @@ pub fn simplify_type<'tcx>(
             TreatParams::AsPlaceholder => Some(PlaceholderSimplifiedType),
             TreatParams::AsInfer => None,
         },
-        ty::Argument(_) => {
+        ty::Argument(..) => {
             Some(TyArgumentSimplifiedType)
         }
         ty::Alias(..) => match treat_params {
@@ -220,7 +220,7 @@ impl DeepRejectCtxt {
             | ty::Placeholder(..)
             | ty::Bound(..)
             | ty::Infer(_) => bug!("unexpected impl_ty: {impl_ty}"),
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
         }
@@ -327,7 +327,7 @@ impl DeepRejectCtxt {
                 bug!("unexpected obligation type: {:?}", obligation_ty)
             }
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
         }

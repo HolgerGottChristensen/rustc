@@ -532,7 +532,7 @@ impl<'tcx> WfPredicates<'tcx> {
                     // WfScalar, WfParameter, etc
                 }
 
-                ty::Argument(_) => {
+                ty::Argument(..) => {
                     //todo!("hoch")
                 },
 

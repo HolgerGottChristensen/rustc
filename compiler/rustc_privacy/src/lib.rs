@@ -182,7 +182,7 @@ where
         // InternalSubsts are not visited here because they are visited below
         // in `super_visit_with`.
         match *ty.kind() {
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
             ty::Adt(ty::AdtDef(Interned(&ty::AdtDefData { did: def_id, .. }, _)), ..)

@@ -953,7 +953,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Alias(..)
             | ty::Param(_)
             | ty::HKT(..)
-            | ty::Argument(_)
+            | ty::Argument(..)
             | ty::Placeholder(_) => false,
         }
     }
@@ -994,7 +994,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Alias(..)
             | ty::Param(_)
             | ty::HKT(..)
-            | ty::Argument(_)
+            | ty::Argument(..)
             | ty::Placeholder(_) => false,
         }
     }
@@ -1119,7 +1119,7 @@ impl<'tcx> Ty<'tcx> {
                 false
             }
 
-            ty::Argument(_) => todo!("hoch"), // true
+            ty::Argument(..) => todo!("hoch"), // true
 
             ty::Foreign(_) | ty::GeneratorWitness(..) | ty::Error(_) => false,
         }
@@ -1259,7 +1259,7 @@ pub fn needs_drop_components<'tcx>(
         | ty::Closure(..)
         | ty::Generator(..) => Ok(smallvec![ty]),
 
-        ty::Argument(_) => todo!("hoch")
+        ty::Argument(..) => todo!("hoch")
     }
 }
 
@@ -1297,7 +1297,7 @@ pub fn is_trivially_const_drop(ty: Ty<'_>) -> bool {
 
         ty::Tuple(tys) => tys.iter().all(|ty| is_trivially_const_drop(ty)),
 
-        ty::Argument(_) => todo!("hoch")
+        ty::Argument(..) => todo!("hoch")
     }
 }
 

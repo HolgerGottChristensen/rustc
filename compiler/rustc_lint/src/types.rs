@@ -929,7 +929,7 @@ impl<'a, 'tcx> ImproperCTypesVisitor<'a, 'tcx> {
         }
 
         match *ty.kind() {
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
             ty::Adt(def, substs) => {

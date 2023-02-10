@@ -781,7 +781,7 @@ where
                 ty::HKT(..) => {
                     todo!("hoch")
                 }
-                ty::Argument(_) => {
+                ty::Argument(..) => {
                     todo!("hoch")
                 }
 

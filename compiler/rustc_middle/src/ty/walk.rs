@@ -152,7 +152,7 @@ fn push_inner<'tcx>(stack: &mut TypeWalkerStack<'tcx>, parent: GenericArg<'tcx>)
             | ty::Bound(..)
             | ty::Foreign(..) => {}
 
-            ty::Argument(_) => {},
+            ty::Argument(..) => {},
 
             ty::Array(ty, len) => {
                 stack.push(len.into());

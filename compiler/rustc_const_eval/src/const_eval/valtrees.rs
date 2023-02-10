@@ -82,7 +82,7 @@ pub(crate) fn const_to_valtree_inner<'tcx>(
     }
 
     match ty.kind() {
-        ty::Argument(_) => {
+        ty::Argument(..) => {
             todo!("hoch")
         }
         ty::FnDef(..) => {
@@ -270,7 +270,7 @@ pub fn valtree_to_const_value<'tcx>(
     let mut ecx = mk_eval_cx(tcx, DUMMY_SP, param_env, false);
 
     match ty.kind() {
-        ty::Argument(_) => todo!("hoch"),
+        ty::Argument(..) => todo!("hoch"),
         ty::FnDef(..) => {
             assert!(valtree.unwrap_branch().is_empty());
             ConstValue::ZeroSized

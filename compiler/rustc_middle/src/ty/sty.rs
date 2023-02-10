@@ -2105,7 +2105,7 @@ impl<'tcx> Ty<'tcx> {
                 tcx.mk_projection(assoc_items[0], tcx.intern_substs(&[self.into()]))
             }
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
@@ -2174,7 +2174,7 @@ impl<'tcx> Ty<'tcx> {
             // a.k.a. unit type, which is Sized
             | ty::Tuple(..) => (tcx.types.unit, false),
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
@@ -2266,7 +2266,7 @@ impl<'tcx> Ty<'tcx> {
 
             ty::Infer(ty::TyVar(_)) => false,
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
@@ -2324,7 +2324,7 @@ impl<'tcx> Ty<'tcx> {
             // Might be, but not "trivial" so just giving the safe answer.
             ty::Adt(..) | ty::Closure(..) => false,
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
