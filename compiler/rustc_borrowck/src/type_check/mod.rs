@@ -1323,7 +1323,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         }
     }
 
-    #[instrument(skip(self, body, term_location), level = "info")]
+    #[instrument(skip(self, body, term_location), level = "debug")]
     fn check_terminator(
         &mut self,
         body: &Body<'tcx>,
@@ -1383,7 +1383,9 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                 debug!("func_ty.kind: {:?}", func_ty.kind());
 
                 let sig = match func_ty.kind() {
-                    ty::FnDef(..) | ty::FnPtr(_) => func_ty.fn_sig(tcx),
+                    ty::FnDef(_, ..) | ty::FnPtr(_) => {
+                        func_ty.fn_sig(tcx)
+                    },
                     _ => {
                         span_mirbug!(self, term, "call to non-function {:?}", func_ty);
                         return;

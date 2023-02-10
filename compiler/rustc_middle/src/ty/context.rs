@@ -94,7 +94,7 @@ pub trait OnDiskCache<'tcx>: rustc_data_structures::sync::Sync {
 #[allow(rustc::usage_of_ty_tykind)]
 impl<'tcx> Interner for TyCtxt<'tcx> {
     type AdtDef = ty::AdtDef<'tcx>;
-    type ArgumentDef = ty::Symbol;
+    type ArgumentDef = u32;
     type SubstsRef = ty::SubstsRef<'tcx>;
     type DefId = DefId;
     type Ty = Ty<'tcx>;

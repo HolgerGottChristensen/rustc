@@ -415,6 +415,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     }
 
     pub fn to_ty_with_param_env(&self, ast_t: &hir::Ty<'_>, param_env: ParamEnv<'tcx>) -> Ty<'tcx> {
+        info!("{:#?}", self.argument_env.get());
         let t = <dyn AstConv<'_>>::ast_ty_to_ty(self, ast_t);
         self.register_wf_obligation_with_param_env(t.into(), ast_t.span, traits::WellFormed(None), param_env);
         t
@@ -1224,7 +1225,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     }
                     (GenericParamDefKind::HKT, GenericArg::Type(ty)) => {
                         let param_env = self.fcx.tcx.param_env(param.def_id);
-                        self.fcx.to_ty_with_param_env(ty, param_env).into()
+                        let generics: &ty::Generics = self.fcx.tcx.generics_of(param.def_id);
+
+                        self.fcx.with_argument_env(generics, |fcx| {
+                            fcx.to_ty_with_param_env(ty, param_env).into()
+                        })
                     }
                     _ => unreachable!(),
                 }

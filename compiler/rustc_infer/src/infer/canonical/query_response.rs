@@ -51,7 +51,7 @@ impl<'tcx> InferCtxt<'tcx> {
     ///   the same thing happens, but the resulting query is marked as ambiguous.
     /// - Finally, if any of the obligations result in a hard error,
     ///   then `Err(NoSolution)` is returned.
-    #[instrument(skip(self, inference_vars, answer, fulfill_cx), level = "info")]
+    #[instrument(skip(self, inference_vars, answer, fulfill_cx), level = "debug")]
     pub fn make_canonicalized_query_response<T>(
         &self,
         inference_vars: CanonicalVarValues<'tcx>,
@@ -63,9 +63,9 @@ impl<'tcx> InferCtxt<'tcx> {
         Canonical<'tcx, QueryResponse<'tcx, T>>: ArenaAllocatable<'tcx>,
     {
         let query_response = self.make_query_response(inference_vars, answer, fulfill_cx)?;
-        info!("query_response = {:#?}", query_response);
+        debug!("query_response = {:#?}", query_response);
         let canonical_result = self.canonicalize_response(query_response);
-        info!("canonical_result = {:#?}", canonical_result);
+        debug!("canonical_result = {:#?}", canonical_result);
 
         Ok(self.tcx.arena.alloc(canonical_result))
     }
@@ -98,7 +98,7 @@ impl<'tcx> InferCtxt<'tcx> {
 
     /// Helper for `make_canonicalized_query_response` that does
     /// everything up until the final canonicalization.
-    #[instrument(skip(self, fulfill_cx), level = "info")]
+    #[instrument(skip(self, fulfill_cx), level = "debug")]
     fn make_query_response<T>(
         &self,
         inference_vars: CanonicalVarValues<'tcx>,
@@ -110,10 +110,9 @@ impl<'tcx> InferCtxt<'tcx> {
     {
         let tcx = self.tcx;
 
-        info!("ctx = {:#?}", fulfill_cx.pending_obligations());
         // Select everything, returning errors.
         let true_errors = fulfill_cx.select_where_possible(self);
-        info!("true_errors = {:#?}", true_errors);
+        debug!("true_errors = {:#?}", true_errors);
 
         if !true_errors.is_empty() {
             // FIXME -- we don't indicate *why* we failed to solve

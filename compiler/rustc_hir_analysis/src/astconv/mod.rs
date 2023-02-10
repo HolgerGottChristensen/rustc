@@ -119,6 +119,8 @@ pub trait AstConv<'tcx> {
     fn set_tainted_by_errors(&self, e: ErrorGuaranteed);
 
     fn record_ty(&self, hir_id: hir::HirId, ty: Ty<'tcx>, span: Span);
+
+    fn current_argument_env(&self) -> Option<&'tcx ty::Generics>;
 }
 
 #[derive(Debug)]
@@ -2725,8 +2727,22 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         let tcx = self.tcx();
 
         let result_ty = match ast_ty.kind {
-            hir::TyKind::Argument(i) => tcx.mk_ty(ty::Argument(i.name)),
-            hir::TyKind::Slice(ref ty) => tcx.mk_slice(self.ast_ty_to_ty(ty)),
+            hir::TyKind::Argument(i) => {
+                if let Some(env) = self.current_argument_env() {
+                    for param in &env.params {
+                        if param.name == i.name {
+                            return tcx.mk_ty(ty::Argument(param.index))
+                        }
+                    }
+                    // FIXMIG: Give an error message that the %j is not found in the env.
+                    todo!("hoch")
+                } else {
+                    todo!("hoch") // FIXMIG: Give a proper error message
+                }
+            },
+            hir::TyKind::Slice(ref ty) => {
+                tcx.mk_slice(self.ast_ty_to_ty(ty))
+            },
             hir::TyKind::Ptr(ref mt) => {
                 tcx.mk_ptr(ty::TypeAndMut { ty: self.ast_ty_to_ty(mt.ty), mutbl: mt.mutbl })
             }

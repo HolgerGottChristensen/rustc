@@ -113,8 +113,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         },
 
         Node::GenericParam(GenericParam { kind: GenericParamKind::HKT(generics), .. }) => {
-            for generic in generics.params {
-                let ty = tcx.mk_ty(ty::Argument(generic.name.ident().name));
+            for (index, generic) in generics.params.iter().enumerate() {
+                let ty = tcx.mk_ty(ty::Argument(index as u32));
+
                 let mut bounds = Bounds::default();
                 // Params are implicitly sized unless a `?Sized` bound is found
                 <dyn AstConv<'_>>::add_implicitly_sized(

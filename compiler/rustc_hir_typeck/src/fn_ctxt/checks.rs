@@ -26,10 +26,10 @@ use rustc_infer::infer::InferOk;
 use rustc_infer::infer::TypeTrace;
 use rustc_middle::ty::adjustment::AllowTwoPhase;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, DefIdTree, FnSig, GenericArgKind, IsSuggestable, ParamTy, SubstsRef, Ty, TyKind, TypeSuperVisitable, TypeVisitor};
+use rustc_middle::ty::{self, DefIdTree, FnSig, GenericArgKind, IsSuggestable, ParamTy, SubstsRef, Ty, TypeSuperVisitable, TypeVisitor};
 use rustc_session::Session;
 use rustc_span::symbol::{kw, Ident};
-use rustc_span::{self, sym, Span, Symbol};
+use rustc_span::{self, sym, Span};
 use rustc_trait_selection::traits::{self, ObligationCauseCode, SelectionContext};
 
 use std::iter;
@@ -140,24 +140,25 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     }
 
 
+    // FIXMIG: Make this function a type folder, because that is bacicly what it should do.
     #[allow(rustc::usage_of_ty_tykind)]
-    fn ty_kind_substitution(&self, ty: &'tcx ty::TyKind<'tcx>, with: &ty::TyKind<'tcx>, name: Symbol) -> ty::TyKind<'tcx> {
-        match ty {
-            TyKind::Argument(arg_name) if name == *arg_name => {
-                with.clone()
+    fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, index: u32) -> Ty<'tcx> {
+        match ty.kind() {
+            ty::TyKind::Argument(sub_index) if index == *sub_index => {
+                with
             }
-            TyKind::Bool
-            | TyKind::Char
-            | TyKind::Int(_)
-            | TyKind::Uint(_)
-            | TyKind::Error(_)
-            | TyKind::Argument(_)
-            | TyKind::Param(_)
-            | TyKind::HKT(_, _)
-            | TyKind::Float(_) => {
-                ty.clone()
+            ty::TyKind::Bool
+            | ty::TyKind::Char
+            | ty::TyKind::Int(_)
+            | ty::TyKind::Uint(_)
+            | ty::TyKind::Error(_)
+            | ty::TyKind::Argument(_)
+            | ty::TyKind::Param(_)
+            | ty::TyKind::HKT(_, _)
+            | ty::TyKind::Float(_) => {
+                ty
             }
-            TyKind::Adt(a, substs) => {
+            ty::TyKind::Adt(a, substs) => {
                 let substs: &SubstsRef<'_> = substs;
 
                 let new_substs = substs.iter().map(|a| {
@@ -165,12 +166,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         GenericArgKind::Const(_)
                         | GenericArgKind::Lifetime(_) => a,
                         GenericArgKind::Type(t) => {
-                            self.tcx.mk_ty(self.ty_kind_substitution(t.kind(), with, name)).into()
+                            self.ty_kind_substitution(t, with, index).into()
                         }
                     }
                 }).collect::<Vec<_>>();
 
-                TyKind::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter()))
+                self.tcx.mk_ty(ty::TyKind::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter())))
             }
             _ => {
                 todo!("here: {:#?}", ty)
@@ -183,19 +184,22 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let fn_def_id = fn_def_id.expect("Investigation needed hoch");
 
         let sig: FnSig<'_> = self.tcx.fn_sig(fn_def_id).skip_binder();
-        let generics: &ty::Generics = self.tcx.generics_of(fn_def_id);
+        //let generics: &ty::Generics = self.tcx.generics_of(fn_def_id);
 
         let mut evaluated = vec![];
 
         for (input, argument) in sig.inputs().iter().zip(arguments) {
             match input.kind() {
-                ty::HKT(ParamTy::HKT { index, .. }, substs) => {
+                ty::HKT(ParamTy::HKT { index: _, .. }, substs) => {
                     let substs: &SubstsRef<'_> = substs;
-                    let hkt_generics: &ty::Generics = self.tcx.generics_of(generics.params[*index as usize].def_id);
 
-                    let res_type = self.ty_kind_substitution(argument.kind(), substs[0].expect_ty().kind(), hkt_generics.params[0].name);
+                    let mut res_type = *argument;
+                    for subst in 0..substs.len() {
+                        res_type = self.ty_kind_substitution(res_type, substs[0].expect_ty(), subst as u32);
+                    }
+
                     //todo!("{:#?}, {:#?}, {:#?}, {:#?}", argument, hkt_generics, substs, res_type)
-                    evaluated.push(self.tcx.mk_ty(res_type))
+                    evaluated.push(res_type)
                 }
                 _ => evaluated.push(*argument)
             }

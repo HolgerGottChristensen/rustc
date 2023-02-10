@@ -792,8 +792,8 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
         }
 
         match *t.kind() {
-            ty::Param(ref p) => self.ty_for_param(p.clone(), t),
-            ty::HKT(ref p, ..) => self.ty_for_param(p.clone(), t),
+            ty::Param(p) => self.ty_for_param(p, t),
+            ty::HKT(p, substs) => self.hkt_for_param(p, substs, t),
             _ => t.super_fold_with(self),
         }
     }
@@ -818,6 +818,67 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
         };
 
         self.shift_vars_through_binders(ty)
+    }
+
+    fn hkt_for_param(&self, p: ty::ParamTy, substs: SubstsRef<'tcx>, source_ty: Ty<'tcx>) -> Ty<'tcx> {
+
+        // Look up the type in the substitutions. It really should be in there.
+        let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
+        info!("Combine types: {:#?} and {:#?}", source_ty.kind(), opt_ty);
+        let ty = match opt_ty {
+            Some(GenericArgKind::Type(ty)) => {
+                let mut current = ty;
+                for (index, arg) in substs.iter().enumerate() {
+                    current = self.ty_kind_substitution(current, arg.expect_ty(), index as u32)
+                }
+                current
+            },
+            Some(kind) => self.type_param_expected(p, source_ty, kind),
+            None => self.type_param_out_of_range(p, source_ty),
+        };
+        info!("After combination: {:#?}", ty);
+
+
+        self.shift_vars_through_binders(ty)
+    }
+
+    // FIXMIG: Make this function a type folder, because that is bacicly what it should do.
+    #[allow(rustc::usage_of_ty_tykind)]
+    fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, index: u32) -> Ty<'tcx> {
+        match ty.kind() {
+            ty::TyKind::Argument(sub_index) if index == *sub_index => {
+                with
+            }
+            ty::TyKind::Bool
+            | ty::TyKind::Char
+            | ty::TyKind::Int(_)
+            | ty::TyKind::Uint(_)
+            | ty::TyKind::Error(_)
+            | ty::TyKind::Argument(_)
+            | ty::TyKind::Param(_)
+            | ty::TyKind::HKT(_, _)
+            | ty::TyKind::Float(_) => {
+                ty
+            }
+            ty::TyKind::Adt(a, substs) => {
+                let substs: &SubstsRef<'_> = substs;
+
+                let new_substs = substs.iter().map(|a| {
+                    match a.unpack() {
+                        GenericArgKind::Const(_)
+                        | GenericArgKind::Lifetime(_) => a,
+                        GenericArgKind::Type(t) => {
+                            self.ty_kind_substitution(t, with, index).into()
+                        }
+                    }
+                }).collect::<Vec<_>>();
+
+                self.tcx.mk_ty(ty::TyKind::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter())))
+            }
+            _ => {
+                todo!("here: {:#?}", ty)
+            }
+        }
     }
 
     #[cold]

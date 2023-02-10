@@ -86,7 +86,6 @@ pub trait QueryTypeOp<'tcx>: fmt::Debug + Copy + TypeFoldable<'tcx> + 'tcx {
         PredicateObligations<'tcx>,
         Certainty,
     )> {
-        info!("query_key = {:#?}", query_key);
         if let Some(result) = QueryTypeOp::try_fast_path(infcx.tcx, &query_key) {
             return Ok((result, None, vec![], Certainty::Proven));
         }
@@ -133,7 +132,7 @@ where
         // create obligations. In that case, we have to go
         // fulfill them. We do this via a (recursive) query.
         while !obligations.is_empty() {
-            info!("{:#?}", obligations);
+            debug!("{:#?}", obligations);
             let mut progress = false;
             for obligation in std::mem::take(&mut obligations) {
                 let obligation = infcx.resolve_vars_if_possible(obligation);
