@@ -223,7 +223,9 @@ fn param_env(tcx: TyCtxt<'_>, def_id: DefId) -> ty::ParamEnv<'_> {
     };
 
     let cause = traits::ObligationCause::misc(tcx.def_span(def_id), body_id);
-    traits::normalize_param_env_or_error(tcx, unnormalized_env, cause)
+    let res = traits::normalize_param_env_or_error(tcx, unnormalized_env, cause);
+    //warn!("result = {:#?}", res);
+    res
 }
 
 /// Elaborate the environment.

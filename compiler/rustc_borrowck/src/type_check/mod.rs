@@ -1323,7 +1323,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         }
     }
 
-    #[instrument(skip(self, body, term_location), level = "debug")]
+    #[instrument(skip(self, body, term_location), level = "info")]
     fn check_terminator(
         &mut self,
         body: &Body<'tcx>,
@@ -1389,6 +1389,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                         return;
                     }
                 };
+
                 let (sig, map) = tcx.replace_late_bound_regions(sig, |br| {
                     self.infcx.next_region_var(LateBoundRegion(
                         term.source_info.span,
@@ -1396,7 +1397,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                         LateBoundRegionConversionTime::FnCall,
                     ))
                 });
-                debug!(?sig);
+                info!(?sig);
                 // IMPORTANT: We have to prove well formed for the function signature before
                 // we normalize it, as otherwise types like `<&'a &'b () as Trait>::Assoc`
                 // get normalized away, causing us to ignore the `'b: 'a` bound used by the function.
@@ -2662,7 +2663,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         tcx.predicates_of(def_id).instantiate(tcx, substs)
     }
 
-    #[instrument(skip(self, body), level = "debug")]
+    #[instrument(skip(self, body), level = "info")]
     fn typeck_mir(&mut self, body: &Body<'tcx>) {
         self.last_span = body.span;
         debug!(?body.span);

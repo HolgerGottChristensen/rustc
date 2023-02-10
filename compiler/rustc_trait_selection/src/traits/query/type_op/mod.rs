@@ -86,6 +86,7 @@ pub trait QueryTypeOp<'tcx>: fmt::Debug + Copy + TypeFoldable<'tcx> + 'tcx {
         PredicateObligations<'tcx>,
         Certainty,
     )> {
+        info!("query_key = {:#?}", query_key);
         if let Some(result) = QueryTypeOp::try_fast_path(infcx.tcx, &query_key) {
             return Ok((result, None, vec![], Certainty::Proven));
         }
@@ -98,6 +99,7 @@ pub trait QueryTypeOp<'tcx>: fmt::Debug + Copy + TypeFoldable<'tcx> + 'tcx {
         let old_param_env = query_key.param_env;
         let canonical_self =
             infcx.canonicalize_query_keep_static(query_key, &mut canonical_var_values);
+
         let canonical_result = Self::perform_query(infcx.tcx, canonical_self)?;
 
         let InferOk { value, obligations } = infcx
@@ -131,7 +133,7 @@ where
         // create obligations. In that case, we have to go
         // fulfill them. We do this via a (recursive) query.
         while !obligations.is_empty() {
-            trace!("{:#?}", obligations);
+            info!("{:#?}", obligations);
             let mut progress = false;
             for obligation in std::mem::take(&mut obligations) {
                 let obligation = infcx.resolve_vars_if_possible(obligation);

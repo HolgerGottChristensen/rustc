@@ -61,7 +61,7 @@ pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredic
 
 /// Returns a list of user-specified type predicates for the definition with ID `def_id`.
 /// N.B., this does not include any implied/inferred constraints.
-#[instrument(level = "trace", skip(tcx), ret)]
+#[instrument(level = "info", skip(tcx), ret)]
 fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicates<'_> {
     use rustc_hir::*;
 
@@ -79,6 +79,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
     // Preserving the order of insertion is important here so as not to break UI tests.
     let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
+    info!("Node: {:#?}", node);
     let ast_generics = match node {
         Node::TraitItem(item) => item.generics,
 
@@ -110,6 +111,25 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             ForeignItemKind::Fn(_, _, ref generics) => *generics,
             ForeignItemKind::Type => NO_GENERICS,
         },
+
+        Node::GenericParam(GenericParam { kind: GenericParamKind::HKT(generics), .. }) => {
+            for generic in generics.params {
+                let ty = tcx.mk_ty(ty::Argument(generic.name.ident().name));
+                let mut bounds = Bounds::default();
+                // Params are implicitly sized unless a `?Sized` bound is found
+                <dyn AstConv<'_>>::add_implicitly_sized(
+                    &icx,
+                    &mut bounds,
+                    &[],
+                    Some((generic.def_id, &[])),
+                    generic.span,
+                );
+                trace!(?bounds);
+                predicates.extend(bounds.predicates(tcx, ty));
+                trace!(?predicates);
+            }
+            NO_GENERICS
+        }
 
         _ => NO_GENERICS,
     };
@@ -146,9 +166,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         + has_own_self as u32
         + super::early_bound_lifetimes_from_generics(tcx, ast_generics).count() as u32;
 
-    debug!("predicates = {:#?}", predicates);
-    debug!("ast_generics = {:#?}", ast_generics);
-    debug!("generics = {:#?}", generics);
+    info!("predicates = {:#?}", predicates);
+    info!("ast_generics = {:#?}", ast_generics);
+    info!("generics = {:#?}", generics);
 
     // Collect the predicates that were written inline by the user on each
     // type parameter (e.g., `<T: Foo>`).

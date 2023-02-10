@@ -18,6 +18,7 @@ use rustc_middle::thir::*;
 use rustc_middle::ty::{self, RvalueScopes, TyCtxt};
 use rustc_span::Span;
 
+#[instrument(skip(tcx), level = "info")]
 pub(crate) fn thir_body(
     tcx: TyCtxt<'_>,
     owner_def: ty::WithOptConstParam<LocalDefId>,
@@ -49,6 +50,7 @@ pub(crate) fn thir_body(
         }
     }
 
+    info!("return = {:#?}", cx.thir);
     Ok((tcx.alloc_steal_thir(cx.thir), expr))
 }
 

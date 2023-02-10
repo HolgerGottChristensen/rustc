@@ -31,7 +31,7 @@ use rustc_hir::def::{CtorKind, DefKind, Res};
 use rustc_hir::def_id::DefId;
 use rustc_hir::intravisit::Visitor;
 use rustc_hir::lang_items::LangItem;
-use rustc_hir::{Constness, ExprKind, HirId, QPath};
+use rustc_hir::{ExprKind, HirId, QPath};
 use rustc_hir_analysis::astconv::AstConv as _;
 use rustc_hir_analysis::check::ty_kind_suggestion;
 use rustc_infer::infer;
@@ -39,11 +39,10 @@ use rustc_infer::infer::type_variable::{TypeVariableOrigin, TypeVariableOriginKi
 use rustc_infer::infer::InferOk;
 use rustc_infer::traits::ObligationCause;
 use rustc_middle::middle::stability;
-use rustc_middle::traits::Reveal;
 use rustc_middle::ty::adjustment::{Adjust, Adjustment, AllowTwoPhase};
 use rustc_middle::ty::error::TypeError::FieldMisMatch;
 use rustc_middle::ty::subst::SubstsRef;
-use rustc_middle::ty::{self, AdtKind, Ty, TypeVisitable, GenericArgKind, GenericParamDefKind, Binder, PredicateKind, Clause, TraitPredicate, BoundConstness, ImplPolarity, ParamEnv};
+use rustc_middle::ty::{self, AdtKind, Ty, TypeVisitable, GenericArgKind};
 use rustc_session::errors::ExprParenthesesNeeded;
 use rustc_session::parse::feature_err;
 use rustc_span::hygiene::DesugaringKind;
@@ -680,46 +679,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             for (arg, param) in substs.iter().zip(generics.params.iter()).filter(|(arg, _)| {
                 matches!(arg.unpack(), GenericArgKind::Type(..) | GenericArgKind::Const(..))
             }) {
-                match param.kind {
-                    GenericParamDefKind::HKT => {
-                        let generics: &ty::Generics = self.tcx.generics_of(param.def_id);
-
-                        // FIXMIG: extract to method and remove duplication
-                        let mut bounds = self.param_env.caller_bounds().iter().collect::<Vec<_>>();
-
-                        for param in &generics.params {
-
-                            let sized = self.tcx.lang_items().sized_trait().expect("Needs to be investigated if it can even fail");
-                            let trait_ref = ty::Binder::dummy(self.tcx.mk_trait_ref(sized, [
-                                self.tcx.mk_ty(ty::Argument(param.name))
-                            ]));
-
-                            let new_bound = self.tcx.mk_predicate(Binder::dummy(
-                                PredicateKind::Clause(Clause::Trait(TraitPredicate {
-                                    trait_ref: trait_ref.skip_binder(),
-                                    constness: BoundConstness::NotConst,
-                                    polarity: ImplPolarity::Positive,
-                                }))
-                            ));
-
-                            bounds.push(new_bound);
-                        }
-
-                        let param_env = ParamEnv::new(
-                            self.tcx.mk_predicates(bounds.iter()),
-                            Reveal::UserFacing,
-                            Constness::NotConst
-                        );
-
-                        self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
-                    }
-                    GenericParamDefKind::Lifetime
-                    | GenericParamDefKind::Type { .. }
-                    | GenericParamDefKind::Const { .. } => {
-                        self.register_wf_obligation(arg, expr.span, traits::WellFormed(None));
-                    }
-                }
-
+                let param_env = self.tcx.param_env(param.def_id);
+                self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
             }
 
         } else {
