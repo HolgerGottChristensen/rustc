@@ -180,8 +180,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     }
 
     // #[allow(dead_code)]
-    fn evaluate_type_functions(&self, fn_def_id: Option<DefId>, arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
-        let fn_def_id = fn_def_id.expect("Investigation needed hoch");
+    fn evaluate_type_functions(&self, fn_def_id: DefId, arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
+        info!("{:?}", arguments);
 
         let sig: FnSig<'_> = self.tcx.fn_sig(fn_def_id).skip_binder();
         //let generics: &ty::Generics = self.tcx.generics_of(fn_def_id);
@@ -235,17 +235,21 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         tuple_arguments: TupleArgumentsFlag,
         fn_def_id: Option<DefId>,
     ) {
-        // debug!("{:#?}", fn_def_id);
+        // debug!("fn_def_id={:#?}", fn_def_id);
         // debug!("{:#?}", call_expr);
-        // debug!("{:#?}", formal_input_tys);
-        // debug!("{:#?}", expected_input_tys);
-        // debug!("{:#?}", provided_args);
+        // debug!("formal_input_tys={:#?}", formal_input_tys);
+        // debug!("expected_input_tys={:#?}", expected_input_tys);
+        // debug!("provided_args={:#?}", provided_args);
         let tcx = self.tcx;
 
-
         // Simplify the types and evaluate the type functions
-        let formal_input_tys = &self.evaluate_type_functions(fn_def_id, formal_input_tys)[..];
-        debug!("Evaluated formal inputs: {:#?}", formal_input_tys);
+        let formal_input_tys = &if let Some(def_id) = fn_def_id {
+            let res = self.evaluate_type_functions(def_id, formal_input_tys);
+            debug!("Evaluated formal inputs: {:#?}", formal_input_tys);
+            res
+        } else {
+            formal_input_tys.to_vec()
+        }[..];
 
 
         // Conceptually, we've got some number of expected inputs, and some number of provided arguments
