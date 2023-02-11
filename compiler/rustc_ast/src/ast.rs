@@ -367,7 +367,7 @@ pub enum GenericParamKind {
         /// Optional default value for the const generic param
         default: Option<AnonConst>,
     },
-    /// A HKT definition parameter list. It is the `?A, ?B, ?C<?I, ?J>` part of `T<?A, ?B, ?C<?I, ?J>>`
+    /// A HKT definition parameter list. It is the `%A, %B, %C<%I, %J>` part of `T<%A, %B, %C<%I, %J>>`
     HKT(Generics),
 }
 

@@ -2201,8 +2201,6 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
                 let itctx = ImplTraitContext::Disallowed(ImplTraitPosition::Type);
 
-                warn!("{:#?}", kinds);
-
                 let kind = hir::GenericParamKind::HKT (
                     self.lower_generics(kinds, param.id, &itctx, |_| {()}).0
                 );

@@ -36,7 +36,6 @@ impl<'a> Parser<'a> {
 
             self.expect_gt()?;
 
-
             Ok(GenericParam {
                 ident,
                 id: ast::DUMMY_NODE_ID,
