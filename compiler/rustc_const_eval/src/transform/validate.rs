@@ -93,7 +93,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         self.tcx.sess.diagnostic().delay_span_bug(
             span,
             &format!(
-                "broken MIR in1 {:?} ({}) at {:?}:\n{}",
+                "broken MIR in {:?} ({}) at {:?}:\n{}",
                 self.body.source.instance,
                 self.when,
                 location,

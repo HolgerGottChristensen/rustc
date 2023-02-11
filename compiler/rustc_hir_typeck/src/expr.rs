@@ -42,7 +42,7 @@ use rustc_middle::middle::stability;
 use rustc_middle::ty::adjustment::{Adjust, Adjustment, AllowTwoPhase};
 use rustc_middle::ty::error::TypeError::FieldMisMatch;
 use rustc_middle::ty::subst::SubstsRef;
-use rustc_middle::ty::{self, AdtKind, Ty, TypeVisitable, GenericArgKind};
+use rustc_middle::ty::{self, AdtKind, Ty, TypeVisitable, GenericArgKind, GenericParamDefKind};
 use rustc_session::errors::ExprParenthesesNeeded;
 use rustc_session::parse::feature_err;
 use rustc_span::hygiene::DesugaringKind;
@@ -679,8 +679,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             for (arg, param) in substs.iter().zip(generics.params.iter()).filter(|(arg, _)| {
                 matches!(arg.unpack(), GenericArgKind::Type(..) | GenericArgKind::Const(..))
             }) {
-                let param_env = self.tcx.param_env(param.def_id);
-                self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
+                match param.kind {
+                    GenericParamDefKind::HKT => {
+                        let param_env = self.tcx.param_env(param.def_id);
+                        self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
+                    }
+                    GenericParamDefKind::Lifetime
+                    | GenericParamDefKind::Type { .. }
+                    | GenericParamDefKind::Const { .. } => {
+                        self.add_wf_bounds(substs, expr);
+                    }
+                }
             }
 
         } else {

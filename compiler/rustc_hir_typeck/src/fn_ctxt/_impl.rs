@@ -417,6 +417,19 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     pub fn to_ty_with_param_env(&self, ast_t: &hir::Ty<'_>, param_env: ParamEnv<'tcx>) -> Ty<'tcx> {
         info!("{:#?}", self.argument_env.get());
         let t = <dyn AstConv<'_>>::ast_ty_to_ty(self, ast_t);
+
+        /*let predicates = self.tcx.arena.alloc_from_iter(
+            self.param_env.caller_bounds()
+                .iter()
+                .chain(param_env.caller_bounds())
+                .collect::<FxHashSet<_>>()
+        );
+
+        let param_env = ParamEnv::new(
+            self.tcx.intern_predicates(predicates),
+            traits::Reveal::UserFacing,
+            self.param_env.constness(),
+        );*/
         self.register_wf_obligation_with_param_env(t.into(), ast_t.span, traits::WellFormed(None), param_env);
         t
     }
