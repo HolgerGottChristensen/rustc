@@ -177,7 +177,7 @@ fn diagnostic_only_typeck<'tcx>(tcx: TyCtxt<'tcx>, def_id: LocalDefId) -> &ty::T
     typeck_with_fallback(tcx, def_id, fallback)
 }
 
-#[instrument(level = "info", skip(tcx, fallback), ret)]
+#[instrument(level = "debug", skip(tcx, fallback), ret)]
 fn typeck_with_fallback<'tcx>(
     tcx: TyCtxt<'tcx>,
     def_id: LocalDefId,
@@ -203,9 +203,9 @@ fn typeck_with_fallback<'tcx>(
         let param_env = tcx.param_env(def_id);
         let mut fcx = FnCtxt::new(&inh, param_env, body.value.hir_id);
 
-        info!("param_env = {param_env:#?}");
+        debug!("param_env = {param_env:#?}");
         //info!("inh = {inh:#?}");
-        info!("body_id = {:#?}", body.value.hir_id);
+        debug!("body_id = {:#?}", body.value.hir_id);
 
         if let Some(hir::FnSig { header, decl, .. }) = fn_sig {
             let fn_sig = if rustc_hir_analysis::collect::get_infer_ret_ty(&decl.output).is_some() {

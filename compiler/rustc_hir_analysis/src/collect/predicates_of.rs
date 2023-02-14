@@ -23,12 +23,6 @@ struct OnlySelfBounds(bool);
 pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicates<'_> {
     let mut result = tcx.predicates_defined_on(def_id);
 
-    let mut current_def_id = def_id;
-    while let Some(new_def_id) = tcx.opt_parent(current_def_id) {
-        info!("Parent: {:?}", new_def_id);
-        current_def_id = new_def_id
-    }
-
     if tcx.is_trait(def_id) {
         // For traits, add `Self: Trait` predicate. This is
         // not part of the predicates that a user writes, but it
@@ -99,7 +93,7 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
 
 /// Returns a list of user-specified type predicates for the definition with ID `def_id`.
 /// N.B., this does not include any implied/inferred constraints.
-#[instrument(level = "info", skip(tcx), ret)]
+#[instrument(level = "debug", skip(tcx), ret)]
 fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicates<'_> {
     use rustc_hir::*;
 
@@ -116,14 +110,6 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
     // We use an `IndexSet` to preserve order of insertion.
     // Preserving the order of insertion is important here so as not to break UI tests.
     let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
-
-    info!("Number of parents: {}", tcx.hir().parent_iter(hir_id).count());
-    for (parent_hir_id, _) in tcx.hir().parent_iter(hir_id) {
-        info!("Requesting of: {:?}", parent_hir_id);
-        //let parent_predicates: ty::GenericPredicates<'_> = tcx.predicates_of(parent_def_id);
-        //predicates.extend(parent_predicates.predicates);
-    }
-
 
     debug!("Node: {:#?}", node);
     let ast_generics = match node {
@@ -461,7 +447,6 @@ pub(super) fn explicit_predicates_of<'tcx>(
     def_id: DefId,
 ) -> ty::GenericPredicates<'tcx> {
     let def_kind = tcx.def_kind(def_id);
-    info!("HWA: {:?}", def_kind);
     if let DefKind::Trait = def_kind {
         // Remove bounds on associated types from the predicates, they will be
         // returned by `explicit_item_bounds`.
