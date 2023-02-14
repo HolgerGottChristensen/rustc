@@ -1,7 +1,7 @@
 // HKT test
 // pretty-compare-only
 
-fn test<T, I<?J>>(input: I, input2: T, f: fn(&I, &T)) -> (I, T) {
+fn test<T, I<%J>>(input: I, input2: T, f: fn(&I, &T)) -> (I, T) {
     f(&input, &input2);
     (input, input2)
 }
