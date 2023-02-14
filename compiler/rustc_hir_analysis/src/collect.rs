@@ -62,6 +62,7 @@ pub fn provide(providers: &mut Providers) {
         explicit_item_bounds: item_bounds::explicit_item_bounds,
         generics_of: generics_of::generics_of,
         predicates_of: predicates_of::predicates_of,
+        param_env_with_hkt: predicates_of::param_env_with_hkt,
         predicates_defined_on,
         explicit_predicates_of: predicates_of::explicit_predicates_of,
         super_predicates_of: predicates_of::super_predicates_of,
@@ -1455,7 +1456,7 @@ fn early_bound_lifetimes_from_generics<'a, 'tcx: 'a>(
 /// Returns a list of type predicates for the definition with ID `def_id`, including inferred
 /// lifetime constraints. This includes all predicates returned by `explicit_predicates_of`, plus
 /// inferred constraints concerning which regions outlive other regions.
-#[instrument(level = "debug", skip(tcx))]
+#[instrument(level = "info", skip(tcx))]
 fn predicates_defined_on(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicates<'_> {
     let mut result = tcx.explicit_predicates_of(def_id);
     debug!("predicates_defined_on: explicit_predicates_of({:?}) = {:?}", def_id, result,);

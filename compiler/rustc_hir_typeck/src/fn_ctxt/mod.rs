@@ -117,11 +117,14 @@ pub struct FnCtxt<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
+    #[instrument(skip(inh, param_env, body_id), level = "info")]
     pub fn new(
         inh: &'a Inherited<'tcx>,
         param_env: ty::ParamEnv<'tcx>,
         body_id: hir::HirId,
     ) -> FnCtxt<'a, 'tcx> {
+        info!("FnCtxt({:?}) created with param_env: {:#?}", body_id, param_env);
+
         FnCtxt {
             body_id,
             param_env,

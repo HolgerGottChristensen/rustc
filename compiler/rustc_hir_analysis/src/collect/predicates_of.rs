@@ -1,4 +1,4 @@
-use crate::astconv::AstConv;
+use crate::astconv::{add_implicitly_sized_inner, AstConv};
 use crate::bounds::Bounds;
 use crate::collect::ItemCtxt;
 use crate::constrained_generic_params as cgp;
@@ -9,7 +9,7 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::intravisit::{self, Visitor};
 use rustc_middle::ty::subst::InternalSubsts;
-use rustc_middle::ty::ToPredicate;
+use rustc_middle::ty::{DefIdTree, ParamEnv, ToPredicate};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::symbol::{sym, Ident};
 use rustc_span::{Span, DUMMY_SP};
@@ -22,6 +22,12 @@ struct OnlySelfBounds(bool);
 /// `Self: Trait` predicates for traits.
 pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicates<'_> {
     let mut result = tcx.predicates_defined_on(def_id);
+
+    let mut current_def_id = def_id;
+    while let Some(new_def_id) = tcx.opt_parent(current_def_id) {
+        info!("Parent: {:?}", new_def_id);
+        current_def_id = new_def_id
+    }
 
     if tcx.is_trait(def_id) {
         // For traits, add `Self: Trait` predicate. This is
@@ -55,8 +61,40 @@ pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredic
                 span,
             ))));
     }
-    debug!("predicates_of(def_id={:?}) = {:?}", def_id, result);
+    info!("predicates_of(def_id={:?}) = {:?}", def_id, result);
     result
+}
+
+pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
+    if tcx.def_kind(def_id) == DefKind::HKTParam {
+        let generics: &ty::Generics = tcx.generics_of(def_id);
+        let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
+
+        for (index, _) in generics.params.iter().enumerate() {
+            let ty = tcx.mk_ty(ty::Argument(index as u32));
+
+            let mut bounds = Bounds::default();
+            // Params are implicitly sized unless a `?Sized` bound is found
+            add_implicitly_sized_inner(
+                tcx,
+                &mut bounds,
+                &[],
+                None,
+                tcx.def_span(def_id),
+            );
+            trace!(?bounds);
+            predicates.extend(bounds.predicates(tcx, ty));
+            trace!(?predicates);
+        }
+
+        ParamEnv::new(
+        tcx.mk_predicates(predicates.into_iter().map(|t| t.0).chain(param_env.caller_bounds())),
+            param_env.reveal(),
+            param_env.constness()
+        )
+    } else {
+        param_env
+    }
 }
 
 /// Returns a list of user-specified type predicates for the definition with ID `def_id`.
@@ -79,7 +117,15 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
     // Preserving the order of insertion is important here so as not to break UI tests.
     let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
-    info!("Node: {:#?}", node);
+    info!("Number of parents: {}", tcx.hir().parent_iter(hir_id).count());
+    for (parent_hir_id, _) in tcx.hir().parent_iter(hir_id) {
+        info!("Requesting of: {:?}", parent_hir_id);
+        //let parent_predicates: ty::GenericPredicates<'_> = tcx.predicates_of(parent_def_id);
+        //predicates.extend(parent_predicates.predicates);
+    }
+
+
+    debug!("Node: {:#?}", node);
     let ast_generics = match node {
         Node::TraitItem(item) => item.generics,
 
@@ -111,26 +157,6 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             ForeignItemKind::Fn(_, _, ref generics) => *generics,
             ForeignItemKind::Type => NO_GENERICS,
         },
-
-        Node::GenericParam(GenericParam { kind: GenericParamKind::HKT(generics), .. }) => {
-            for (index, generic) in generics.params.iter().enumerate() {
-                let ty = tcx.mk_ty(ty::Argument(index as u32));
-
-                let mut bounds = Bounds::default();
-                // Params are implicitly sized unless a `?Sized` bound is found
-                <dyn AstConv<'_>>::add_implicitly_sized(
-                    &icx,
-                    &mut bounds,
-                    &[],
-                    Some((generic.def_id, &[])),
-                    generic.span,
-                );
-                trace!(?bounds);
-                predicates.extend(bounds.predicates(tcx, ty));
-                trace!(?predicates);
-            }
-            NO_GENERICS
-        }
 
         _ => NO_GENERICS,
     };
@@ -435,6 +461,7 @@ pub(super) fn explicit_predicates_of<'tcx>(
     def_id: DefId,
 ) -> ty::GenericPredicates<'tcx> {
     let def_kind = tcx.def_kind(def_id);
+    info!("HWA: {:?}", def_kind);
     if let DefKind::Trait = def_kind {
         // Remove bounds on associated types from the predicates, they will be
         // returned by `explicit_item_bounds`.

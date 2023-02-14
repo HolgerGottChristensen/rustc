@@ -203,6 +203,66 @@ pub trait CreateSubstsForGenericArgsCtxt<'a, 'tcx> {
     ) -> subst::GenericArg<'tcx>;
 }
 
+pub(crate) fn add_implicitly_sized_inner<'hir>(
+    tcx: TyCtxt<'_>,
+    bounds: &mut Bounds<'hir>,
+    ast_bounds: &'hir [hir::GenericBound<'hir>],
+    self_ty_where_predicates: Option<(LocalDefId, &'hir [hir::WherePredicate<'hir>])>,
+    span: Span,
+) {
+    // Try to find an unbound in bounds.
+    let mut unbound = None;
+    let mut search_bounds = |ast_bounds: &'hir [hir::GenericBound<'hir>]| {
+        for ab in ast_bounds {
+            if let hir::GenericBound::Trait(ptr, hir::TraitBoundModifier::Maybe) = ab {
+                if unbound.is_none() {
+                    unbound = Some(&ptr.trait_ref);
+                } else {
+                    tcx.sess.emit_err(MultipleRelaxedDefaultBounds { span });
+                }
+            }
+        }
+    };
+    search_bounds(ast_bounds);
+    if let Some((self_ty, where_clause)) = self_ty_where_predicates {
+        for clause in where_clause {
+            if let hir::WherePredicate::BoundPredicate(pred) = clause {
+                if pred.is_param_bound(self_ty.to_def_id()) {
+                    search_bounds(pred.bounds);
+                }
+            }
+        }
+    }
+
+    let sized_def_id = tcx.lang_items().sized_trait();
+    match (&sized_def_id, unbound) {
+        (Some(sized_def_id), Some(tpb))
+        if tpb.path.res == Res::Def(DefKind::Trait, *sized_def_id) =>
+            {
+                // There was in fact a `?Sized` bound, return without doing anything
+                return;
+            }
+        (_, Some(_)) => {
+            // There was a `?Trait` bound, but it was not `?Sized`; warn.
+            tcx.sess.span_warn(
+                span,
+                "default bound relaxed for a type parameter, but \
+                        this does nothing because the given bound is not \
+                        a default; only `?Sized` is supported",
+            );
+            // Otherwise, add implicitly sized if `Sized` is available.
+        }
+        _ => {
+            // There was no `?Sized` bound; add implicitly sized if `Sized` is available.
+        }
+    }
+    if sized_def_id.is_none() {
+        // No lang item for `Sized`, so we can't add it as a bound.
+        return;
+    }
+    bounds.implicitly_sized = Some(span);
+}
+
 impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     #[instrument(level = "debug", skip(self), ret)]
     pub fn ast_region_to_region(
@@ -893,57 +953,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     ) {
         let tcx = self.tcx();
 
-        // Try to find an unbound in bounds.
-        let mut unbound = None;
-        let mut search_bounds = |ast_bounds: &'hir [hir::GenericBound<'hir>]| {
-            for ab in ast_bounds {
-                if let hir::GenericBound::Trait(ptr, hir::TraitBoundModifier::Maybe) = ab {
-                    if unbound.is_none() {
-                        unbound = Some(&ptr.trait_ref);
-                    } else {
-                        tcx.sess.emit_err(MultipleRelaxedDefaultBounds { span });
-                    }
-                }
-            }
-        };
-        search_bounds(ast_bounds);
-        if let Some((self_ty, where_clause)) = self_ty_where_predicates {
-            for clause in where_clause {
-                if let hir::WherePredicate::BoundPredicate(pred) = clause {
-                    if pred.is_param_bound(self_ty.to_def_id()) {
-                        search_bounds(pred.bounds);
-                    }
-                }
-            }
-        }
-
-        let sized_def_id = tcx.lang_items().sized_trait();
-        match (&sized_def_id, unbound) {
-            (Some(sized_def_id), Some(tpb))
-                if tpb.path.res == Res::Def(DefKind::Trait, *sized_def_id) =>
-            {
-                // There was in fact a `?Sized` bound, return without doing anything
-                return;
-            }
-            (_, Some(_)) => {
-                // There was a `?Trait` bound, but it was not `?Sized`; warn.
-                tcx.sess.span_warn(
-                    span,
-                    "default bound relaxed for a type parameter, but \
-                        this does nothing because the given bound is not \
-                        a default; only `?Sized` is supported",
-                );
-                // Otherwise, add implicitly sized if `Sized` is available.
-            }
-            _ => {
-                // There was no `?Sized` bound; add implicitly sized if `Sized` is available.
-            }
-        }
-        if sized_def_id.is_none() {
-            // No lang item for `Sized`, so we can't add it as a bound.
-            return;
-        }
-        bounds.implicitly_sized = Some(span);
+        add_implicitly_sized_inner(tcx, bounds, ast_bounds, self_ty_where_predicates, span)
     }
 
     /// This helper takes a *converted* parameter type (`param_ty`)

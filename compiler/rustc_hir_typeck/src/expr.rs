@@ -20,7 +20,7 @@ use crate::{
     TupleArgumentsFlag::DontTupleArguments,
 };
 use rustc_ast as ast;
-use rustc_data_structures::fx::FxHashMap;
+use rustc_data_structures::fx::{FxHashMap};
 use rustc_data_structures::stack::ensure_sufficient_stack;
 use rustc_errors::{
     pluralize, struct_span_err, Applicability, Diagnostic, DiagnosticBuilder, DiagnosticId,
@@ -42,7 +42,7 @@ use rustc_middle::middle::stability;
 use rustc_middle::ty::adjustment::{Adjust, Adjustment, AllowTwoPhase};
 use rustc_middle::ty::error::TypeError::FieldMisMatch;
 use rustc_middle::ty::subst::SubstsRef;
-use rustc_middle::ty::{self, AdtKind, Ty, TypeVisitable, GenericArgKind, GenericParamDefKind};
+use rustc_middle::ty::{self, AdtKind, Ty, TypeVisitable};
 use rustc_session::errors::ExprParenthesesNeeded;
 use rustc_session::parse::feature_err;
 use rustc_span::hygiene::DesugaringKind;
@@ -675,21 +675,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             let generics: &ty::Generics = self.tcx.generics_of(did);
             debug!("GNERINRECS = {:?}", generics);
 
-
+            use rustc_middle::ty::{GenericArgKind, ParamEnv};
             for (arg, param) in substs.iter().zip(generics.params.iter()).filter(|(arg, _)| {
                 matches!(arg.unpack(), GenericArgKind::Type(..) | GenericArgKind::Const(..))
             }) {
-                match param.kind {
-                    GenericParamDefKind::HKT => {
-                        let param_env = self.tcx.param_env(param.def_id);
-                        self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
-                    }
-                    GenericParamDefKind::Lifetime
-                    | GenericParamDefKind::Type { .. }
-                    | GenericParamDefKind::Const { .. } => {
-                        self.add_wf_bounds(substs, expr);
-                    }
-                }
+                let param_env: ParamEnv<'_> = self.tcx.param_env_with_hkt((param.def_id, self.param_env));
+                self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
             }
 
         } else {
