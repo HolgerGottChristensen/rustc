@@ -4,6 +4,7 @@ use rustc_ast::{Generics, token};
 use rustc_ast::{
     self as ast, AttrVec, GenericBounds, GenericParam, GenericParamKind, TyKind, WhereClause,
 };
+use rustc_ast::token::BinOp;
 use rustc_errors::{Applicability, PResult};
 use rustc_span::symbol::kw;
 
@@ -26,7 +27,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_hkt_param_helper1(&mut self) -> PResult<'a, GenericParam> {
-        let _ = self.expect(&token::Question)?;
+        let _ = self.expect(&BinOp(token::Percent))?;
 
         let ident = self.parse_ident()?;
 
