@@ -223,7 +223,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// * `tuple_arguments`: Whether the arguments have been bundled in a tuple (ex: closures)
     /// * `fn_def_id`: The DefId for the function being called, for better error messages
     ///
-    #[instrument(level = "debug", skip(self, call_span, call_expr, formal_input_tys, expected_input_tys, provided_args, c_variadic, tuple_arguments))]
+    #[instrument(level = "info", skip(self, call_span, call_expr, formal_input_tys, expected_input_tys, provided_args, c_variadic, tuple_arguments))]
     pub(in super::super) fn check_argument_types(
         &self,
         call_span: Span,
@@ -245,7 +245,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // Simplify the types and evaluate the type functions
         let formal_input_tys = &if let Some(def_id) = fn_def_id {
             let res = self.evaluate_type_functions(def_id, formal_input_tys);
-            debug!("Evaluated formal inputs: {:#?}", formal_input_tys);
+            info!("Evaluated formal inputs: {:#?}", formal_input_tys);
             res
         } else {
             formal_input_tys.to_vec()

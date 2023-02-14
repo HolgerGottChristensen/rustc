@@ -74,7 +74,7 @@ macro_rules! span_mirbug {
             $context.tcx(),
             $context.last_span,
             &format!(
-                "broken MIR in {:?} ({:?}): {}",
+                "broken MIR in {:#?} ({:#?}): {}",
                 $context.body().source.def_id(),
                 $elem,
                 format_args!($($message)*),
@@ -1083,7 +1083,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                         span_mirbug!(
                             self,
                             user_annotation,
-                            "bad user type AscribeUserType({:?}, {:?} {:?}, type_of={:?}): {:?}",
+                            "bad user type AscribeUserType({:#?}, {:#?} {:#?}, type_of={:#?}): {:#?}",
                             inferred_ty,
                             def_id,
                             user_substs,
