@@ -1456,7 +1456,7 @@ fn early_bound_lifetimes_from_generics<'a, 'tcx: 'a>(
 /// Returns a list of type predicates for the definition with ID `def_id`, including inferred
 /// lifetime constraints. This includes all predicates returned by `explicit_predicates_of`, plus
 /// inferred constraints concerning which regions outlive other regions.
-#[instrument(level = "info", skip(tcx))]
+#[instrument(level = "debug", skip(tcx))]
 fn predicates_defined_on(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicates<'_> {
     let mut result = tcx.explicit_predicates_of(def_id);
     debug!("predicates_defined_on: explicit_predicates_of({:?}) = {:?}", def_id, result,);

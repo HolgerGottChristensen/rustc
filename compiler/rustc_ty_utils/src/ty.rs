@@ -134,7 +134,6 @@ fn param_env(tcx: TyCtxt<'_>, def_id: DefId) -> ty::ParamEnv<'_> {
     }
 
     let local_did = def_id.as_local();
-    info!("Is local: {:?}", local_did.is_some());
     let hir_id = local_did.map(|def_id| tcx.hir().local_def_id_to_hir_id(def_id));
 
     // FIXME(consts): This is not exactly in line with the constness query.
