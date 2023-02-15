@@ -699,8 +699,8 @@ pub trait PrettyPrinter<'tcx>:
                 p!(print(param_ty));
                 self = self.generic_delimiters(|cx| cx.comma_sep(substs.iter()))?;
             },
-            ty::Argument(ref s) => {
-                p!("%", write("{}", s))
+            ty::Argument(ref s, ref t) => {
+                p!("%", write("{}:{}", s, t))
             }
             ty::Bound(debruijn, bound_ty) => match bound_ty.kind {
                 ty::BoundTyKind::Anon => self.pretty_print_bound_var(debruijn, bound_ty.var)?,

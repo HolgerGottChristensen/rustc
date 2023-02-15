@@ -492,7 +492,7 @@ impl<'rt, 'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> ValidityVisitor<'rt, 'mir, '
         // Go over all the primitive types
         let ty = value.layout.ty;
         match ty.kind() {
-            ty::Argument(_) => todo!("hoch"),
+            ty::Argument(..) => todo!("hoch"),
             ty::Bool => {
                 let value = self.read_scalar(value, "a boolean")?;
                 try_validation!(

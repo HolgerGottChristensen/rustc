@@ -372,7 +372,7 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
             ty::Float(FloatTy::F64) => "d",
             ty::Never => "z",
 
-            ty::Argument(_) => todo!("hoch"),
+            ty::Argument(..) => todo!("hoch"),
 
             // Placeholders (should be demangled as `_`).
             ty::Param(_) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) | ty::Error(_) => "p",
@@ -401,7 +401,7 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
                 unreachable!()
             }
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 

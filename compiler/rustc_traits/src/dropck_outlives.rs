@@ -153,7 +153,7 @@ fn dtorck_constraint_for_ty<'tcx>(
     }
 
     match ty.kind() {
-        ty::Argument(_) => todo!("hoch"),
+        ty::Argument(..) => todo!("hoch"),
         ty::Bool
         | ty::Char
         | ty::Int(_)

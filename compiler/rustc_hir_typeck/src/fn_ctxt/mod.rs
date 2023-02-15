@@ -113,7 +113,7 @@ pub struct FnCtxt<'a, 'tcx> {
 
     pub(super) fallback_has_occurred: Cell<bool>,
 
-    argument_env: Cell<Option<&'tcx ty::Generics>>,
+    argument_env: Cell<Option<(u32, &'tcx ty::Generics)>>,
 }
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
@@ -186,8 +186,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.tcx.sess.err_count() > self.err_count_on_creation
     }
 
-    pub fn with_argument_env<R>(&self, generics: &'tcx Generics, f: impl FnOnce(&FnCtxt<'a, 'tcx>)->R) -> R {
-        self.argument_env.set(Some(generics));
+    pub fn with_argument_env<R>(&self, index: u32, generics: &'tcx Generics, f: impl FnOnce(&FnCtxt<'a, 'tcx>)->R) -> R {
+        self.argument_env.set(Some((index, generics)));
         let val = f(self);
         self.argument_env.set(None);
         val
@@ -324,7 +324,7 @@ impl<'a, 'tcx> AstConv<'tcx> for FnCtxt<'a, 'tcx> {
         self.write_ty(hir_id, ty)
     }
 
-    fn current_argument_env(&self) -> Option<&'tcx Generics> {
+    fn current_argument_env(&self) -> Option<(u32, &'tcx Generics)> {
         self.argument_env.get()
     }
 }

@@ -120,7 +120,7 @@ pub trait AstConv<'tcx> {
 
     fn record_ty(&self, hir_id: hir::HirId, ty: Ty<'tcx>, span: Span);
 
-    fn current_argument_env(&self) -> Option<&'tcx ty::Generics>;
+    fn current_argument_env(&self) -> Option<(u32, &'tcx ty::Generics)>;
 }
 
 #[derive(Debug)]
@@ -2738,10 +2738,10 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
 
         let result_ty = match ast_ty.kind {
             hir::TyKind::Argument(i) => {
-                if let Some(env) = self.current_argument_env() {
+                if let Some((idx, env)) = self.current_argument_env() {
                     for param in &env.params {
                         if param.name == i.name {
-                            return tcx.mk_ty(ty::Argument(param.index))
+                            return tcx.mk_ty(ty::Argument(idx, param.index))
                         }
                     }
                     // FIXMIG: Give an error message that the %j is not found in the env.

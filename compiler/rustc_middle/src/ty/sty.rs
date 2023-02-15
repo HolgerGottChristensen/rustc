@@ -1339,8 +1339,8 @@ impl<'tcx> ParamTy {
             ParamTy::HKT { index, name } => {
                 let generics: &ty::Generics = tcx.generics_of(def_id);
 
-                let generics = generics.params.iter().enumerate().map(|(index, _)| {
-                    tcx.mk_ty(ty::Argument(index as u32)).into()
+                let generics = generics.params.iter().enumerate().map(|(inner_index, _)| {
+                    tcx.mk_ty(ty::Argument(*index, inner_index as u32)).into()
                 }).collect::<Vec<_>>();
 
                 tcx.mk_hkt_param(*index, *name, tcx.intern_substs(&generics)).into()
@@ -2123,7 +2123,7 @@ impl<'tcx> Ty<'tcx> {
                 tcx.mk_projection(assoc_items[0], tcx.intern_substs(&[self.into()]))
             }
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
@@ -2192,7 +2192,7 @@ impl<'tcx> Ty<'tcx> {
             // a.k.a. unit type, which is Sized
             | ty::Tuple(..) => (tcx.types.unit, false),
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
@@ -2284,7 +2284,7 @@ impl<'tcx> Ty<'tcx> {
 
             ty::Infer(ty::TyVar(_)) => false,
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
@@ -2342,7 +2342,7 @@ impl<'tcx> Ty<'tcx> {
             // Might be, but not "trivial" so just giving the safe answer.
             ty::Adt(..) | ty::Closure(..) => false,
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 

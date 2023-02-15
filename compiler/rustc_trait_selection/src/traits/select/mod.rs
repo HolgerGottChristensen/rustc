@@ -2085,7 +2085,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }))
             }
 
-            ty::Argument(_def) => {
+            ty::Argument(..) => {
                 // FIXMIG: hoch
                 None
             },
@@ -2111,7 +2111,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         match *self_ty.kind() {
 
-            ty::Argument(_) => todo!("hoch"),
+            ty::Argument(..) => todo!("hoch"),
 
             ty::Infer(ty::IntVar(_))
             | ty::Infer(ty::FloatVar(_))
@@ -2241,7 +2241,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Never
             | ty::Char => ty::Binder::dummy(Vec::new()),
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 

@@ -830,7 +830,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             Some(GenericArgKind::Type(ty)) => {
                 let mut current = ty;
                 for (index, arg) in substs.iter().enumerate() {
-                    current = self.ty_kind_substitution(current, arg.expect_ty(), index as u32)
+                    current = self.ty_kind_substitution(current, arg.expect_ty(), p.index(), index as u32)
                 }
                 current
             },
@@ -842,11 +842,11 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
         self.shift_vars_through_binders(ty)
     }
 
-    // FIXMIG: Make this function a type folder, because that is bacicly what it should do.
+    // FIXMIG: Make this function a type folder, because that is basically what it should do.
     #[allow(rustc::usage_of_ty_tykind)]
-    fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, index: u32) -> Ty<'tcx> {
+    fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, index: u32, sub_index: u32) -> Ty<'tcx> {
         match ty.kind() {
-            ty::TyKind::Argument(sub_index) if index == *sub_index => {
+            ty::TyKind::Argument(gen_index, gen_sub_index) if index == *gen_index && sub_index == *gen_sub_index => {
                 with
             }
             ty::TyKind::Bool
@@ -865,7 +865,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                         GenericArgKind::Const(_)
                         | GenericArgKind::Lifetime(_) => a,
                         GenericArgKind::Type(t) => {
-                            self.ty_kind_substitution(t, with, index).into()
+                            self.ty_kind_substitution(t, with, index, sub_index).into()
                         }
                     }
                 }).collect::<Vec<_>>();
@@ -880,7 +880,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                         GenericArgKind::Const(_)
                         | GenericArgKind::Lifetime(_) => a,
                         GenericArgKind::Type(t) => {
-                            self.ty_kind_substitution(t, with, index).into()
+                            self.ty_kind_substitution(t, with, index, sub_index).into()
                         }
                     }
                 }).collect::<Vec<_>>();

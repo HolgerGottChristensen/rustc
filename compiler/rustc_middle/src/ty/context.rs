@@ -2027,7 +2027,7 @@ impl<'tcx> TyCtxt<'tcx> {
                 let generics: &Generics = self.generics_of(param.def_id);
 
                 let generics = generics.params.iter().enumerate().map(|(index, _)| {
-                    self.mk_ty(ty::Argument(index as u32)).into()
+                    self.mk_ty(ty::Argument(param.index, index as u32)).into()
                 }).collect::<Vec<_>>();
 
                 self.mk_hkt_param(param.index, param.name, self.intern_substs(&generics)).into()

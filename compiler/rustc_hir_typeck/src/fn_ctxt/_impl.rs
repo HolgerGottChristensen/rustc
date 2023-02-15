@@ -1228,7 +1228,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         let param_env = self.fcx.tcx.param_env_with_hkt((param.def_id, self.fcx.param_env));
                         let generics: &ty::Generics = self.fcx.tcx.generics_of(param.def_id);
 
-                        self.fcx.with_argument_env(generics, |fcx| {
+                        self.fcx.with_argument_env(param.index, generics, |fcx| {
                             fcx.to_ty_with_param_env(ty, param_env).into()
                         })
                     }

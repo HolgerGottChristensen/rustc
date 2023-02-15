@@ -1,4 +1,4 @@
-use crate::astconv::{add_implicitly_sized_inner, AstConv};
+use crate::astconv::{AstConv};
 use crate::bounds::Bounds;
 use crate::collect::ItemCtxt;
 use crate::constrained_generic_params as cgp;
@@ -9,7 +9,7 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::intravisit::{self, Visitor};
 use rustc_middle::ty::subst::InternalSubsts;
-use rustc_middle::ty::{ParamEnv, ToPredicate};
+use rustc_middle::ty::{ToPredicate};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::symbol::{sym, Ident};
 use rustc_span::{Span, DUMMY_SP};
@@ -61,7 +61,8 @@ pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredic
 
 pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
     if tcx.def_kind(def_id) == DefKind::HKTParam {
-        let generics: &ty::Generics = tcx.generics_of(def_id);
+        todo!("Hoch")
+        /*let generics: &ty::Generics = tcx.generics_of(def_id);
         let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
         for (index, _) in generics.params.iter().enumerate() {
@@ -85,7 +86,7 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
         tcx.mk_predicates(predicates.into_iter().map(|t| t.0).chain(param_env.caller_bounds())),
             param_env.reveal(),
             param_env.constness()
-        )
+        )*/
     } else {
         param_env
     }

@@ -273,7 +273,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Tuple(ref tys) if tys.is_empty() => format!("`{}`", self).into(),
 
             ty::Adt(def, _) => format!("{} `{}`", def.descr(), tcx.def_path_str(def.did())).into(),
-            ty::Argument(s) => format!("%{}", s).into(),
+            ty::Argument(s, t) => format!("%{}:{}", s, t).into(),
             ty::Foreign(def_id) => format!("extern type `{}`", tcx.def_path_str(def_id)).into(),
             ty::Array(t, n) => {
                 if t.is_simple_ty() {
@@ -380,7 +380,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Alias(ty::Projection, _) => "associated type".into(),
             ty::Param(_) => "type parameter".into(),
             ty::HKT(..) => "hkt parameter".into(),
-            ty::Argument(_) => "type argument".into(),
+            ty::Argument(..) => "type argument".into(),
             ty::Alias(ty::Opaque, ..) => "opaque type".into(),
         }
     }

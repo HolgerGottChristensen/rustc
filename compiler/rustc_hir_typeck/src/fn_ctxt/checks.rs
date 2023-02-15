@@ -140,11 +140,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     }
 
 
-    // FIXMIG: Make this function a type folder, because that is bacicly what it should do.
+    // FIXMIG: Make this function a type folder, because that is basically what it should do.
     #[allow(rustc::usage_of_ty_tykind)]
-    fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, index: u32) -> Ty<'tcx> {
+    fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, index: u32, sub_index: u32) -> Ty<'tcx> {
         match ty.kind() {
-            ty::TyKind::Argument(sub_index) if index == *sub_index => {
+            ty::TyKind::Argument(gen_index, gen_sub_index) if index == *gen_index && sub_index == *gen_sub_index => {
                 with
             }
             ty::TyKind::Bool
@@ -163,7 +163,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         GenericArgKind::Const(_)
                         | GenericArgKind::Lifetime(_) => a,
                         GenericArgKind::Type(t) => {
-                            self.ty_kind_substitution(t, with, index).into()
+                            self.ty_kind_substitution(t, with, index, sub_index).into()
                         }
                     }
                 }).collect::<Vec<_>>();
@@ -178,7 +178,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         GenericArgKind::Const(_)
                         | GenericArgKind::Lifetime(_) => a,
                         GenericArgKind::Type(t) => {
-                            self.ty_kind_substitution(t, with, index).into()
+                            self.ty_kind_substitution(t, with, index, sub_index).into()
                         }
                     }
                 }).collect::<Vec<_>>();
@@ -202,12 +202,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         for (input, argument) in sig.inputs().iter().zip(arguments) {
             match input.kind() {
-                ty::HKT(ParamTy::HKT { index: _, .. }, substs) => {
+                ty::HKT(ParamTy::HKT { index, .. }, substs) => {
                     let substs: &SubstsRef<'_> = substs;
 
                     let mut res_type = *argument;
                     for subst in 0..substs.len() {
-                        res_type = self.ty_kind_substitution(res_type, substs[0].expect_ty(), subst as u32);
+                        res_type = self.ty_kind_substitution(res_type, substs[0].expect_ty(), *index, subst as u32);
                     }
 
                     //todo!("{:#?}, {:#?}, {:#?}, {:#?}", argument, hkt_generics, substs, res_type)

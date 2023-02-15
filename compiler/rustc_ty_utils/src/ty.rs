@@ -13,7 +13,7 @@ fn sized_constraint_for_ty<'tcx>(
     use rustc_type_ir::sty::TyKind::*;
 
     let result = match ty.kind() {
-        Argument(_) => {
+        Argument(..) => {
             todo!("hoch")
         }
         Bool | Char | Int(..) | Uint(..) | Float(..) | RawPtr(..) | Ref(..) | FnDef(..)

@@ -3,7 +3,7 @@ use rustc_infer::infer::canonical::{Canonical, QueryResponse};
 use rustc_infer::infer::{DefiningAnchor, TyCtxtInferExt};
 use rustc_infer::traits::ObligationCauseCode;
 use rustc_middle::ty::query::Providers;
-use rustc_middle::ty::{self, Binder, FnSig, Lift, PolyFnSig, PredicateKind, Ty, TyCtxt, TypeFoldable};
+use rustc_middle::ty::{self, FnSig, Lift, PolyFnSig, Ty, TyCtxt, TypeFoldable};
 use rustc_middle::ty::{ParamEnvAnd, Predicate, ToPredicate};
 use rustc_middle::ty::{UserSelfTy, UserSubsts};
 use rustc_span::{Span, DUMMY_SP};
@@ -85,15 +85,15 @@ pub fn type_op_ascribe_user_type_with_span<'tcx>(
 
     info!("instantiated_predicates: {:#?}", instantiated_predicates);
 
-    for ((predicate, predicate_span), instantiated_predicate) in
-        zip(predicates.predicates, instantiated_predicates.predicates)
+    for (instantiated_predicate, predicate_span) in
+        zip(instantiated_predicates.predicates, instantiated_predicates.spans)
     {
 
-        let span = if span == DUMMY_SP { *predicate_span } else { span };
+        let span = if span == DUMMY_SP { predicate_span } else { span };
         let cause = ObligationCause::new(
             span,
             hir::CRATE_HIR_ID,
-            ObligationCauseCode::AscribeUserTypeProvePredicate(*predicate_span),
+            ObligationCauseCode::AscribeUserTypeProvePredicate(predicate_span),
         );
         let instantiated_predicate =
             ocx.normalize(&cause.clone(), param_env, instantiated_predicate);

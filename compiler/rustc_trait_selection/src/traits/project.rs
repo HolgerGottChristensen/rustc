@@ -1611,7 +1611,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         | ty::Infer(ty::InferTy::IntVar(_) | ty::InferTy::FloatVar(..)) => true,
 
 
-                        ty::Argument(_) => todo!("hoch"),
+                        ty::Argument(..) => todo!("hoch"),
                          // type parameters, opaques, and unnormalized projections have pointer
                         // metadata if they're known (e.g. by the param_env) to be sized
                         ty::Param(_)

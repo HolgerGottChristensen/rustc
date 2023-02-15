@@ -522,7 +522,7 @@ impl<'tcx> AstConv<'tcx> for ItemCtxt<'tcx> {
         // There's no place to record types from signatures?
     }
 
-    fn current_argument_env(&self) -> Option<&'tcx Generics> {
+    fn current_argument_env(&self) -> Option<(u32, &'tcx Generics)> {
         todo!("hoch")
     }
 }
