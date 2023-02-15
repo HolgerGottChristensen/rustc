@@ -1078,10 +1078,12 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                     );
                 }
                 UserType::TypeOf(def_id, user_substs) => {
+                    let param_env = self.tcx().param_env_with_hkt((def_id, self.param_env));
+
                     if let Err(terr) = self.fully_perform_op(
                         Locations::All(span),
                         ConstraintCategory::BoringNoLocation,
-                        self.param_env.and(type_op::ascribe_user_type::AscribeUserType::new(
+                        param_env.and(type_op::ascribe_user_type::AscribeUserType::new(
                             inferred_ty,
                             def_id,
                             user_substs,

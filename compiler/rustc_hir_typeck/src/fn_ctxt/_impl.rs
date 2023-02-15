@@ -1229,7 +1229,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     (GenericParamDefKind::HKT, GenericArg::Type(ty)) => {
                         let generics: &ty::Generics = self.fcx.tcx.generics_of(param.def_id);
 
-                        let param_env = self.fcx.tcx.param_env_with_hkt((param.def_id, param.index, self.fcx.param_env));
+                        let parent_id = self.fcx.tcx.parent(param.def_id);
+
+                        let param_env = self.fcx.tcx.param_env_with_hkt((parent_id, self.fcx.param_env));
 
                         // FIXMIG: We need to insert the hkt parameter things here AGAIN
                         self.fcx.with_argument_env(param.index, generics, |fcx| {

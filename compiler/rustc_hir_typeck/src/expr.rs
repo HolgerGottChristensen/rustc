@@ -672,12 +672,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             info!("param environment to add = {:#?}", self.param_env);
             info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
-            let generics: &ty::Generics = self.tcx.generics_of(did);
-
-            for (arg, param) in substs.iter().zip(generics.params.iter()).filter(|(arg, _)| {
+            for arg in substs.iter().filter(|arg| {
                 matches!(arg.unpack(), ty::GenericArgKind::Type(..) | ty::GenericArgKind::Const(..))
             }) {
-                let param_env: ParamEnv<'_> = self.tcx.param_env_with_hkt((param.def_id, param.index, self.param_env));
+                let param_env: ParamEnv<'_> = self.tcx.param_env_with_hkt((did, self.param_env));
                 self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
             }
 

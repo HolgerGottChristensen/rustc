@@ -9,7 +9,7 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::intravisit::{self, Visitor};
 use rustc_middle::ty::subst::InternalSubsts;
-use rustc_middle::ty::{ParamEnv, ToPredicate};
+use rustc_middle::ty::{GenericParamDefKind, ParamEnv, ToPredicate};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::symbol::{sym, Ident};
 use rustc_span::{Span, DUMMY_SP};
@@ -59,26 +59,35 @@ pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredic
     result
 }
 
-pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, index, param_env): (DefId, u32, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
-    if tcx.def_kind(def_id) == DefKind::HKTParam {
-        let generics: &ty::Generics = tcx.generics_of(def_id);
+pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
+    if tcx.def_kind(def_id) == DefKind::Fn {
+        let outer_generics: &ty::Generics = tcx.generics_of(def_id);
         let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
-        for (inner_index, _) in generics.params.iter().enumerate() {
-            let ty = tcx.mk_ty(ty::Argument(index, inner_index as u32));
+        for param in &outer_generics.params {
+            match param.kind {
+                GenericParamDefKind::HKT => {
+                    let inner_generics: &ty::Generics = tcx.generics_of(param.def_id);
 
-            let mut bounds = Bounds::default();
-            // Params are implicitly sized unless a `?Sized` bound is found
-            add_implicitly_sized_inner(
-                tcx,
-                &mut bounds,
-                &[],
-                None,
-                tcx.def_span(def_id),
-            );
-            trace!(?bounds);
-            predicates.extend(bounds.predicates(tcx, ty));
-            trace!(?predicates);
+                    for inner_param in &inner_generics.params {
+                        let ty = tcx.mk_ty(ty::Argument(param.index, inner_param.index));
+
+                        let mut bounds = Bounds::default();
+                        // Params are implicitly sized unless a `?Sized` bound is found
+                        add_implicitly_sized_inner(
+                            tcx,
+                            &mut bounds,
+                            &[],
+                            None,
+                            tcx.def_span(def_id),
+                        );
+                        trace!(?bounds);
+                        predicates.extend(bounds.predicates(tcx, ty));
+                        trace!(?predicates);
+                    }
+                }
+                _ => (),
+            }
         }
 
         let res = ParamEnv::new(
