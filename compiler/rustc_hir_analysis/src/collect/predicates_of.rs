@@ -1,4 +1,4 @@
-use crate::astconv::{AstConv};
+use crate::astconv::{add_implicitly_sized_inner, AstConv};
 use crate::bounds::Bounds;
 use crate::collect::ItemCtxt;
 use crate::constrained_generic_params as cgp;
@@ -9,7 +9,7 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::intravisit::{self, Visitor};
 use rustc_middle::ty::subst::InternalSubsts;
-use rustc_middle::ty::{ToPredicate};
+use rustc_middle::ty::{ParamEnv, ToPredicate};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::symbol::{sym, Ident};
 use rustc_span::{Span, DUMMY_SP};
@@ -55,18 +55,17 @@ pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredic
                 span,
             ))));
     }
-    info!("predicates_of(def_id={:?}) = {:#?}", def_id, result);
+    debug!("predicates_of(def_id={:?}) = {:#?}", def_id, result);
     result
 }
 
-pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
+pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, index, param_env): (DefId, u32, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
     if tcx.def_kind(def_id) == DefKind::HKTParam {
-        todo!("Hoch")
-        /*let generics: &ty::Generics = tcx.generics_of(def_id);
+        let generics: &ty::Generics = tcx.generics_of(def_id);
         let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
-        for (index, _) in generics.params.iter().enumerate() {
-            let ty = tcx.mk_ty(ty::Argument(index as u32));
+        for (inner_index, _) in generics.params.iter().enumerate() {
+            let ty = tcx.mk_ty(ty::Argument(index, inner_index as u32));
 
             let mut bounds = Bounds::default();
             // Params are implicitly sized unless a `?Sized` bound is found
@@ -82,11 +81,13 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
             trace!(?predicates);
         }
 
-        ParamEnv::new(
-        tcx.mk_predicates(predicates.into_iter().map(|t| t.0).chain(param_env.caller_bounds())),
+        let res = ParamEnv::new(
+            tcx.mk_predicates(predicates.into_iter().map(|t| t.0).chain(param_env.caller_bounds())),
             param_env.reveal(),
             param_env.constness()
-        )*/
+        );
+        info!("Param for {:?}, {:#?}", def_id, res);
+        res
     } else {
         param_env
     }
@@ -94,7 +95,7 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
 
 /// Returns a list of user-specified type predicates for the definition with ID `def_id`.
 /// N.B., this does not include any implied/inferred constraints.
-#[instrument(level = "info", skip(tcx), ret)]
+#[instrument(level = "debug", skip(tcx), ret)]
 fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicates<'_> {
     use rustc_hir::*;
 
@@ -215,7 +216,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             GenericParamKind::HKT(..) => {
                 let name = param.name.ident().name;
                 let param_ty = ty::ParamTy::new_hkt(index, name).to_hkt(param.def_id.to_def_id(), tcx);
-                index += 1;
+
 
                 let mut bounds = Bounds::default();
                 // Params are implicitly sized unless a `?Sized` bound is found
@@ -226,9 +227,26 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                     Some((param.def_id, ast_generics.predicates)),
                     param.span,
                 );
-                info!("bounds = {:#?}", bounds);
+                debug!("bounds = {:#?}", bounds);
                 predicates.extend(bounds.predicates(tcx, param_ty));
-                info!("predicatesa = {:#?}", predicates);
+
+                /*let inner_generics: &ty::Generics = tcx.generics_of(param.def_id);
+
+                for (inner_index, _) in inner_generics.params.iter().enumerate() {
+                    let mut bounds = Bounds::default();
+                    <dyn AstConv<'_>>::add_implicitly_sized(
+                        &icx,
+                        &mut bounds,
+                        &[],
+                        None,
+                        param.span,
+                    );
+                    predicates.extend(bounds.predicates(tcx, tcx.mk_ty(ty::Argument(index, inner_index as u32))));
+                }*/
+
+
+                debug!("predicatesa = {:#?}", predicates);
+                index += 1;
             }
         }
     }

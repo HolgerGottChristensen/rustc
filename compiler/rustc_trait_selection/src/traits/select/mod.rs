@@ -263,7 +263,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
     /// Attempts to satisfy the obligation. If successful, this will affect the surrounding
     /// type environment by performing unification.
-    #[instrument(level = "debug", skip(self), ret)]
+    #[instrument(level = "info", skip(self), ret)]
     pub fn select(
         &mut self,
         obligation: &TraitObligation<'tcx>,
@@ -308,7 +308,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         self.candidate_from_obligation(&stack)
     }
 
-    #[instrument(level = "debug", skip(self), ret)]
+    #[instrument(level = "info", skip(self), ret)]
     fn candidate_from_obligation<'o>(
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
@@ -2035,7 +2035,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
     }
 
-    #[instrument(skip(self, obligation), level = "debug", ret)]
+    #[instrument(skip(self, obligation), level = "info", ret)]
     fn sized_conditions(
         &mut self,
         obligation: &TraitObligation<'tcx>,
@@ -2087,6 +2087,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
             ty::Argument(..) => {
                 // FIXMIG: hoch
+                debug!("Hit hERE");
                 None
             },
             ty::Alias(..) | ty::Param(_) | ty::HKT(..) => None,

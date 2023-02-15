@@ -228,7 +228,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
     /// This is called much less often than `needs_process_obligation`, so we
     /// never inline it.
     #[inline(never)]
-    #[instrument(level = "debug", skip(self, pending_obligation))]
+    #[instrument(level = "info", skip(self, pending_obligation))]
     fn process_obligation(
         &mut self,
         pending_obligation: &mut PendingPredicateObligation<'tcx>,
@@ -240,6 +240,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 
         debug!(?obligation, "pre-resolve");
         debug!("{:#?}", obligation.cause);
+        //debug!("EENNVV: {:#?}", obligation.param_env);
 
         if obligation.predicate.has_non_region_infer() {
             debug!("Has non region infer");

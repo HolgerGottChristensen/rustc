@@ -71,11 +71,11 @@ impl<'tcx> WfCheckingCtxt<'_, 'tcx> {
         loc: Option<WellFormedLoc>,
         arg: ty::GenericArg<'tcx>,
     ) {
-        debug!("Register wf obligation for: {:?}", arg.expect_ty().kind());
+        let param_env = self.param_env.without_const();
+        debug!("Register wf obligation for: {:?}, with env: {:#?}", arg.expect_ty().kind(), param_env);
         let cause =
             traits::ObligationCause::new(span, self.body_id, ObligationCauseCode::WellFormed(loc));
         // for a type to be WF, we do not need to check if const trait predicates satisfy.
-        let param_env = self.param_env.without_const();
         self.ocx.register_obligation(traits::Obligation::new(
             self.tcx(),
             cause,
@@ -99,6 +99,7 @@ pub(super) fn enter_wf_checking_ctxt<'tcx, F>(
     let ocx = ObligationCtxt::new(infcx);
 
     let assumed_wf_types = ocx.assumed_wf_types(param_env, span, body_def_id);
+    debug!("assumed_wf_types = {:#?}", assumed_wf_types);
 
     let mut wfcx = WfCheckingCtxt { ocx, span, body_id, param_env };
 
@@ -1502,7 +1503,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
     wfcx.register_obligations(obligations);
 }
 
-#[instrument(level = "debug", skip(wfcx, span, hir_decl))]
+#[instrument(level = "info", skip(wfcx, span, hir_decl))]
 fn check_fn_or_method<'tcx>(
     wfcx: &WfCheckingCtxt<'_, 'tcx>,
     span: Span,
@@ -1576,6 +1577,9 @@ fn check_fn_or_method<'tcx>(
         sig.output(),
         hir_decl.output.span(),
     );
+
+    debug!("After check_return_position_impl_trait_in_trait_bounds");
+
 
     if sig.abi == Abi::RustCall {
         debug!("I am wrong");
@@ -1944,6 +1948,7 @@ impl<'tcx> WfCheckingCtxt<'_, 'tcx> {
                 continue;
             }
             let pred = obligation.predicate;
+            debug!("We are getting insane: {:?} is global = {}, has_late_bound_shit: {}", pred, pred.is_global(), pred.has_late_bound_regions());
             // Match the existing behavior.
             if pred.is_global() && !pred.has_late_bound_regions() {
                 let pred = self.normalize(span, None, pred);

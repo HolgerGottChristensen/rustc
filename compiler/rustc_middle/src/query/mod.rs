@@ -230,7 +230,7 @@ rustc_queries! {
         cache_on_disk_if { key.is_local() }
     }
 
-    query param_env_with_hkt(key: (DefId, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
+    query param_env_with_hkt(key: (DefId, u32, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
         desc { |tcx| "computing hkt predicates of `{}`", tcx.def_path_str(key.0) }
     }
 

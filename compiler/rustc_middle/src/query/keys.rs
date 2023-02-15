@@ -627,7 +627,7 @@ impl<'tcx> Key for (DefId, Ty<'tcx>, SubstsRef<'tcx>, ty::ParamEnv<'tcx>) {
     }
 }
 
-impl<'tcx> Key for (DefId, ty::ParamEnv<'tcx>) {
+impl<'tcx> Key for (DefId, u32, ty::ParamEnv<'tcx>) {
     type CacheSelector = DefaultCacheSelector<Self>;
 
     #[inline(always)]

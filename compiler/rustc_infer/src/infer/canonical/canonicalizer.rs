@@ -433,10 +433,6 @@ impl<'cx, 'tcx> TypeFolder<'tcx> for Canonicalizer<'cx, 'tcx> {
                 }
             }
 
-            ty::Argument(..) => {
-                todo!("hoch")
-            }
-
             ty::Closure(..)
             | ty::Generator(..)
             | ty::GeneratorWitness(..)
@@ -460,6 +456,7 @@ impl<'cx, 'tcx> TypeFolder<'tcx> for Canonicalizer<'cx, 'tcx> {
             | ty::Alias(..)
             | ty::Foreign(..)
             | ty::HKT(..)
+            | ty::Argument(..)
             | ty::Param(..) => {
                 if t.flags().intersects(self.needs_canonical_flags) {
                     t.super_fold_with(self)

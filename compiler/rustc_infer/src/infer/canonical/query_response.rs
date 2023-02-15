@@ -63,9 +63,9 @@ impl<'tcx> InferCtxt<'tcx> {
         Canonical<'tcx, QueryResponse<'tcx, T>>: ArenaAllocatable<'tcx>,
     {
         let query_response = self.make_query_response(inference_vars, answer, fulfill_cx)?;
-        info!("query_response = {:#?}", query_response);
+        debug!("query_response = {:#?}", query_response);
         let canonical_result = self.canonicalize_response(query_response);
-        info!("canonical_result = {:#?}", canonical_result);
+        debug!("canonical_result = {:#?}", canonical_result);
 
         Ok(self.tcx.arena.alloc(canonical_result))
     }
@@ -98,7 +98,7 @@ impl<'tcx> InferCtxt<'tcx> {
 
     /// Helper for `make_canonicalized_query_response` that does
     /// everything up until the final canonicalization.
-    #[instrument(skip(self, fulfill_cx), level = "info")]
+    #[instrument(skip(self, fulfill_cx), level = "debug")]
     fn make_query_response<T>(
         &self,
         inference_vars: CanonicalVarValues<'tcx>,
@@ -112,20 +112,20 @@ impl<'tcx> InferCtxt<'tcx> {
 
         // Select everything, returning errors.
         let true_errors = fulfill_cx.select_where_possible(self);
-        info!("true_errors = {:#?}", true_errors);
+        debug!("true_errors = {:#?}", true_errors);
 
         if !true_errors.is_empty() {
             // FIXME -- we don't indicate *why* we failed to solve
-            info!("make_query_response: true_errors={:#?}", true_errors);
+            debug!("make_query_response: true_errors={:#?}", true_errors);
             return Err(NoSolution);
         }
 
         // Anything left unselected *now* must be an ambiguity.
         let ambig_errors = fulfill_cx.select_all_or_error(self);
-        info!("ambig_errors = {:#?}", ambig_errors);
+        debug!("ambig_errors = {:#?}", ambig_errors);
 
         let region_obligations = self.take_registered_region_obligations();
-        info!(?region_obligations);
+        debug!(?region_obligations);
         let region_constraints = self.with_region_constraints(|region_constraints| {
             make_query_region_constraints(
                 tcx,
@@ -135,7 +135,7 @@ impl<'tcx> InferCtxt<'tcx> {
                 region_constraints,
             )
         });
-        info!(?region_constraints);
+        debug!(?region_constraints);
 
         let certainty =
             if ambig_errors.is_empty() { Certainty::Proven } else { Certainty::Ambiguous };

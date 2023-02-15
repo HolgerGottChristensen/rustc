@@ -464,6 +464,7 @@ impl<O: ForestObligation> ObligationForest<O> {
                         }
                     }
                     ProcessResult::Error(err) => {
+                        debug!("Record error: {:#?}", err);
                         has_changed = true;
                         outcome.record_error(Error { error: err, backtrace: self.error_at(index) });
                     }

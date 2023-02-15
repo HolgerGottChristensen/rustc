@@ -102,7 +102,7 @@ pub trait QueryTypeOp<'tcx>: fmt::Debug + Copy + TypeFoldable<'tcx> + 'tcx {
             infcx.canonicalize_query_keep_static(query_key, &mut canonical_var_values);
 
         let canonical_result = Self::perform_query(infcx.tcx, canonical_self)?;
-        info!("post canonical_result");
+        debug!("post canonical_result");
 
         let InferOk { value, obligations } = infcx
             .instantiate_nll_query_response_and_region_obligations(

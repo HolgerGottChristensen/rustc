@@ -255,13 +255,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let tcx = self.tcx;
 
         // Simplify the types and evaluate the type functions
-        /*let formal_input_tys = &if let Some(def_id) = fn_def_id {
+        let formal_input_tys = &if let Some(def_id) = fn_def_id {
             let res = self.evaluate_type_functions(def_id, formal_input_tys);
             info!("Evaluated formal inputs: {:#?}", formal_input_tys);
             res
         } else {
             formal_input_tys.to_vec()
-        }[..];*/
+        }[..];
 
 
         // Conceptually, we've got some number of expected inputs, and some number of provided arguments

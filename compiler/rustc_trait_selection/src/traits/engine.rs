@@ -64,6 +64,7 @@ impl<'a, 'tcx> ObligationCtxt<'a, 'tcx> {
     }
 
     pub fn register_obligation(&self, obligation: PredicateObligation<'tcx>) {
+        debug!("Register obligation: {:?} with env: {:#?} and cause {:#?}", obligation, obligation.param_env, obligation.cause);
         self.engine.borrow_mut().register_predicate_obligation(self.infcx, obligation);
     }
 

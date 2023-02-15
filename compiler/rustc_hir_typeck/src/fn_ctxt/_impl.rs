@@ -78,12 +78,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.resolve_vars_with_obligations_and_mutate_fulfillment(ty, |_| {})
     }
 
-    #[instrument(skip(self, mutate_fulfillment_errors), level = "debug", ret)]
+    #[instrument(skip(self, mutate_fulfillment_errors), level = "info", ret)]
     pub(in super::super) fn resolve_vars_with_obligations_and_mutate_fulfillment(
         &self,
         mut ty: Ty<'tcx>,
         mutate_fulfillment_errors: impl Fn(&mut Vec<traits::FulfillmentError<'tcx>>),
     ) -> Ty<'tcx> {
+        info!("Param env: {:#?}", self.param_env);
+        info!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         // No Infer()? Nothing needs doing.
         if !ty.has_non_region_infer() {
             debug!("no inference var, nothing needs doing");
@@ -415,7 +417,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     }
 
     pub fn to_ty_with_param_env(&self, ast_t: &hir::Ty<'_>, param_env: ParamEnv<'tcx>) -> Ty<'tcx> {
-        info!("{:#?}", self.argument_env.get());
+        info!("to_ty_with_param_env = {:#?}", self.argument_env.get());
         let t = <dyn AstConv<'_>>::ast_ty_to_ty(self, ast_t);
 
         self.register_wf_obligation_with_param_env(t.into(), ast_t.span, traits::WellFormed(None), param_env);
@@ -520,7 +522,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     ) {
         // WF obligations never themselves fail, so no real need to give a detailed cause:
         let cause = traits::ObligationCause::new(span, self.body_id, code);
-        debug!("Register predicate {:#?} with env: {:#?}", arg, param_env);
+        info!("Register predicate {:#?} with env: {:#?}", arg, param_env);
         self.register_predicate(traits::Obligation::new(
             self.tcx,
             cause,
@@ -1002,7 +1004,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     /// Instantiates the given path, which must refer to an item with the given
     /// number of type parameters and type.
-    #[instrument(skip(self, span), level = "debug")]
+    #[instrument(skip(self, span), level = "info")]
     pub fn instantiate_value_path(
         &self,
         segments: &[hir::PathSegment<'_>],
@@ -1225,9 +1227,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         self.fcx.ct_infer(tcx.type_of(param.def_id), Some(param), inf.span).into()
                     }
                     (GenericParamDefKind::HKT, GenericArg::Type(ty)) => {
-                        let param_env = self.fcx.tcx.param_env_with_hkt((param.def_id, self.fcx.param_env));
                         let generics: &ty::Generics = self.fcx.tcx.generics_of(param.def_id);
 
+                        let param_env = self.fcx.tcx.param_env_with_hkt((param.def_id, param.index, self.fcx.param_env));
+
+                        // FIXMIG: We need to insert the hkt parameter things here AGAIN
                         self.fcx.with_argument_env(param.index, generics, |fcx| {
                             fcx.to_ty_with_param_env(ty, param_env).into()
                         })
@@ -1359,7 +1363,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         })
     }
 
-    #[instrument(level = "debug", skip(self, code, span, substs))]
+    #[instrument(level = "info", skip(self, code, span, substs))]
     fn add_required_obligations_with_code(
         &self,
         span: Span,
@@ -1410,7 +1414,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Resolves `typ` by a single level if `typ` is a type variable.
     /// If no resolution is possible, then an error is reported.
     /// Numeric inference variables may be left unresolved.
-    #[instrument(level = "debug", skip(self, sp), ret)]
+    #[instrument(level = "info", skip(self, sp), ret)]
     pub fn structurally_resolved_type(&self, sp: Span, ty: Ty<'tcx>) -> Ty<'tcx> {
         let ty = self.resolve_vars_with_obligations(ty);
         if !ty.is_ty_var() {

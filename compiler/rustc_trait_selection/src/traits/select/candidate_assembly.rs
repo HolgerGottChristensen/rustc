@@ -21,12 +21,13 @@ use super::SelectionCandidate::*;
 use super::{SelectionCandidateSet, SelectionContext, TraitObligationStack};
 
 impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
-    #[instrument(skip(self, stack), level = "debug")]
+    #[instrument(skip(self, stack), level = "info")]
     pub(super) fn assemble_candidates<'o>(
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
     ) -> Result<SelectionCandidateSet<'tcx>, SelectionError<'tcx>> {
         let TraitObligationStack { obligation, .. } = *stack;
+        debug!("PARAM_ENV: {:#?}", obligation.param_env);
         let obligation = &Obligation {
             param_env: obligation.param_env,
             cause: obligation.cause.clone(),
