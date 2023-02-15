@@ -26,7 +26,7 @@ use rustc_infer::infer::InferOk;
 use rustc_infer::infer::TypeTrace;
 use rustc_middle::ty::adjustment::AllowTwoPhase;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, DefIdTree, FnSig, GenericArgKind, IsSuggestable, ParamTy, SubstsRef, Ty, TypeSuperVisitable, TypeVisitor};
+use rustc_middle::ty::{self, DefIdTree, IsSuggestable, Ty, TypeSuperVisitable, TypeVisitor};
 use rustc_session::Session;
 use rustc_span::symbol::{kw, Ident};
 use rustc_span::{self, sym, Span};
@@ -140,88 +140,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     }
 
 
-    // FIXMIG: Make this function a type folder, because that is basically what it should do.
-    #[allow(rustc::usage_of_ty_tykind)]
-    fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, index: u32, sub_index: u32) -> Ty<'tcx> {
-        match ty.kind() {
-            ty::TyKind::Argument(gen_index, gen_sub_index) if index == *gen_index && sub_index == *gen_sub_index => {
-                with
-            }
-            ty::TyKind::Bool
-            | ty::TyKind::Char
-            | ty::TyKind::Int(_)
-            | ty::TyKind::Uint(_)
-            | ty::TyKind::Error(_)
-            | ty::TyKind::Param(_)
-            | ty::TyKind::Float(_) => {
-                ty
-            }
-            ty::TyKind::Adt(a, substs) => {
-                let substs: &SubstsRef<'_> = substs;
-
-                let new_substs = substs.iter().map(|a| {
-                    match a.unpack() {
-                        GenericArgKind::Const(_)
-                        | GenericArgKind::Lifetime(_) => a,
-                        GenericArgKind::Type(t) => {
-                            self.ty_kind_substitution(t, with, index, sub_index).into()
-                        }
-                    }
-                }).collect::<Vec<_>>();
-
-                self.tcx.mk_ty(ty::TyKind::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter())))
-            }
-            ty::TyKind::HKT(a, substs) => {
-                let substs: &SubstsRef<'_> = substs;
-
-                let new_substs = substs.iter().map(|a| {
-                    match a.unpack() {
-                        GenericArgKind::Const(_)
-                        | GenericArgKind::Lifetime(_) => a,
-                        GenericArgKind::Type(t) => {
-                            self.ty_kind_substitution(t, with, index, sub_index).into()
-                        }
-                    }
-                }).collect::<Vec<_>>();
-
-                self.tcx.mk_ty(ty::TyKind::HKT(*a, self.tcx.mk_substs(new_substs.into_iter())))
-            }
-            _ => {
-                todo!("here: {:#?}", ty.kind())
-            }
-        }
-    }
-
-    #[allow(dead_code)]
-    fn evaluate_type_functions(&self, fn_def_id: DefId, arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
-        info!("{:?}", arguments);
-
-        let sig: FnSig<'_> = self.tcx.fn_sig(fn_def_id).skip_binder();
-        //let generics: &ty::Generics = self.tcx.generics_of(fn_def_id);
-
-        let mut evaluated = vec![];
-
-        for (input, argument) in sig.inputs().iter().zip(arguments) {
-            match input.kind() {
-                ty::HKT(ParamTy::HKT { index, .. }, substs) => {
-                    let substs: &SubstsRef<'_> = substs;
-
-                    let mut res_type = *argument;
-                    for subst in 0..substs.len() {
-                        res_type = self.ty_kind_substitution(res_type, substs[0].expect_ty(), *index, subst as u32);
-                    }
-
-                    //todo!("{:#?}, {:#?}, {:#?}, {:#?}", argument, hkt_generics, substs, res_type)
-                    evaluated.push(res_type)
-                }
-                _ => evaluated.push(*argument)
-            }
-        }
-
-        evaluated
-    }
-
-
     /// Generic function that factors out common logic from function calls,
     /// method calls and overloaded operators.
     ///
@@ -248,21 +166,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         tuple_arguments: TupleArgumentsFlag,
         fn_def_id: Option<DefId>,
     ) {
-        info!("fn_def_id={:#?}", fn_def_id);
+        // debug!("fn_def_id={:#?}", fn_def_id);
         // debug!("{:#?}", call_expr);
-        info!("formal_input_tys={:#?}", formal_input_tys);
-        info!("expected_input_tys={:#?}", expected_input_tys);
+        // debug!("formal_input_tys={:#?}", formal_input_tys);
+        // debug!("expected_input_tys={:#?}", expected_input_tys);
         // debug!("provided_args={:#?}", provided_args);
         let tcx = self.tcx;
 
-        // Simplify the types and evaluate the type functions
-        /*let formal_input_tys = &if let Some(def_id) = fn_def_id {
-            let res = self.evaluate_type_functions(def_id, formal_input_tys);
-            info!("Evaluated formal inputs: {:#?}", formal_input_tys);
-            res
-        } else {
-            formal_input_tys.to_vec()
-        }[..];*/
 
 
         // Conceptually, we've got some number of expected inputs, and some number of provided arguments
