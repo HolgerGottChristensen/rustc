@@ -811,6 +811,8 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
     fn ty_for_param(&self, p: ty::ParamTy, source_ty: Ty<'tcx>) -> Ty<'tcx> {
         // Look up the type in the substitutions. It really should be in there.
         let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
+        //println!("Replace: {:?} with {:?}", source_ty.kind(), opt_ty);
+
         let ty = match opt_ty {
             Some(GenericArgKind::Type(ty)) => ty,
             Some(kind) => self.type_param_expected(p, source_ty, kind),
@@ -824,7 +826,6 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
         // Look up the type in the substitutions. It really should be in there.
         let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
-        info!("Combine types: {:#?} and {:#?}", source_ty.kind(), opt_ty);
         let ty = match opt_ty {
             Some(GenericArgKind::Type(ty)) => {
                 let mut current = ty;
@@ -836,8 +837,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             Some(kind) => self.type_param_expected(p, source_ty, kind),
             None => self.type_param_out_of_range(p, source_ty),
         };
-        info!("After combination: {:#?}", ty);
-
+        debug!("Combine types: {:?} and {:?}, result = {:?}", source_ty.kind(), opt_ty, ty);
 
         self.shift_vars_through_binders(ty)
     }
@@ -854,9 +854,6 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             | ty::TyKind::Int(_)
             | ty::TyKind::Uint(_)
             | ty::TyKind::Error(_)
-            | ty::TyKind::Argument(_)
-            | ty::TyKind::Param(_)
-            | ty::TyKind::HKT(_, _)
             | ty::TyKind::Float(_) => {
                 ty
             }
@@ -875,8 +872,23 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
                 self.tcx.mk_ty(ty::TyKind::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter())))
             }
+            ty::TyKind::HKT(a, substs) => {
+                let substs: &SubstsRef<'_> = substs;
+
+                let new_substs = substs.iter().map(|a| {
+                    match a.unpack() {
+                        GenericArgKind::Const(_)
+                        | GenericArgKind::Lifetime(_) => a,
+                        GenericArgKind::Type(t) => {
+                            self.ty_kind_substitution(t, with, index).into()
+                        }
+                    }
+                }).collect::<Vec<_>>();
+
+                self.tcx.mk_ty(ty::TyKind::HKT(*a, self.tcx.mk_substs(new_substs.into_iter())))
+            }
             _ => {
-                todo!("here: {:#?}", ty)
+                todo!("here: {:#?} with {:#?}", ty.kind(), with.kind())
             }
         }
     }

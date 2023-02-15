@@ -371,7 +371,7 @@ impl<'tcx> GenericPredicates<'tcx> {
         }
     }
 
-    #[instrument(level = "debug", skip(self, tcx))]
+    #[instrument(level = "info", skip(self, tcx))]
     fn instantiate_into(
         &self,
         tcx: TyCtxt<'tcx>,
@@ -379,11 +379,13 @@ impl<'tcx> GenericPredicates<'tcx> {
         substs: SubstsRef<'tcx>,
     ) {
         if let Some(def_id) = self.parent {
+            info!("We have a parent: {:?}", def_id);
             tcx.predicates_of(def_id).instantiate_into(tcx, instantiated, substs);
         }
         instantiated
             .predicates
             .extend(self.predicates.iter().map(|(p, _)| EarlyBinder(*p).subst(tcx, substs)));
+
         instantiated.spans.extend(self.predicates.iter().map(|(_, sp)| *sp));
     }
 

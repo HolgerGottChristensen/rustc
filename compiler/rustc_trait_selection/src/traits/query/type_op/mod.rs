@@ -86,9 +86,11 @@ pub trait QueryTypeOp<'tcx>: fmt::Debug + Copy + TypeFoldable<'tcx> + 'tcx {
         PredicateObligations<'tcx>,
         Certainty,
     )> {
+        info!("Before try fast path");
         if let Some(result) = QueryTypeOp::try_fast_path(infcx.tcx, &query_key) {
             return Ok((result, None, vec![], Certainty::Proven));
         }
+        info!("After try fast path");
 
         // FIXME(#33684) -- We need to use
         // `canonicalize_query_keep_static` here because of things
@@ -100,6 +102,7 @@ pub trait QueryTypeOp<'tcx>: fmt::Debug + Copy + TypeFoldable<'tcx> + 'tcx {
             infcx.canonicalize_query_keep_static(query_key, &mut canonical_var_values);
 
         let canonical_result = Self::perform_query(infcx.tcx, canonical_self)?;
+        info!("post canonical_result");
 
         let InferOk { value, obligations } = infcx
             .instantiate_nll_query_response_and_region_obligations(
@@ -132,7 +135,7 @@ where
         // create obligations. In that case, we have to go
         // fulfill them. We do this via a (recursive) query.
         while !obligations.is_empty() {
-            debug!("{:#?}", obligations);
+            info!("{:#?}", obligations);
             let mut progress = false;
             for obligation in std::mem::take(&mut obligations) {
                 let obligation = infcx.resolve_vars_if_possible(obligation);

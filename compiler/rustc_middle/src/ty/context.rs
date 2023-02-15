@@ -75,6 +75,7 @@ use std::iter;
 use std::mem;
 use std::ops::{Bound, Deref};
 use std::sync::Arc;
+use rustc_middle::ty::Generics;
 
 pub trait OnDiskCache<'tcx>: rustc_data_structures::sync::Sync {
     /// Creates a new `OnDiskCache` instance from the serialized data in `data`.
@@ -2023,7 +2024,13 @@ impl<'tcx> TyCtxt<'tcx> {
                 )
                 .into(),
             GenericParamDefKind::HKT => {
-                self.mk_hkt_param(param.index, param.name, self.intern_substs(&[])).into()
+                let generics: &Generics = self.generics_of(param.def_id);
+
+                let generics = generics.params.iter().enumerate().map(|(index, _)| {
+                    self.mk_ty(ty::Argument(index as u32)).into()
+                }).collect::<Vec<_>>();
+
+                self.mk_hkt_param(param.index, param.name, self.intern_substs(&generics)).into()
             }
         }
     }

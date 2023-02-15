@@ -331,7 +331,9 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> Ty<'_> {
                 },
                 ItemKind::Fn(..) => {
                     let substs = InternalSubsts::identity_for_item(tcx, def_id.to_def_id());
-                    tcx.mk_fn_def(def_id.to_def_id(), substs)
+                    let res = tcx.mk_fn_def(def_id.to_def_id(), substs);
+                    info!("return: {:#?}", res);
+                    res
                 }
                 ItemKind::Enum(..) | ItemKind::Struct(..) | ItemKind::Union(..) => {
                     let def = tcx.adt_def(def_id);

@@ -1328,7 +1328,23 @@ impl<'tcx> ParamTy {
     pub fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
         match self {
             ParamTy::Param { index, name } => tcx.mk_ty_param(*index, *name),
-            ParamTy::HKT { index, name} => tcx.mk_hkt_param(*index, *name,  tcx.intern_substs(&[]))
+            ParamTy::HKT { .. } => panic!("Call to_hkt instead!"),
+        }
+    }
+
+    #[inline]
+    pub fn to_hkt(&self, def_id: DefId, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
+        match self {
+            ParamTy::Param { .. } => panic!("Call to_ty instead!"),
+            ParamTy::HKT { index, name } => {
+                let generics: &ty::Generics = tcx.generics_of(def_id);
+
+                let generics = generics.params.iter().enumerate().map(|(index, _)| {
+                    tcx.mk_ty(ty::Argument(index as u32)).into()
+                }).collect::<Vec<_>>();
+
+                tcx.mk_hkt_param(*index, *name, tcx.intern_substs(&generics)).into()
+            }
         }
     }
 

@@ -161,7 +161,7 @@ pub(crate) fn type_check<'mir, 'tcx>(
         &mut constraints,
     );
 
-    debug!(?normalized_inputs_and_output);
+    info!(?normalized_inputs_and_output);
 
     for u in ty::UniverseIndex::ROOT..=infcx.universe() {
         constraints.universe_causes.insert(u, UniverseInfo::other());
@@ -1011,6 +1011,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         implicit_region_bound: ty::Region<'tcx>,
         borrowck_context: &'a mut BorrowCheckContext<'a, 'tcx>,
     ) -> Self {
+        info!("Param env: {:#?}", param_env);
         let mut checker = Self {
             infcx,
             last_span: DUMMY_SP,
@@ -1036,17 +1037,23 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
     }
 
     /// Equate the inferred type and the annotated type for user type annotations
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     fn check_user_type_annotations(&mut self) {
-        debug!(?self.user_type_annotations);
+        info!("User annotations = {:#?}", self.user_type_annotations);
         for user_annotation in self.user_type_annotations {
             let CanonicalUserTypeAnnotation { span, ref user_ty, inferred_ty } = *user_annotation;
+            info!("BEFORE NORMALIZE: {:#?}", inferred_ty);
             let inferred_ty = self.normalize(inferred_ty, Locations::All(span));
+            info!("AFTER  NORMALIZE: {:#?}", inferred_ty);
+
             let annotation = self.instantiate_canonical_with_fresh_inference_vars(span, user_ty);
-            debug!(?annotation);
+
+            info!("Annotation = {:#?}", annotation);
             match annotation {
                 UserType::Ty(mut ty) => {
+                    info!("USER TY BEFORE: {:#?}", ty);
                     ty = self.normalize(ty, Locations::All(span));
+                    info!("USER TY AFTER: {:#?}", ty);
 
                     if let Err(terr) = self.eq_types(
                         ty,
@@ -1090,13 +1097,14 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                             self.tcx().type_of(def_id),
                             terr,
                         );
+                        todo!("Fail here")
                     }
                 }
             }
         }
     }
 
-    #[instrument(skip(self, data), level = "debug")]
+    #[instrument(skip(self, data), level = "info")]
     fn push_region_constraints(
         &mut self,
         locations: Locations,
@@ -2668,7 +2676,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
     #[instrument(skip(self, body), level = "info")]
     fn typeck_mir(&mut self, body: &Body<'tcx>) {
         self.last_span = body.span;
-        debug!(?body.span);
+        info!(?body.span);
 
         for (local, local_decl) in body.local_decls.iter_enumerated() {
             self.check_local(&body, local, local_decl);
@@ -2683,6 +2691,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                 self.check_stmt(body, stmt, location);
                 location.statement_index += 1;
             }
+
 
             self.check_terminator(&body, block_data.terminator(), location);
             self.check_iscleanup(&body, block_data);

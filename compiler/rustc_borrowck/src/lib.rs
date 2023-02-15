@@ -168,7 +168,7 @@ fn do_mir_borrowck<'tcx>(
 ) -> (BorrowCheckResult<'tcx>, Option<Box<BodyWithBorrowckFacts<'tcx>>>) {
     let def = input_body.source.with_opt_param().as_local().unwrap();
 
-    debug!(?def);
+    info!(?def);
 
     let tcx = infcx.tcx;
     let param_env = tcx.param_env(def.did);
@@ -246,6 +246,8 @@ fn do_mir_borrowck<'tcx>(
         Rc::new(BorrowSet::build(tcx, body, locals_are_invalidated_at_exit, &mdpe.move_data));
 
     let use_polonius = return_body_with_facts || infcx.tcx.sess.opts.unstable_opts.polonius;
+
+    info!("Body: {:#?}", body);
 
     // Compute non-lexical lifetimes.
     let nll::NllOutput {
