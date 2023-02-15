@@ -397,7 +397,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// * `expected`: The expected type of the function call if any
     ///
     /// returns: The type of the function call expression
-    #[instrument(level = "debug", skip(self, call_expr, callee_expr, callee_ty, arg_exprs, expected))]
+    #[instrument(level = "info", skip(self, call_expr, callee_expr, callee_ty, arg_exprs, expected))]
     fn confirm_builtin_call(
         &self,
         call_expr: &'tcx hir::Expr<'tcx>,
@@ -419,7 +419,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ty::FnDef(def_id, subst) => {
 
                 // Retrieve the function signature
-                let fn_sig = self.tcx.bound_fn_sig(def_id).subst(self.tcx, subst);
+                let fn_sig = self.tcx.bound_fn_sig(def_id);
+                info!("Sig before substs: {:?}, substs: {:#?}", fn_sig, subst);
+                let fn_sig = fn_sig.subst(self.tcx, subst);
+                info!("Sig after substs: {:?}", fn_sig);
 
                 // Unit testing: function items annotated with
                 // `#[rustc_evaluate_where_clauses]` trigger special output

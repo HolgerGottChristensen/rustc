@@ -152,6 +152,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             | ty::TyKind::Int(_)
             | ty::TyKind::Uint(_)
             | ty::TyKind::Error(_)
+            | ty::TyKind::Param(_)
             | ty::TyKind::Float(_) => {
                 ty
             }
@@ -186,7 +187,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 self.tcx.mk_ty(ty::TyKind::HKT(*a, self.tcx.mk_substs(new_substs.into_iter())))
             }
             _ => {
-                todo!("here: {:#?}", ty)
+                todo!("here: {:#?}", ty.kind())
             }
         }
     }
@@ -247,21 +248,21 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         tuple_arguments: TupleArgumentsFlag,
         fn_def_id: Option<DefId>,
     ) {
-        // debug!("fn_def_id={:#?}", fn_def_id);
+        info!("fn_def_id={:#?}", fn_def_id);
         // debug!("{:#?}", call_expr);
-        // debug!("formal_input_tys={:#?}", formal_input_tys);
-        // debug!("expected_input_tys={:#?}", expected_input_tys);
+        info!("formal_input_tys={:#?}", formal_input_tys);
+        info!("expected_input_tys={:#?}", expected_input_tys);
         // debug!("provided_args={:#?}", provided_args);
         let tcx = self.tcx;
 
         // Simplify the types and evaluate the type functions
-        let formal_input_tys = &if let Some(def_id) = fn_def_id {
+        /*let formal_input_tys = &if let Some(def_id) = fn_def_id {
             let res = self.evaluate_type_functions(def_id, formal_input_tys);
             info!("Evaluated formal inputs: {:#?}", formal_input_tys);
             res
         } else {
             formal_input_tys.to_vec()
-        }[..];
+        }[..];*/
 
 
         // Conceptually, we've got some number of expected inputs, and some number of provided arguments

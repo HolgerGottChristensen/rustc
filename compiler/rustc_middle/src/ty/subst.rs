@@ -793,7 +793,9 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
 
         match *t.kind() {
             ty::Param(p) => self.ty_for_param(p, t),
-            ty::HKT(p, substs) => self.hkt_for_param(p, substs, t),
+            ty::HKT(p, substs) =>
+                self.hkt_for_param(p, substs, t)
+                    .super_fold_with(self),
             _ => t.super_fold_with(self),
         }
     }
@@ -837,7 +839,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             Some(kind) => self.type_param_expected(p, source_ty, kind),
             None => self.type_param_out_of_range(p, source_ty),
         };
-        debug!("Combine types: {:?} and {:?}, result = {:?}", source_ty.kind(), opt_ty, ty);
+        info!("Combine types: {:?} and {:?}, result = {:?}", source_ty.kind(), opt_ty, ty);
 
         self.shift_vars_through_binders(ty)
     }
