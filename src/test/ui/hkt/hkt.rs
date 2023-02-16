@@ -1,5 +1,5 @@
 // HKT test
-// pretty-compare-only
+// check-pass
 
 use std::fmt::Debug;
 
