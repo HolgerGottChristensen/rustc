@@ -72,7 +72,7 @@ impl<'tcx> WfCheckingCtxt<'_, 'tcx> {
         arg: ty::GenericArg<'tcx>,
     ) {
         let param_env = self.param_env.without_const();
-        info!("Register wf obligation for: {:?}, with env: {:#?}", arg.expect_ty().kind(), param_env);
+        //info!("Register wf obligation for: {:?}, with env: {:#?}", arg.expect_ty().kind(), param_env);
         let cause =
             traits::ObligationCause::new(span, self.body_id, ObligationCauseCode::WellFormed(loc));
         // for a type to be WF, we do not need to check if const trait predicates satisfy.
@@ -1293,14 +1293,14 @@ fn check_impl<'tcx>(
 }
 
 /// Checks where-clauses and inline bounds that are declared on `def_id`.
-#[instrument(level = "debug", skip(wfcx))]
+#[instrument(level = "info", skip(wfcx))]
 fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id: LocalDefId) {
     let infcx = wfcx.infcx;
     let tcx = wfcx.tcx();
 
     debug!("Hejsa1");
     let predicates = tcx.bound_predicates_of(def_id.to_def_id());
-    debug!("post bound_predicates_of - {:#?}", predicates);
+    info!("post bound_predicates_of - {:#?}", predicates);
     let generics = tcx.generics_of(def_id);
     debug!("Hejsa3");
 
@@ -1426,7 +1426,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
                     if let ty::Param(param) = t.kind() {
                         self.params.insert(param.index());
                     }
-                    if let ty::HKT(param, ..) = t.kind() {
+                    if let ty::HKT(_, param, ..) = t.kind() {
                         self.params.insert(param.index());
                     }
                     t.super_visit_with(self)
@@ -1485,15 +1485,16 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
     let predicates = predicates.0.instantiate_identity(tcx);
     debug!("pre normalize - {:#?}", predicates);
     let predicates = wfcx.normalize(span, None, predicates);
-    debug!("post normalize - {:#?}", predicates);
+    info!("post normalize - {:#?}", predicates);
 
     debug!(?predicates.predicates);
     assert_eq!(predicates.predicates.len(), predicates.spans.len());
     let wf_obligations =
         iter::zip(&predicates.predicates, &predicates.spans).flat_map(|(&p, &sp)| {
+            let param_env = tcx.param_env_with_hkt((def_id.to_def_id(), wfcx.param_env.without_const()));
             traits::wf::predicate_obligations(
                 infcx,
-                wfcx.param_env.without_const(),
+                param_env,
                 wfcx.body_id,
                 p,
                 sp,
@@ -1567,7 +1568,7 @@ fn check_fn_or_method<'tcx>(
         sig.output().into(),
     );
 
-    debug!("Preparing from where clauses");
+    info!("Preparing from where clauses");
 
     check_where_clauses(wfcx, span, def_id);
 
@@ -1612,7 +1613,7 @@ fn check_fn_or_method<'tcx>(
 }
 
 /// Basically `check_associated_type_bounds`, but separated for now and should be
-/// deduplicated when RPITITs get lowered into real associated items.
+/// deduplicated when RPITITs(return position impl trait in trait bounds) get lowered into real associated items.
 #[tracing::instrument(level = "trace", skip(wfcx))]
 fn check_return_position_impl_trait_in_trait_bounds<'tcx>(
     wfcx: &WfCheckingCtxt<'_, 'tcx>,
@@ -1868,7 +1869,7 @@ fn check_variances_for_type_defn<'tcx>(
                 hir::WherePredicate::BoundPredicate(predicate) => {
                     match icx.to_ty(predicate.bounded_ty).kind() {
                         ty::Param(data) => Some(Parameter(data.index())),
-                        ty::HKT(data, ..) => Some(Parameter(data.index())),
+                        ty::HKT(_, data, ..) => Some(Parameter(data.index())),
                         _ => None,
                     }
                 }

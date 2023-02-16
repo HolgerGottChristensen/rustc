@@ -500,7 +500,7 @@ fn is_impossible_method(tcx: TyCtxt<'_>, (impl_def_id, trait_item_def_id): (DefI
             {
                 return ControlFlow::BREAK;
             }
-            if let ty::HKT(param, ..) = t.kind()
+            if let ty::HKT(_, param, ..) = t.kind()
                 && let param_def_id = self.generics.type_param(param, self.tcx).def_id
                 && self.tcx.parent(param_def_id) == self.trait_item_def_id
             {

@@ -145,7 +145,6 @@ fn push_inner<'tcx>(stack: &mut TypeWalkerStack<'tcx>, parent: GenericArg<'tcx>)
             | ty::Str
             | ty::Infer(_)
             | ty::Param(_)
-            | ty::HKT(..) // TODO(here we are not pushing substs as adt do.)
             | ty::Never
             | ty::Error(_)
             | ty::Placeholder(..)
@@ -191,6 +190,7 @@ fn push_inner<'tcx>(stack: &mut TypeWalkerStack<'tcx>, parent: GenericArg<'tcx>)
                 }));
             }
             ty::Adt(_, substs)
+            | ty::HKT(_, _, substs)
             | ty::Closure(_, substs)
             | ty::Generator(_, substs, _)
             | ty::FnDef(_, substs) => {

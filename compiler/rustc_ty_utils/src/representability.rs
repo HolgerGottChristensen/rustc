@@ -114,7 +114,7 @@ fn params_in_repr_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, params_in_repr: &mut
         ty::Param(ref param) => {
             params_in_repr.insert(param.index());
         }
-        ty::HKT(ref param, ..) => {
+        ty::HKT(_, ref param, ..) => {
             params_in_repr.insert(param.index());
         }
         _ => {}

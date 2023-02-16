@@ -2548,7 +2548,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 debug!("{:#?}, {:#?}, {:#?}, {:#?}", def_id, item_def_id, generics, index);
 
                 //tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
-                tcx.mk_hkt_param(index, tcx.hir().ty_param_name(def_id), substs)
+                tcx.mk_hkt_param(def_id.to_def_id(), index, tcx.hir().ty_param_name(def_id), substs)
                 //todo!("{:#?}", path)
             }
             Res::SelfTyParam { .. } => {

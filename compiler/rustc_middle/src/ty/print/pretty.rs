@@ -695,7 +695,7 @@ pub trait PrettyPrinter<'tcx>:
             }
             ty::Error(_) => p!("[type error]"),
             ty::Param(ref param_ty) => p!(print(param_ty)),
-            ty::HKT(ref param_ty, substs) => {
+            ty::HKT(_, ref param_ty, substs) => {
                 p!(print(param_ty));
                 self = self.generic_delimiters(|cx| cx.comma_sep(substs.iter()))?;
             },

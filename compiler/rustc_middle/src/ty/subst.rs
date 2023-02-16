@@ -793,7 +793,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
 
         match *t.kind() {
             ty::Param(p) => self.ty_for_param(p, t),
-            ty::HKT(p, substs) =>
+            ty::HKT(_, p, substs) =>
                 self.hkt_for_param(p, substs, t)
                     .super_fold_with(self),
             _ => t.super_fold_with(self),
@@ -874,7 +874,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
                 self.tcx.mk_ty(ty::TyKind::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter())))
             }
-            ty::TyKind::HKT(a, substs) => {
+            ty::TyKind::HKT(did, a, substs) => {
                 let substs: &SubstsRef<'_> = substs;
 
                 let new_substs = substs.iter().map(|a| {
@@ -887,7 +887,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                     }
                 }).collect::<Vec<_>>();
 
-                self.tcx.mk_ty(ty::TyKind::HKT(*a, self.tcx.mk_substs(new_substs.into_iter())))
+                self.tcx.mk_ty(ty::TyKind::HKT(*did, *a, self.tcx.mk_substs(new_substs.into_iter())))
             }
             _ => {
                 todo!("here: {:#?} with {:#?}", ty.kind(), with.kind())

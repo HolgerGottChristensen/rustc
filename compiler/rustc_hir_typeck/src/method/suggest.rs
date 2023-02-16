@@ -316,7 +316,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ty::Param(param_type) => {
                 Some(param_type.span_from_generics(self.tcx, self.body_id.owner.to_def_id()))
             }
-            ty::HKT(param_type, ..) => {
+            ty::HKT(_, param_type, ..) => {
                 Some(param_type.span_from_generics(self.tcx, self.body_id.owner.to_def_id()))
             }
             ty::Adt(def, _) if def.did().is_local() => Some(tcx.def_span(def.did())),
@@ -2378,10 +2378,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
             let param_type = match rcvr_ty.kind() {
                 ty::Param(param) => Some(param),
-                ty::HKT(param, ..) => Some(param),
+                ty::HKT(_, param, ..) => Some(param),
                 ty::Ref(_, ty, _) => match ty.kind() {
                     ty::Param(param) => Some(param),
-                    ty::HKT(param, ..) => Some(param),
+                    ty::HKT(_, param, ..) => Some(param),
                     _ => None,
                 },
                 _ => None,

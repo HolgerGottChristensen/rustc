@@ -1343,7 +1343,7 @@ impl<'tcx> ParamTy {
                     tcx.mk_ty(ty::Argument(*index, inner_index as u32)).into()
                 }).collect::<Vec<_>>();
 
-                tcx.mk_hkt_param(*index, *name, tcx.intern_substs(&generics)).into()
+                tcx.mk_hkt_param(def_id, *index, *name, tcx.intern_substs(&generics)).into()
             }
         }
     }
@@ -1769,7 +1769,7 @@ impl<'tcx> Ty<'tcx> {
     pub fn is_param(self, index: u32) -> bool {
         match self.kind() {
             ty::Param(ref data) => data.index() == index,
-            ty::HKT(ref data, ..) => data.index() == index,
+            ty::HKT(_, ref data, ..) => data.index() == index,
             _ => false,
         }
     }

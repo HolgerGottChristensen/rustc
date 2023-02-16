@@ -1800,7 +1800,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     {
                         Some(arg)
                     } else if let ty::GenericArgKind::Type(ty) = arg.unpack()
-                        && let ty::HKT(param_ty, ..) = ty.kind()
+                        && let ty::HKT(_, param_ty, ..) = ty.kind()
                         && matches(param_ty)
                     {
                         todo!("hoch")

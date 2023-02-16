@@ -135,7 +135,7 @@ impl<'tcx> TraitEngine<'tcx> for FulfillmentContext<'tcx> {
         // debug output much nicer to read and so on.
         let obligation = infcx.resolve_vars_if_possible(obligation);
 
-        debug!(?obligation, "register_predicate_obligation");
+        info!("register_predicate_obligation: {:?}, with param_env: {:#?}", obligation.predicate, obligation.param_env);
 
         assert!(!infcx.is_in_snapshot() || self.usable_in_snapshot);
 

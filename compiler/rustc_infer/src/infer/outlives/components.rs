@@ -126,7 +126,7 @@ fn compute_components<'tcx>(
             out.push(Component::Param(p.clone()));
         }
 
-        ty::HKT(ref p, ..) => {
+        ty::HKT(_, ref p, ..) => {
             out.push(Component::HKT(p.clone()));
             // todo!("hoch")
         }

@@ -2593,7 +2593,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                             span: DUMMY_SP,
                         })
                     })
-                } else if let ty::HKT(ty::ParamTy::HKT { name, .. }, ..) = *ty.kind() {
+                } else if let ty::HKT(_, ty::ParamTy::HKT { name, .. }, ..) = *ty.kind() {
                     // TODO(hoch)
                     let infcx = self.infcx;
                     *self.var_map.entry(ty).or_insert_with(|| {

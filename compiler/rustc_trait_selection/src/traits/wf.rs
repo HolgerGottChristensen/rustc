@@ -102,7 +102,7 @@ pub fn trait_obligations<'tcx>(
     wf.normalize(infcx)
 }
 
-#[instrument(skip(infcx), ret, level = "debug")]
+#[instrument(skip(infcx), ret, level = "info")]
 pub fn predicate_obligations<'tcx>(
     infcx: &InferCtxt<'tcx>,
     param_env: ty::ParamEnv<'tcx>,
@@ -513,7 +513,7 @@ impl<'tcx> WfPredicates<'tcx> {
                 }
             };
 
-            debug!("wf bounds for ty={:?} ty.kind={:#?}", ty, ty.kind());
+            info!("wf bounds for ty={:?} ty.kind={:#?}", ty, ty.kind());
 
             match *ty.kind() {
                 ty::Bool
@@ -568,16 +568,17 @@ impl<'tcx> WfPredicates<'tcx> {
                     self.compute_projection(data);
                 }
 
-                ty::HKT(_, _substs) => {
+                ty::HKT(did, _, substs) => {
                     // WfNominalType
-                    //let obligations = self.nominal_obligations(def.did(), substs);
-                    //self.out.extend(obligations);
-                    todo!("We need to add wf obligations for all substs")
+                    let obligations = self.nominal_obligations(did, substs);
+                    info!("HKT obligations: {:#?}", obligations);
+                    self.out.extend(obligations);
                 }
 
                 ty::Adt(def, substs) => {
                     // WfNominalType
                     let obligations = self.nominal_obligations(def.did(), substs);
+                    info!("ADT obligations: {:#?}", obligations);
                     self.out.extend(obligations);
                 }
 
@@ -736,7 +737,7 @@ impl<'tcx> WfPredicates<'tcx> {
         substs: SubstsRef<'tcx>,
         remap_constness: bool,
     ) -> Vec<traits::PredicateObligation<'tcx>> {
-        let predicates = self.tcx.predicates_of(def_id);
+        let predicates: ty::GenericPredicates<'_> = self.tcx.predicates_of(def_id);
         let mut origins = vec![def_id; predicates.predicates.len()];
         let mut head = predicates;
 
@@ -745,8 +746,10 @@ impl<'tcx> WfPredicates<'tcx> {
             origins.extend(iter::repeat(parent).take(head.predicates.len()));
         }
 
+        debug!("Predicates of: {:?}, {:#?}", def_id, predicates);
+
         let predicates = predicates.instantiate(self.tcx, substs);
-        debug!("{:#?}", predicates);
+        debug!("post instantiate: {:#?}", predicates);
         debug!("{:#?}", self.param_env);
         debug_assert_eq!(predicates.predicates.len(), origins.len());
 

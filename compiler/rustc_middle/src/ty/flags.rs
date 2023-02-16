@@ -101,7 +101,7 @@ impl FlagComputation {
                 self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE);
             }
 
-            &ty::HKT(_, substs) => {
+            &ty::HKT(_, _, substs) => {
                 // TODO(hoch): Combined param and adt
                 self.add_flags(TypeFlags::HAS_TY_PARAM);
                 self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE);

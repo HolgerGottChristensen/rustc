@@ -438,7 +438,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     },
                     GenericArgKind::Type(ty) => match ty.kind() {
                         ty::Param(ref pt) => !impl_generics.type_param(pt, self).pure_wrt_drop,
-                        ty::HKT(ref pt, ..) => !impl_generics.type_param(pt, self).pure_wrt_drop,
+                        ty::HKT(_, ref pt, ..) => !impl_generics.type_param(pt, self).pure_wrt_drop,
                         // Error: not a type param
                         _ => false,
                     },
@@ -482,7 +482,7 @@ impl<'tcx> TyCtxt<'tcx> {
                             return Err(NotUniqueParam::DuplicateParam(t.into()));
                         }
                     }
-                    ty::HKT(p, ..) => {
+                    ty::HKT(_, p, ..) => {
                         if !seen.insert(p.index()) {
                             return Err(NotUniqueParam::DuplicateParam(t.into()));
                         }

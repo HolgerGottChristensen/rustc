@@ -155,6 +155,8 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             ForeignItemKind::Type => NO_GENERICS,
         },
 
+        Node::GenericParam(GenericParam{kind: GenericParamKind::HKT(generics), ..}) => *generics,
+
         _ => NO_GENERICS,
     };
 
@@ -238,21 +240,6 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                 );
                 debug!("bounds = {:#?}", bounds);
                 predicates.extend(bounds.predicates(tcx, param_ty));
-
-                /*let inner_generics: &ty::Generics = tcx.generics_of(param.def_id);
-
-                for (inner_index, _) in inner_generics.params.iter().enumerate() {
-                    let mut bounds = Bounds::default();
-                    <dyn AstConv<'_>>::add_implicitly_sized(
-                        &icx,
-                        &mut bounds,
-                        &[],
-                        None,
-                        param.span,
-                    );
-                    predicates.extend(bounds.predicates(tcx, tcx.mk_ty(ty::Argument(index, inner_index as u32))));
-                }*/
-
 
                 debug!("predicatesa = {:#?}", predicates);
                 index += 1;

@@ -2005,8 +2005,8 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     #[inline]
-    pub fn mk_hkt_param(self, index: u32, name: Symbol, subst: SubstsRef<'tcx>) -> Ty<'tcx> {
-        self.mk_ty(HKT(ParamTy::HKT { index, name }, subst))
+    pub fn mk_hkt_param(self, def_id: DefId, index: u32, name: Symbol, subst: SubstsRef<'tcx>) -> Ty<'tcx> {
+        self.mk_ty(HKT(def_id, ParamTy::HKT { index, name }, subst))
     }
 
     pub fn mk_param_from_def(self, param: &ty::GenericParamDef) -> GenericArg<'tcx> {
@@ -2030,7 +2030,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     self.mk_ty(ty::Argument(param.index, index as u32)).into()
                 }).collect::<Vec<_>>();
 
-                self.mk_hkt_param(param.index, param.name, self.intern_substs(&generics)).into()
+                self.mk_hkt_param(param.def_id, param.index, param.name, self.intern_substs(&generics)).into()
             }
         }
     }

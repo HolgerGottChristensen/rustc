@@ -682,7 +682,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             ty::Param(ref p) => {
                 self.assemble_inherent_candidates_from_param(p.clone());
             }
-            ty::HKT(ref p, ..) => {
+            ty::HKT(_, ref p, ..) => {
                 self.assemble_inherent_candidates_from_param(p.clone());
             }
             ty::Bool
@@ -824,7 +824,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                         ty::Param(ref p) if p.clone() == param_ty => {
                             Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }
-                        ty::HKT(ref p, ..) if p.clone() == param_ty => {
+                        ty::HKT(_, ref p, ..) if p.clone() == param_ty => {
                             // TODO(hoch)
                             Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }

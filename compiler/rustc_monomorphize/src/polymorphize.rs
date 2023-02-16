@@ -346,7 +346,7 @@ impl<'a, 'tcx> TypeVisitor<'tcx> for MarkUsedGenericParams<'a, 'tcx> {
                 self.unused_parameters.clear(param.index());
                 ControlFlow::CONTINUE
             }
-            ty::HKT(ref param, ..) => {
+            ty::HKT(_, ref param, ..) => {
                 debug!(?param);
                 self.unused_parameters.clear(param.index());
                 ControlFlow::CONTINUE
@@ -396,7 +396,7 @@ impl<'a, 'tcx> TypeVisitor<'tcx> for HasUsedGenericParams<'a> {
                     ControlFlow::BREAK
                 }
             }
-            ty::HKT(param, ..) => {
+            ty::HKT(_, param, ..) => {
                 if self.unused_parameters.contains(param.index()).unwrap_or(false) {
                     ControlFlow::CONTINUE
                 } else {
