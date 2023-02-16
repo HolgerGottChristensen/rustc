@@ -1,7 +1,6 @@
 // HKT inspect method
 // check-pass
 
-
 fn inspect<A, I<%J>, F: FnOnce(&A) + 'static>(i: I<A>, f: F, map: fn(I<A>, Box<dyn FnOnce(A)->A>)->I<A>) -> I<A> {
     map(i, Box::new(|a| {f(&a); a}))
 }

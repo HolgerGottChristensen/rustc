@@ -51,7 +51,7 @@ impl<'tcx> TraitEngineExt<'tcx> for dyn TraitEngine<'tcx> {
 /// with obligations outside of hir or mir typeck.
 pub struct ObligationCtxt<'a, 'tcx> {
     pub infcx: &'a InferCtxt<'tcx>,
-    engine: RefCell<Box<dyn TraitEngine<'tcx>>>,
+    pub engine: RefCell<Box<dyn TraitEngine<'tcx>>>,
 }
 
 impl<'a, 'tcx> ObligationCtxt<'a, 'tcx> {

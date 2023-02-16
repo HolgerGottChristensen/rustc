@@ -72,7 +72,7 @@ impl<'tcx> WfCheckingCtxt<'_, 'tcx> {
         arg: ty::GenericArg<'tcx>,
     ) {
         let param_env = self.param_env.without_const();
-        debug!("Register wf obligation for: {:?}, with env: {:#?}", arg.expect_ty().kind(), param_env);
+        info!("Register wf obligation for: {:?}, with env: {:#?}", arg.expect_ty().kind(), param_env);
         let cause =
             traits::ObligationCause::new(span, self.body_id, ObligationCauseCode::WellFormed(loc));
         // for a type to be WF, we do not need to check if const trait predicates satisfy.
@@ -107,6 +107,7 @@ pub(super) fn enter_wf_checking_ctxt<'tcx, F>(
         wfcx.check_false_global_bounds()
     }
     f(&mut wfcx);
+    info!("Pending obligations after function run: {:#?}", wfcx.ocx.engine.borrow().pending_obligations());
     let errors = wfcx.select_all_or_error();
     if !errors.is_empty() {
         infcx.err_ctxt().report_fulfillment_errors(&errors, None);
@@ -1512,9 +1513,9 @@ fn check_fn_or_method<'tcx>(
     def_id: LocalDefId,
 ) {
     let tcx = wfcx.tcx();
-    debug!("sig = {:?}", sig);
+    info!("sig = {:?}", sig);
     let sig = tcx.liberate_late_bound_regions(def_id.to_def_id(), sig);
-    debug!("post-liberate_late_bound_regions sig = {:?}", sig);
+    info!("post-liberate_late_bound_regions sig = {:?}", sig);
     // Normalize the input and output types one at a time, using a different
     // `WellFormedLoc` for each. We cannot call `normalize_associated_types`
     // on the entire `FnSig`, since this would use the same `WellFormedLoc`

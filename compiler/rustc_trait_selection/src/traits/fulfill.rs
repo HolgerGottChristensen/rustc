@@ -237,8 +237,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 
         let obligation = &mut pending_obligation.obligation;
 
-
-        debug!(?obligation, "pre-resolve");
+        info!("pre-resolve: {:#?}", obligation);
         debug!("{:#?}", obligation.cause);
         //debug!("EENNVV: {:#?}", obligation.param_env);
 
@@ -274,7 +273,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 
         match binder.no_bound_vars() {
             None => {
-                debug!("Contains bound vars: NONE");
+                info!("Contains bound vars: NONE");
 
                 match binder.skip_binder() {
                     // Evaluation will discard candidates using the leak check.
@@ -318,10 +317,10 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                 }
             },
             Some(pred) => {
-                debug!("Contains NO bound vars at all: SOME");
+                info!("Contains NO bound vars at all: SOME");
                 match pred {
                     ty::PredicateKind::Clause(ty::Clause::Trait(data)) => {
-                        debug!("Clause trait obligation: {:?}", data);
+                        info!("Clause trait obligation: {:?}", data);
                         let trait_obligation = obligation.with(infcx.tcx, Binder::dummy(data));
 
                         self.process_trait_obligation(
@@ -381,7 +380,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                     }
 
                     ty::PredicateKind::WellFormed(arg) => {
-                        debug!("wf::obligations param_env: {:#?}", obligation.param_env);
+                        info!("wf::obligations param_env: {:#?}", obligation.param_env);
                         match wf::obligations(
                             self.selcx.infcx,
                             obligation.param_env,

@@ -8,6 +8,7 @@ use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitable};
 use rustc_span::Span;
 
 use std::iter;
+
 /// Returns the set of obligations needed to make `arg` well-formed.
 /// If `arg` contains unresolved inference variables, this may include
 /// further WF obligations. However, if `arg` IS an unresolved
@@ -71,7 +72,7 @@ pub fn obligations<'tcx>(
     debug!("wf::obligations({:?}, body_id={:?}) = {:?}", arg, body_id, wf.out);
 
     let result = wf.normalize(infcx);
-    debug!("wf::obligations({:?}, body_id={:?}) ~~> {:?}", arg, body_id, result);
+    info!("wf::obligations(body_id={:?}, {:#?}) ~~> {:#?}", arg, body_id, result);
     Some(result)
 }
 
@@ -101,7 +102,7 @@ pub fn trait_obligations<'tcx>(
     wf.normalize(infcx)
 }
 
-#[instrument(skip(infcx), ret)]
+#[instrument(skip(infcx), ret, level = "debug")]
 pub fn predicate_obligations<'tcx>(
     infcx: &InferCtxt<'tcx>,
     param_env: ty::ParamEnv<'tcx>,
@@ -525,7 +526,6 @@ impl<'tcx> WfPredicates<'tcx> {
                 | ty::GeneratorWitness(..)
                 | ty::Never
                 | ty::Param(_)
-                | ty::HKT(..)
                 | ty::Bound(..)
                 | ty::Placeholder(..)
                 | ty::Foreign(..) => {
@@ -566,6 +566,13 @@ impl<'tcx> WfPredicates<'tcx> {
                 ty::Alias(ty::Projection, data) => {
                     walker.skip_current_subtree(); // Subtree handled by compute_projection.
                     self.compute_projection(data);
+                }
+
+                ty::HKT(_, _substs) => {
+                    // WfNominalType
+                    //let obligations = self.nominal_obligations(def.did(), substs);
+                    //self.out.extend(obligations);
+                    todo!("We need to add wf obligations for all substs")
                 }
 
                 ty::Adt(def, substs) => {
@@ -722,7 +729,7 @@ impl<'tcx> WfPredicates<'tcx> {
         }
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     fn nominal_obligations_inner(
         &mut self,
         def_id: DefId,
@@ -732,6 +739,7 @@ impl<'tcx> WfPredicates<'tcx> {
         let predicates = self.tcx.predicates_of(def_id);
         let mut origins = vec![def_id; predicates.predicates.len()];
         let mut head = predicates;
+
         while let Some(parent) = head.parent {
             head = self.tcx.predicates_of(parent);
             origins.extend(iter::repeat(parent).take(head.predicates.len()));

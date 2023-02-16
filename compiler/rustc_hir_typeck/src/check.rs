@@ -20,7 +20,7 @@ use std::cell::RefCell;
 ///
 /// * ...
 /// * inherited: other fields inherited from the enclosing fn (if any)
-#[instrument(skip(fcx, body), level = "debug")]
+#[instrument(skip(fcx, fn_sig, decl, fn_def_id, body, can_be_generator), level = "info")]
 pub(super) fn check_fn<'a, 'tcx>(
     fcx: &mut FnCtxt<'a, 'tcx>,
     fn_sig: ty::FnSig<'tcx>,
@@ -29,6 +29,11 @@ pub(super) fn check_fn<'a, 'tcx>(
     body: &'tcx hir::Body<'tcx>,
     can_be_generator: Option<hir::Movability>,
 ) -> Option<GeneratorTypes<'tcx>> {
+    info!("fn_sig={:?}", fn_sig);
+    info!("fn_def_id={:?}", fn_def_id);
+    //info!("decl={:#?}", decl);
+    info!("can_be_generator={:?}", can_be_generator);
+
     let fn_id = fcx.tcx.hir().local_def_id_to_hir_id(fn_def_id);
 
     let tcx = fcx.tcx;

@@ -78,7 +78,7 @@ impl<'a, 'tcx> GatherLocalsVisitor<'a, 'tcx> {
                 let o_ty = self.fcx.to_ty(&ty);
 
                 let c_ty = self.fcx.inh.infcx.canonicalize_user_type_annotation(UserType::Ty(o_ty));
-                debug!("visit_local: ty.hir_id={:?} o_ty={:?} c_ty={:?}", ty.hir_id, o_ty, c_ty);
+                info!("visit_local: ty.hir_id={:?} o_ty={:?} c_ty={:?}", ty.hir_id, o_ty, c_ty);
                 self.fcx
                     .typeck_results
                     .borrow_mut()
@@ -91,7 +91,7 @@ impl<'a, 'tcx> GatherLocalsVisitor<'a, 'tcx> {
         };
         self.assign(decl.span, decl.hir_id, local_ty);
 
-        debug!(
+        info!(
             "local variable {:?} is assigned type {}",
             decl.pat,
             self.fcx.ty_to_string(self.fcx.locals.borrow().get(&decl.hir_id).unwrap().decl_ty)
