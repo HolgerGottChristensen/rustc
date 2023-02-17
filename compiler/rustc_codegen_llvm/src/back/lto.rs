@@ -64,7 +64,7 @@ fn prepare_lto(
         let _timer = cgcx.prof.generic_activity("LLVM_lto_generate_symbols_below_threshold");
         exported_symbols[&LOCAL_CRATE].iter().filter_map(symbol_filter).collect::<Vec<CString>>()
     };
-    info!("{} symbols to preserve in this crate", symbols_below_threshold.len());
+    debug!("{} symbols to preserve in this crate", symbols_below_threshold.len());
 
     // If we're performing LTO for the entire crate graph, then for each of our
     // upstream dependencies, find the corresponding rlib and load the bitcode
@@ -119,7 +119,7 @@ fn prepare_lto(
                 })
                 .filter(|&(name, _)| looks_like_rust_object_file(name));
             for (name, child) in obj_files {
-                info!("adding bitcode from {}", name);
+                debug!("adding bitcode from {}", name);
                 match get_bitcode_slice_from_object_data(
                     child.data(&*archive_data).expect("corrupt rlib"),
                 ) {
@@ -224,7 +224,7 @@ fn fat_lto(
     symbols_below_threshold: &[*const libc::c_char],
 ) -> Result<LtoModuleCodegen<LlvmCodegenBackend>, FatalError> {
     let _timer = cgcx.prof.generic_activity("LLVM_fat_lto_build_monolithic_module");
-    info!("going for a fat lto");
+    debug!("going for a fat lto");
 
     // Sort out all our lists of incoming modules into two lists.
     //
@@ -238,14 +238,14 @@ fn fat_lto(
     // split the `modules` array into these two lists.
     let mut in_memory = Vec::new();
     serialized_modules.extend(cached_modules.into_iter().map(|(buffer, wp)| {
-        info!("pushing cached module {:?}", wp.cgu_name);
+        debug!("pushing cached module {:?}", wp.cgu_name);
         (buffer, CString::new(wp.cgu_name).unwrap())
     }));
     for module in modules {
         match module {
             FatLTOInput::InMemory(m) => in_memory.push(m),
             FatLTOInput::Serialized { name, buffer } => {
-                info!("pushing serialized module {:?}", name);
+                debug!("pushing serialized module {:?}", name);
                 let buffer = SerializedModule::Local(buffer);
                 serialized_modules.push((buffer, CString::new(name).unwrap()));
             }
@@ -281,7 +281,7 @@ fn fat_lto(
         None => {
             assert!(!serialized_modules.is_empty(), "must have at least one serialized module");
             let (buffer, name) = serialized_modules.remove(0);
-            info!("no in-memory regular modules to choose from, parsing {:?}", name);
+            debug!("no in-memory regular modules to choose from, parsing {:?}", name);
             ModuleCodegen {
                 module_llvm: ModuleLlvm::parse(cgcx, &name, buffer.data(), diag_handler)?,
                 name: name.into_string().unwrap(),
@@ -295,7 +295,7 @@ fn fat_lto(
             let llvm = &module.module_llvm;
             (&llvm.llcx, llvm.llmod())
         };
-        info!("using {:?} as a base module", module.name);
+        debug!("using {:?} as a base module", module.name);
 
         // The linking steps below may produce errors and diagnostics within LLVM
         // which we'd like to handle and print, so set up our diagnostic handlers
@@ -326,7 +326,7 @@ fn fat_lto(
                 .generic_activity_with_arg_recorder("LLVM_fat_lto_link_module", |recorder| {
                     recorder.record_arg(format!("{:?}", name))
                 });
-            info!("linking {:?}", name);
+            debug!("linking {:?}", name);
             let data = bc_decoded.data();
             linker.add(data).map_err(|()| {
                 let msg = format!("failed to load bitcode of module {:?}", name);
@@ -422,7 +422,7 @@ fn thin_lto(
 ) -> Result<(Vec<LtoModuleCodegen<LlvmCodegenBackend>>, Vec<WorkProduct>), FatalError> {
     let _timer = cgcx.prof.generic_activity("LLVM_thin_lto_global_analysis");
     unsafe {
-        info!("going for that thin, thin LTO");
+        debug!("going for that thin, thin LTO");
 
         let green_modules: FxHashMap<_, _> =
             cached_modules.iter().map(|(_, wp)| (wp.cgu_name.clone(), wp.clone())).collect();
@@ -433,7 +433,7 @@ fn thin_lto(
         let mut thin_modules = Vec::with_capacity(full_scope_len);
 
         for (i, (name, buffer)) in modules.into_iter().enumerate() {
-            info!("local module: {} - {}", i, name);
+            debug!("local module: {} - {}", i, name);
             let cname = CString::new(name.clone()).unwrap();
             thin_modules.push(llvm::ThinLTOModule {
                 identifier: cname.as_ptr(),
@@ -466,7 +466,7 @@ fn thin_lto(
             cached_modules.into_iter().map(|(sm, wp)| (sm, CString::new(wp.cgu_name).unwrap()));
 
         for (module, name) in serialized_modules.into_iter().chain(cached_modules) {
-            info!("upstream or cached module {:?}", name);
+            debug!("upstream or cached module {:?}", name);
             thin_modules.push(llvm::ThinLTOModule {
                 identifier: name.as_ptr(),
                 data: module.data().as_ptr(),
@@ -493,7 +493,7 @@ fn thin_lto(
 
         let data = ThinData(data);
 
-        info!("thin LTO data created");
+        debug!("thin LTO data created");
 
         let (key_map_path, prev_key_map, curr_key_map) = if let Some(ref incr_comp_session_dir) =
             cgcx.incr_comp_session_dir
@@ -513,9 +513,9 @@ fn thin_lto(
             let curr = ThinLTOKeysMap::default();
             (None, None, curr)
         };
-        info!("thin LTO cache key map loaded");
-        info!("prev_key_map: {:#?}", prev_key_map);
-        info!("curr_key_map: {:#?}", curr_key_map);
+        debug!("thin LTO cache key map loaded");
+        debug!("prev_key_map: {:#?}", prev_key_map);
+        debug!("curr_key_map: {:#?}", curr_key_map);
 
         // Throw our data in an `Arc` as we'll be sharing it across threads. We
         // also put all memory referenced by the C++ data (buffers, ids, etc)
@@ -531,7 +531,7 @@ fn thin_lto(
         let mut copy_jobs = vec![];
         let mut opt_jobs = vec![];
 
-        info!("checking which modules can be-reused and which have to be re-optimized.");
+        debug!("checking which modules can be-reused and which have to be re-optimized.");
         for (module_index, module_name) in shared.module_names.iter().enumerate() {
             let module_name = module_name_to_str(module_name);
             if let (Some(prev_key_map), true) =
@@ -544,14 +544,14 @@ fn thin_lto(
                 if prev_key_map.keys.get(module_name) == curr_key_map.keys.get(module_name) {
                     let work_product = green_modules[module_name].clone();
                     copy_jobs.push(work_product);
-                    info!(" - {}: re-used", module_name);
+                    debug!(" - {}: re-used", module_name);
                     assert!(cgcx.incr_comp_session_dir.is_some());
                     cgcx.cgu_reuse_tracker.set_actual_reuse(module_name, CguReuse::PostLto);
                     continue;
                 }
             }
 
-            info!(" - {}: re-compiled", module_name);
+            debug!(" - {}: re-compiled", module_name);
             opt_jobs.push(LtoModuleCodegen::Thin(ThinModule {
                 shared: shared.clone(),
                 idx: module_index,
@@ -814,7 +814,7 @@ pub unsafe fn optimize_thin_module(
         // populate a thin-specific pass manager, which presumably LLVM treats a
         // little differently.
         {
-            info!("running thin lto passes over {}", module.name);
+            debug!("running thin lto passes over {}", module.name);
             run_pass_manager(cgcx, &diag_handler, &mut module, true)?;
             save_temp_bitcode(cgcx, &module, "thin-lto-after-pm");
         }

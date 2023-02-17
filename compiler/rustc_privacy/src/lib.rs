@@ -182,8 +182,8 @@ where
         // InternalSubsts are not visited here because they are visited below
         // in `super_visit_with`.
         match *ty.kind() {
-            ty::Argument(_) => {
-                todo!("hoch")
+            ty::Argument(..) => {
+                //todo!("hoch") FIXMIG: I suppose this is always visible right?
             }
             ty::Adt(ty::AdtDef(Interned(&ty::AdtDefData { did: def_id, .. }, _)), ..)
             | ty::Foreign(def_id)
@@ -1185,6 +1185,10 @@ impl<'tcx> Visitor<'tcx> for TypePrivacyVisitor<'tcx> {
     }
 
     fn visit_ty(&mut self, hir_ty: &'tcx hir::Ty<'tcx>) {
+        // FIXMIG: Why the heck is this needed?
+        if matches!(hir_ty.kind, hir::TyKind::Argument(_)) {
+            return;
+        }
         self.span = hir_ty.span;
         if let Some(typeck_results) = self.maybe_typeck_results {
             // Types in bodies.

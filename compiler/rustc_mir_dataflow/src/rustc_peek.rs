@@ -270,7 +270,7 @@ impl<'tcx> RustcPeekAt<'tcx> for MaybeLiveLocals {
         flow_state: &ChunkedBitSet<Local>,
         call: PeekCall,
     ) {
-        info!(?place, "peek_at");
+        debug!(?place, "peek_at");
         let Some(local) = place.as_local() else {
             tcx.sess.emit_err(PeekArgumentNotALocal { span: call.span });
             return;

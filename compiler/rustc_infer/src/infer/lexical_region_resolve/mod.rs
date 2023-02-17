@@ -570,7 +570,7 @@ impl<'cx, 'tcx> LexicalResolver<'cx, 'tcx> {
     /// After expansion is complete, go and check upper bounds (i.e.,
     /// cases where the region cannot grow larger than a fixed point)
     /// and check that they are satisfied.
-    #[instrument(skip(self, var_data, errors))]
+    #[instrument(skip(self, var_data, errors) level = "debug")]
     fn collect_errors(
         &self,
         var_data: &mut LexicalRegionResolutions<'tcx>,

@@ -112,6 +112,8 @@ pub struct FnCtxt<'a, 'tcx> {
     pub(super) inh: &'a Inherited<'tcx>,
 
     pub(super) fallback_has_occurred: Cell<bool>,
+
+    argument_env: Cell<Option<DefId>>,
 }
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
@@ -134,6 +136,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }),
             inh,
             fallback_has_occurred: Cell::new(false),
+            argument_env: Cell::new(None),
         }
     }
 
@@ -181,6 +184,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     pub fn errors_reported_since_creation(&self) -> bool {
         self.tcx.sess.err_count() > self.err_count_on_creation
+    }
+
+    pub fn with_argument_env<R>(&self, def_id: DefId, f: impl FnOnce(&FnCtxt<'a, 'tcx>)->R) -> R {
+        self.argument_env.set(Some(def_id));
+        let val = f(self);
+        self.argument_env.set(None);
+        val
     }
 }
 
@@ -312,5 +322,9 @@ impl<'a, 'tcx> AstConv<'tcx> for FnCtxt<'a, 'tcx> {
 
     fn record_ty(&self, hir_id: hir::HirId, ty: Ty<'tcx>, _span: Span) {
         self.write_ty(hir_id, ty)
+    }
+
+    fn current_argument_env(&self) -> Option<DefId> {
+        self.argument_env.get()
     }
 }

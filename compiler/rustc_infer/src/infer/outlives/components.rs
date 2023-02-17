@@ -75,7 +75,7 @@ fn compute_components<'tcx>(
     // in the `subtys` iterator (e.g., when encountering a
     // projection).
     match *ty.kind() {
-        ty::Argument(_) => todo!("hoch"),
+        ty::Argument(..) => todo!("hoch"),
         ty::FnDef(_, substs) => {
             // HACK(eddyb) ignore lifetimes found shallowly in `substs`.
             // This is inconsistent with `ty::Adt` (including all substs)
@@ -125,7 +125,7 @@ fn compute_components<'tcx>(
             out.push(Component::Param(p.clone()));
         }
 
-        ty::HKT(ref p, ..) => {
+        ty::HKT(_, ref p, ..) => {
             out.push(Component::HKT(p.clone()));
             // todo!("hoch")
         }

@@ -586,6 +586,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         root_obligation: &PredicateObligation<'tcx>,
         error: &SelectionError<'tcx>,
     ) {
+        info!("Error when selecting in env: {:#?}", obligation.param_env);
         let tcx = self.tcx;
         let mut span = obligation.cause.span;
         // FIXME: statically guarantee this by tainting after the diagnostic is emitted
@@ -1837,7 +1838,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                 ty::Foreign(..) => Some(17),
                 ty::GeneratorWitness(..) => Some(18),
                 ty::Placeholder(..) | ty::Bound(..) | ty::Infer(..) | ty::Error(_) => None,
-                ty::Argument(_) => todo!("hoch"),
+                ty::Argument(..) => todo!("hoch"),
             }
         }
 
@@ -2592,7 +2593,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                             span: DUMMY_SP,
                         })
                     })
-                } else if let ty::HKT(p, ..) = *ty.kind() {
+                } else if let ty::HKT(_, p, ..) = *ty.kind() {
                     // TODO(hoch)
                     let infcx = self.infcx;
                     *self.var_map.entry(ty).or_insert_with(|| {

@@ -51,7 +51,7 @@ impl<'tcx> InferCtxt<'tcx> {
     ///   the same thing happens, but the resulting query is marked as ambiguous.
     /// - Finally, if any of the obligations result in a hard error,
     ///   then `Err(NoSolution)` is returned.
-    #[instrument(skip(self, inference_vars, answer, fulfill_cx), level = "trace")]
+    #[instrument(skip(self, inference_vars, answer, fulfill_cx), level = "info")]
     pub fn make_canonicalized_query_response<T>(
         &self,
         inference_vars: CanonicalVarValues<'tcx>,

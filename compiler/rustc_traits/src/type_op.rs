@@ -51,8 +51,8 @@ pub fn type_op_ascribe_user_type_with_span<'tcx>(
     span: Option<Span>,
 ) -> Result<(), NoSolution> {
     let (param_env, AscribeUserType { mir_ty, def_id, user_substs }) = key.into_parts();
-    debug!(
-        "type_op_ascribe_user_type: mir_ty={:?} def_id={:?} user_substs={:?}",
+    info!(
+        "type_op_ascribe_user_type: mir_ty={:?} \ndef_id={:?} \nuser_substs={:?}",
         mir_ty, def_id, user_substs
     );
     let span = span.unwrap_or(DUMMY_SP);
@@ -61,23 +61,34 @@ pub fn type_op_ascribe_user_type_with_span<'tcx>(
     let tcx = ocx.infcx.tcx;
     let cause = ObligationCause::dummy_with_span(span);
 
-    let ty = tcx.bound_type_of(def_id).subst(tcx, substs);
+    info!("ParamEnv: {:#?}", param_env);
+    info!("Get type of: {:?}", def_id);
+    let ty = tcx.bound_type_of(def_id);
+    info!("bound_type_of: {:?}", ty.skip_binder().kind());
+    let ty = ty.subst(tcx, substs);
+    info!("subst: {:?}", ty);
     let ty = ocx.normalize(&cause, param_env, ty);
-    debug!("relate_type_and_user_type: ty of def-id is {:?}", ty);
+    info!("relate_type_and_user_type: ty of def-id is {:?}", ty);
 
     ocx.eq(&cause, param_env, mir_ty, ty)?;
+
+    info!("after eq");
 
     // Prove the predicates coming along with `def_id`.
     //
     // Also, normalize the `instantiated_predicates`
     // because otherwise we wind up with duplicate "type
     // outlives" error messages.
-    let instantiated_predicates = tcx.predicates_of(def_id).instantiate(tcx, substs);
+    let predicates: ty::GenericPredicates<'_> = tcx.predicates_of(def_id);
+    info!("predicates: {:#?}", predicates);
+    let instantiated_predicates = predicates.instantiate(tcx, substs);
 
-    debug!(?instantiated_predicates);
+    info!("instantiated_predicates: {:#?}", instantiated_predicates);
+
     for (instantiated_predicate, predicate_span) in
         zip(instantiated_predicates.predicates, instantiated_predicates.spans)
     {
+
         let span = if span == DUMMY_SP { predicate_span } else { span };
         let cause = ObligationCause::new(
             span,
@@ -90,10 +101,13 @@ pub fn type_op_ascribe_user_type_with_span<'tcx>(
         ocx.register_obligation(Obligation::new(tcx, cause, param_env, instantiated_predicate));
     }
 
+    info!("After: for (instantiated_predicate, predicate_span) in");
+
     if let Some(UserSelfTy { impl_def_id, self_ty }) = user_self_ty {
         let impl_self_ty = tcx.bound_type_of(impl_def_id).subst(tcx, substs);
         let impl_self_ty = ocx.normalize(&cause, param_env, impl_self_ty);
 
+        info!("user_self_type_eq, expected={:?} actual={:?}", self_ty, impl_self_ty);
         ocx.eq(&cause, param_env, self_ty, impl_self_ty)?;
 
         let predicate: Predicate<'tcx> =
@@ -115,6 +129,7 @@ pub fn type_op_ascribe_user_type_with_span<'tcx>(
     let predicate: Predicate<'tcx> =
         ty::Binder::dummy(ty::PredicateKind::WellFormed(ty.into())).to_predicate(tcx);
     ocx.register_obligation(Obligation::new(tcx, cause, param_env, predicate));
+    info!("done with type_op_ascribe_user_type_with_span");
     Ok(())
 }
 

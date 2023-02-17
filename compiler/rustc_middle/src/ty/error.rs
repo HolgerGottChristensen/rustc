@@ -339,8 +339,8 @@ impl<'tcx> Ty<'tcx> {
             ty::Infer(ty::FreshIntTy(_)) => "fresh integral type".into(),
             ty::Infer(ty::FreshFloatTy(_)) => "fresh floating-point type".into(),
             ty::Alias(ty::Projection, _) => "associated type".into(),
-            ty::Param(ref p) => format!("type parameter `{}`", *p).into(),
-            ty::HKT(ref p, _) => format!("hkt parameter `{}`", *p).into(),
+            ty::Param(ref p) => format!("type parameter `{}`", p).into(),
+            ty::HKT(_, ref p, _) => format!("hkt parameter `{}`", p).into(),
             ty::Alias(ty::Opaque, ..) => "opaque type".into(),
             ty::Error(_) => "type error".into(),
         }
@@ -380,7 +380,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Alias(ty::Projection, _) => "associated type".into(),
             ty::Param(_) => "type parameter".into(),
             ty::HKT(..) => "hkt parameter".into(),
-            ty::Argument(_) => "type argument".into(),
+            ty::Argument(..) => "type argument".into(),
             ty::Alias(ty::Opaque, ..) => "opaque type".into(),
         }
     }
@@ -555,7 +555,7 @@ impl<T> Trait<T> for X {
                         ));
                     }
                     (ty::HKT(_p, ..), _) | (_, ty::HKT(_p, ..)) => {
-                        todo!("hoch")
+                        // FIXMIG: What should be called here
                     }
                     (ty::Param(p), _) | (_, ty::Param(p)) => {
                         let generics = self.generics_of(body_owner_def_id);

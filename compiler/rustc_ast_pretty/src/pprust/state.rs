@@ -1602,7 +1602,7 @@ impl<'a> State<'a> {
     pub(crate) fn print_hkt_kind(&mut self, kinds: &Generics) {
 
         self.commasep(Inconsistent, &kinds.params, |s, kind| {
-            s.word("?");
+            s.word("%");
             s.print_ident(kind.ident);
             /*match kind {
                 HKTKind::Atomic(ident) => {

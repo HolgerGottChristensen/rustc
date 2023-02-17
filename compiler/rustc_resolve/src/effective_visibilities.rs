@@ -112,7 +112,7 @@ impl<'r, 'a> EffectiveVisibilitiesVisitor<'r, 'a> {
             }
         }
 
-        info!("resolve::effective_visibilities: {:#?}", r.effective_visibilities);
+        debug!("resolve::effective_visibilities: {:#?}", r.effective_visibilities);
     }
 
     /// Update effective visibilities of bindings in the given module,

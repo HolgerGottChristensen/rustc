@@ -394,7 +394,7 @@ pub fn codegen_instance<'a, 'tcx: 'a, Bx: BuilderMethods<'a, 'tcx>>(
     // this is an info! to allow collecting monomorphization statistics
     // and to allow finding the last function before LLVM aborts from
     // release builds.
-    info!("codegen_instance({})", instance);
+    debug!("codegen_instance({})", instance);
 
     mir::codegen_mir::<Bx>(cx, instance);
 }

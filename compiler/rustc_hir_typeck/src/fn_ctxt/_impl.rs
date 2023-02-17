@@ -21,9 +21,7 @@ use rustc_middle::ty::adjustment::{Adjust, Adjustment, AutoBorrow, AutoBorrowMut
 use rustc_middle::ty::error::TypeError;
 use rustc_middle::ty::fold::TypeFoldable;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{
-    self, AdtKind, CanonicalUserType, DefIdTree, GenericParamDefKind, Ty, UserType,
-};
+use rustc_middle::ty::{self, AdtKind, CanonicalUserType, DefIdTree, GenericParamDefKind, ParamEnv, Ty, UserType};
 use rustc_middle::ty::{GenericArgKind, InternalSubsts, SubstsRef, UserSelfTy, UserSubsts};
 use rustc_session::lint;
 use rustc_span::def_id::LocalDefId;
@@ -80,12 +78,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.resolve_vars_with_obligations_and_mutate_fulfillment(ty, |_| {})
     }
 
-    #[instrument(skip(self, mutate_fulfillment_errors), level = "debug", ret)]
+    #[instrument(skip(self, mutate_fulfillment_errors), level = "info", ret)]
     pub(in super::super) fn resolve_vars_with_obligations_and_mutate_fulfillment(
         &self,
         mut ty: Ty<'tcx>,
         mutate_fulfillment_errors: impl Fn(&mut Vec<traits::FulfillmentError<'tcx>>),
     ) -> Ty<'tcx> {
+        info!("Param env: {:#?}", self.param_env);
+        info!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         // No Infer()? Nothing needs doing.
         if !ty.has_non_region_infer() {
             debug!("no inference var, nothing needs doing");
@@ -416,6 +416,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         t
     }
 
+    pub fn to_ty_with_param_env(&self, ast_t: &hir::Ty<'_>, param_env: ParamEnv<'tcx>) -> Ty<'tcx> {
+        info!("to_ty_with_param_env = {:#?}", self.argument_env.get());
+        let t = <dyn AstConv<'_>>::ast_ty_to_ty(self, ast_t);
+
+        self.register_wf_obligation_with_param_env(t.into(), ast_t.span, traits::WellFormed(None), param_env);
+        t
+    }
+
     pub fn to_ty_saving_user_provided_ty(&self, ast_ty: &hir::Ty<'_>) -> Ty<'tcx> {
         let ty = self.to_ty(ast_ty);
         debug!("to_ty_saving_user_provided_ty: ty={:?}", ty);
@@ -501,12 +509,24 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         span: Span,
         code: traits::ObligationCauseCode<'tcx>,
     ) {
+        self.register_wf_obligation_with_param_env(arg, span, code, self.param_env.clone())
+    }
+
+    /// Registers an obligation for checking later, during regionck, that `arg` is well-formed.
+    pub fn register_wf_obligation_with_param_env(
+        &self,
+        arg: ty::GenericArg<'tcx>,
+        span: Span,
+        code: traits::ObligationCauseCode<'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
+    ) {
         // WF obligations never themselves fail, so no real need to give a detailed cause:
         let cause = traits::ObligationCause::new(span, self.body_id, code);
+        info!("Register predicate {:#?} with env: {:#?}", arg, param_env);
         self.register_predicate(traits::Obligation::new(
             self.tcx,
             cause,
-            self.param_env,
+            param_env,
             ty::Binder::dummy(ty::PredicateKind::WellFormed(arg)),
         ));
     }
@@ -562,13 +582,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         &self,
         mutate_fulfillment_errors: impl Fn(&mut Vec<traits::FulfillmentError<'tcx>>),
     ) {
+        debug!("select_obligations_where_possible Obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         let mut result = self.fulfillment_cx.borrow_mut().select_where_possible(self);
         if !result.is_empty() {
             mutate_fulfillment_errors(&mut result);
             self.adjust_fulfillment_errors_for_expr_obligation(&mut result);
             self.err_ctxt().report_fulfillment_errors(&result, self.inh.body_id);
+            //todo!("asdf");
         }
-
     }
 
     /// For the overloaded place expressions (`*x`, `x[3]`), the trait
@@ -684,7 +705,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let formal_ret = self.resolve_vars_with_obligations(formal_ret);
         let ret_ty = expected_ret.only_has_type(self)?;
 
-        // HACK(oli-obk): This is a hack to keep RPIT and TAIT in sync wrt their behaviour.
+        // HACK(oli-obk): This is a hack to keep RPIT and TAIT in sync with regard to their behaviour.
         // Without it, the inference
         // variable will get instantiated with the opaque type. The inference variable often
         // has various helpful obligations registered for it that help closures figure out their
@@ -981,9 +1002,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         ));
     }
 
-    // Instantiates the given path, which must refer to an item with the given
-    // number of type parameters and type.
-    #[instrument(skip(self, span), level = "debug")]
+    /// Instantiates the given path, which must refer to an item with the given
+    /// number of type parameters and type.
+    #[instrument(skip(self, span), level = "info")]
     pub fn instantiate_value_path(
         &self,
         segments: &[hir::PathSegment<'_>],
@@ -1005,9 +1026,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let mut user_self_ty = None;
         let mut is_alias_variant_ctor = false;
         match res {
-            Res::Def(DefKind::Ctor(CtorOf::Variant, _), _)
-                if let Some(self_ty) = self_ty =>
-            {
+            Res::Def(DefKind::Ctor(CtorOf::Variant, _), _) if let Some(self_ty) = self_ty => {
                 let adt_def = self_ty.ty_adt_def().unwrap();
                 user_self_ty = Some(UserSelfTy { impl_def_id: adt_def.did(), self_ty });
                 is_alias_variant_ctor = true;
@@ -1043,6 +1062,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // errors if type parameters are provided in an inappropriate place.
 
         let generic_segs: FxHashSet<_> = path_segs.iter().map(|PathSeg(_, index)| index).collect();
+
         let generics_has_err = <dyn AstConv<'_>>::prohibit_generics(
             self,
             segments.iter().enumerate().filter_map(|(index, seg)| {
@@ -1207,8 +1227,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         self.fcx.ct_infer(tcx.type_of(param.def_id), Some(param), inf.span).into()
                     }
                     (GenericParamDefKind::HKT, GenericArg::Type(ty)) => {
-                        self.fcx.to_ty(ty).into()
-                        //todo!("hoch")
+                        let parent_id = self.fcx.tcx.parent(param.def_id);
+
+                        let param_env = self.fcx.tcx.param_env_with_hkt((parent_id, self.fcx.param_env));
+
+                        // FIXMIG: We need to insert the hkt parameter things here AGAIN
+                        self.fcx.with_argument_env(param.def_id, |fcx| {
+                            fcx.to_ty_with_param_env(ty, param_env).into()
+                        })
                     }
                     _ => unreachable!(),
                 }
@@ -1259,6 +1285,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         }
 
+        debug!("pre create_substs_for_generic_args = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
         let substs = self_ctor_substs.unwrap_or_else(|| {
             <dyn AstConv<'_>>::create_substs_for_generic_args(
                 tcx,
@@ -1280,6 +1308,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // First, store the "user substs" for later.
         self.write_user_type_annotation_from_substs(hir_id, def_id, substs, user_self_ty);
 
+        debug!("pre add_required_obligations_for_hir = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         self.add_required_obligations_for_hir(span, def_id, &substs, hir_id);
 
         // Substitute the values for the type parameters into the type of
@@ -1334,7 +1363,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         })
     }
 
-    #[instrument(level = "debug", skip(self, code, span, substs))]
+    #[instrument(level = "info", skip(self, code, span, substs))]
     fn add_required_obligations_with_code(
         &self,
         span: Span,
@@ -1385,6 +1414,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Resolves `typ` by a single level if `typ` is a type variable.
     /// If no resolution is possible, then an error is reported.
     /// Numeric inference variables may be left unresolved.
+    #[instrument(level = "info", skip(self, sp), ret)]
     pub fn structurally_resolved_type(&self, sp: Span, ty: Ty<'tcx>) -> Ty<'tcx> {
         let ty = self.resolve_vars_with_obligations(ty);
         if !ty.is_ty_var() {

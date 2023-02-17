@@ -263,11 +263,12 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
     /// Attempts to satisfy the obligation. If successful, this will affect the surrounding
     /// type environment by performing unification.
-    #[instrument(level = "debug", skip(self), ret)]
+    #[instrument(level = "info", skip(self), ret)]
     pub fn select(
         &mut self,
         obligation: &TraitObligation<'tcx>,
     ) -> SelectionResult<'tcx, Selection<'tcx>> {
+        info!("Select within environment: {:#?}", obligation.param_env);
         let candidate = match self.select_from_obligation(obligation) {
             Err(SelectionError::Overflow(OverflowError::Canonical)) => {
                 // In standard mode, overflow must have been caught and reported
@@ -308,7 +309,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         self.candidate_from_obligation(&stack)
     }
 
-    #[instrument(level = "debug", skip(self), ret)]
+    #[instrument(level = "info", skip(self), ret)]
     fn candidate_from_obligation<'o>(
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
@@ -976,6 +977,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         previous_stack: TraitObligationStackList<'o, 'tcx>,
         mut obligation: TraitObligation<'tcx>,
     ) -> Result<EvaluationResult, OverflowError> {
+
+        // This is only for caching
         if !self.is_intercrate()
             && obligation.is_global()
             && obligation.param_env.caller_bounds().iter().all(|bound| bound.needs_subst())
@@ -1020,7 +1023,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             return Ok(cycle_result);
         }
 
-        let (result, dep_node) = self.in_task(|this| this.evaluate_stack(&stack));
+        let (result, dep_node) =
+            self.in_task(|this| this.evaluate_stack(&stack));
+
         let result = result?;
 
         if !result.must_apply_modulo_regions() {
@@ -1112,30 +1117,32 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
     ) -> Result<EvaluationResult, OverflowError> {
-        // In intercrate mode, whenever any of the generics are unbound,
-        // there can always be an impl. Even if there are no impls in
-        // this crate, perhaps the type would be unified with
-        // something from another crate that does provide an impl.
-        //
-        // In intra mode, we must still be conservative. The reason is
-        // that we want to avoid cycles. Imagine an impl like:
-        //
-        //     impl<T:Eq> Eq for Vec<T>
-        //
-        // and a trait reference like `$0 : Eq` where `$0` is an
-        // unbound variable. When we evaluate this trait-reference, we
-        // will unify `$0` with `Vec<$1>` (for some fresh variable
-        // `$1`), on the condition that `$1 : Eq`. We will then wind
-        // up with many candidates (since that are other `Eq` impls
-        // that apply) and try to winnow things down. This results in
-        // a recursive evaluation that `$1 : Eq` -- as you can
-        // imagine, this is just where we started. To avoid that, we
-        // check for unbound variables and return an ambiguous (hence possible)
-        // match if we've seen this trait before.
-        //
-        // This suffices to allow chains like `FnMut` implemented in
-        // terms of `Fn` etc, but we could probably make this more
-        // precise still.
+        /*
+        In intercrate mode, whenever any of the generics are unbound,
+        there can always be an impl. Even if there are no impls in
+        this crate, perhaps the type would be unified with
+        something from another crate that does provide an impl.
+
+        In intra mode, we must still be conservative. The reason is
+        that we want to avoid cycles. Imagine an impl like:
+
+            impl<T:Eq> Eq for Vec<T>
+
+        and a trait reference like `$0 : Eq` where `$0` is an
+        unbound variable. When we evaluate this trait-reference, we
+        will unify `$0` with `Vec<$1>` (for some fresh variable
+        `$1`), on the condition that `$1 : Eq`. We will then wind
+        up with many candidates (since that are other `Eq` impls
+        that apply) and try to winnow things down. This results in
+        a recursive evaluation that `$1 : Eq` -- as you can
+        imagine, this is just where we started. To avoid that, we
+        check for unbound variables and return an ambiguous (hence possible)
+        match if we've seen this trait before.
+
+        This suffices to allow chains like `FnMut` implemented in
+        terms of `Fn` etc, but we could probably make this more
+        precise still.
+        */
         let unbound_input_types =
             stack.fresh_trait_pred.skip_binder().trait_ref.substs.types().any(|ty| ty.is_fresh());
 
@@ -2029,6 +2036,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
     }
 
+    #[instrument(skip(self, obligation), level = "info", ret)]
     fn sized_conditions(
         &mut self,
         obligation: &TraitObligation<'tcx>,
@@ -2067,7 +2075,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             ),
 
             ty::Adt(def, substs) => {
-                let sized_crit = def.sized_constraint(self.tcx());
+                let sized_crit: ty::EarlyBinder<&'tcx [Ty<'tcx>]> = def.sized_constraint(self.tcx());
                 // (*) binder moved here
                 Where(obligation.predicate.rebind({
                     sized_crit
@@ -2078,7 +2086,11 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }))
             }
 
-            ty::Argument(_) => None, // TODO: hoch
+            ty::Argument(..) => {
+                // FIXMIG: hoch
+                debug!("Hit hERE");
+                None
+            },
             ty::Alias(..) | ty::Param(_) | ty::HKT(..) => None,
             ty::Infer(ty::TyVar(_)) => Ambiguous,
 
@@ -2101,7 +2113,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         match *self_ty.kind() {
 
-            ty::Argument(_) => todo!("hoch"),
+            ty::Argument(..) => todo!("hoch"),
 
             ty::Infer(ty::IntVar(_))
             | ty::Infer(ty::FloatVar(_))
@@ -2231,7 +2243,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Never
             | ty::Char => ty::Binder::dummy(Vec::new()),
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 

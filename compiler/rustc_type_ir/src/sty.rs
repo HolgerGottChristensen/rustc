@@ -178,7 +178,7 @@ pub enum TyKind<I: Interner> {
     /// expected to be provided.
     /// Furthermore it contains a substsref, which contains the corresponding
     /// values that are substituted with the parameter names.
-    HKT(I::HKTTy, I::SubstsRef),
+    HKT(I::DefId, I::HKTTy, I::SubstsRef),
 
     /// Bound type variable, used to represent the `'a` in `for<'a> fn(&'a ())`.
     ///
@@ -250,7 +250,7 @@ const fn tykind_discriminant<I: Interner>(value: &TyKind<I>) -> usize {
         Infer(_) => 24,
         Error(_) => 25,
         HKT(..) => 26,
-        Argument(_) => 27
+        Argument(..) => 27
     }
 }
 
@@ -284,7 +284,7 @@ impl<I: Interner> Clone for TyKind<I> {
             Placeholder(p) => Placeholder(p.clone()),
             Infer(t) => Infer(t.clone()),
             Error(e) => Error(e.clone()),
-            HKT(p, s) => HKT(p.clone(), s.clone()),
+            HKT(did, p, s) => HKT(did.clone(), p.clone(), s.clone()),
             Argument(s) => Argument(s.clone())
         }
     }
@@ -318,7 +318,7 @@ impl<I: Interner> PartialEq for TyKind<I> {
                 (Tuple(a_t), Tuple(b_t)) => a_t == b_t,
                 (Alias(a_i, a_p), Alias(b_i, b_p)) => a_i == b_i && a_p == b_p,
                 (Param(a_p), Param(b_p)) => a_p == b_p,
-                (HKT(a_p, a_s), HKT(b_p, b_s)) => a_p == b_p && a_s == b_s,
+                (HKT(a_did, a_p, a_s), HKT(b_did, b_p, b_s)) => a_did == b_did && a_p == b_p && a_s == b_s,
                 (Argument(a_s), Argument(b_s)) => a_s == b_s,
                 (Bound(a_d, a_b), Bound(b_d, b_b)) => a_d == b_d && a_b == b_b,
                 (Placeholder(a_p), Placeholder(b_p)) => a_p == b_p,
@@ -377,7 +377,7 @@ impl<I: Interner> Ord for TyKind<I> {
                 (Tuple(a_t), Tuple(b_t)) => a_t.cmp(b_t),
                 (Alias(a_i, a_p), Alias(b_i, b_p)) => a_i.cmp(b_i).then_with(|| a_p.cmp(b_p)),
                 (Param(a_p), Param(b_p)) => a_p.cmp(b_p),
-                (HKT(a_p, a_s), HKT(b_p, b_s)) => a_p.cmp(b_p).then_with(|| a_s.cmp(b_s)),
+                (HKT(a_did, a_p, a_s), HKT(b_did, b_p, b_s)) => a_did.cmp(b_did).then_with(|| a_p.cmp(b_p).then_with(|| a_s.cmp(b_s))),
                 (Argument(a_p), Argument(b_p)) => a_p.cmp(b_p),
                 (Bound(a_d, a_b), Bound(b_d, b_b)) => a_d.cmp(b_d).then_with(|| a_b.cmp(b_b)),
                 (Placeholder(a_p), Placeholder(b_p)) => a_p.cmp(b_p),
@@ -450,7 +450,8 @@ impl<I: Interner> hash::Hash for TyKind<I> {
             Placeholder(p) => p.hash(state),
             Infer(t) => t.hash(state),
             Error(e) => e.hash(state),
-            HKT(p, s) => {
+            HKT(did, p, s) => {
+                did.hash(state);
                 p.hash(state);
                 s.hash(state)
             }
@@ -491,7 +492,7 @@ impl<I: Interner> fmt::Debug for TyKind<I> {
             Bound(d, b) => f.debug_tuple_field2_finish("Bound", d, b),
             Placeholder(p) => f.debug_tuple_field1_finish("Placeholder", p),
             Infer(t) => f.debug_tuple_field1_finish("Infer", t),
-            HKT(d, s) => f.debug_tuple_field2_finish("HKT", d, s),
+            HKT(did, d, s) => f.debug_tuple_field3_finish("HKT", did, d, s),
             Argument(v) => f.debug_tuple_field1_finish("Argument", v),
             TyKind::Error(e) => f.debug_tuple_field1_finish("Error", e),
         }
@@ -610,7 +611,8 @@ where
             Error(d) => e.emit_enum_variant(disc, |e| {
                 d.encode(e);
             }),
-            HKT(b, s) => e.emit_enum_variant(disc, |e| {
+            HKT(did, b, s) => e.emit_enum_variant(disc, |e| {
+                did.encode(e);
                 b.encode(e);
                 s.encode(e);
             }),
@@ -677,7 +679,7 @@ where
             23 => Placeholder(Decodable::decode(d)),
             24 => Infer(Decodable::decode(d)),
             25 => Error(Decodable::decode(d)),
-            26 => HKT(Decodable::decode(d), Decodable::decode(d)),
+            26 => HKT(Decodable::decode(d), Decodable::decode(d), Decodable::decode(d)),
             27 => Argument(Decodable::decode(d)),
             _ => panic!(
                 "{}",
@@ -806,7 +808,8 @@ where
             Error(d) => {
                 d.hash_stable(__hcx, __hasher);
             }
-            HKT(b,  s) => {
+            HKT(did, b,  s) => {
+                did.hash_stable(__hcx, __hasher);
                 b.hash_stable(__hcx, __hasher);
                 s.hash_stable(__hcx, __hasher);
             }

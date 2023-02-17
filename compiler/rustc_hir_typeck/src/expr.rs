@@ -20,7 +20,7 @@ use crate::{
     TupleArgumentsFlag::DontTupleArguments,
 };
 use rustc_ast as ast;
-use rustc_data_structures::fx::FxHashMap;
+use rustc_data_structures::fx::{FxHashMap};
 use rustc_data_structures::stack::ensure_sufficient_stack;
 use rustc_errors::{
     pluralize, struct_span_err, Applicability, Diagnostic, DiagnosticBuilder, DiagnosticId,
@@ -42,7 +42,7 @@ use rustc_middle::middle::stability;
 use rustc_middle::ty::adjustment::{Adjust, Adjustment, AllowTwoPhase};
 use rustc_middle::ty::error::TypeError::FieldMisMatch;
 use rustc_middle::ty::subst::SubstsRef;
-use rustc_middle::ty::{self, AdtKind, Ty, TypeVisitable};
+use rustc_middle::ty::{self, AdtKind, ParamEnv, Ty, TypeVisitable};
 use rustc_session::errors::ExprParenthesesNeeded;
 use rustc_session::parse::feature_err;
 use rustc_span::hygiene::DesugaringKind;
@@ -176,7 +176,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Note that inspecting a type's structure *directly* may expose the fact
     /// that there are actually multiple representations for `Error`, so avoid
     /// that when err needs to be handled differently.
-    #[instrument(skip(self, expr), level = "debug")]
+    #[instrument(skip(self, expr), level = "info")]
     pub(super) fn check_expr_with_expectation(
         &self,
         expr: &'tcx hir::Expr<'tcx>,
@@ -193,6 +193,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expected: Expectation<'tcx>,
         args: &'tcx [hir::Expr<'tcx>],
     ) -> Ty<'tcx> {
+        //debug!("expr = {:#?}", expr);
+        //debug!("expected = {:#?}", expected);
+        info!("args = {:#?}", args.len());
+        info!("Pending obligations args: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
         if self.tcx().sess.verbose() {
             // make this code only run with -Zverbose because it is probably slow
             if let Ok(lint_str) = self.tcx.sess.source_map().span_to_snippet(expr.span) {
@@ -228,13 +233,19 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // Hide the outer diverging and has_errors flags.
         let old_diverges = self.diverges.replace(Diverges::Maybe);
 
+
         let ty = ensure_sufficient_stack(|| match &expr.kind {
             hir::ExprKind::Path(
                 qpath @ hir::QPath::Resolved(..) | qpath @ hir::QPath::TypeRelative(..),
             ) => self.check_expr_path(qpath, expr, args),
             _ => self.check_expr_kind(expr, expected),
         });
+
+        info!("pre resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
         let ty = self.resolve_vars_if_possible(ty);
+        info!("post resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
 
         // Warn for non-block expressions with diverging children.
         match expr.kind {
@@ -267,13 +278,23 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // Combine the diverging and has_error flags.
         self.diverges.set(self.diverges.get() | old_diverges);
 
-        debug!("type of {} is...", self.tcx.hir().node_to_string(expr.hir_id));
-        debug!("... {:?}, expected is {:?}", ty, expected);
+        info!("type of {} is...", self.tcx.hir().node_to_string(expr.hir_id));
+        info!("... {:?}, expected is {:?}", ty, expected);
 
         ty
     }
 
-    #[instrument(skip(self, expr), level = "debug")]
+
+    /// Type checks an expression, by looking at its kind and delegating to specific implementations
+    /// for each kind of expression.
+    ///
+    /// # Arguments
+    ///
+    /// * `expr`: The expression to check the type of
+    /// * `expected`: The expected type if any
+    ///
+    /// returns: The resulting type of the expression being checked
+    #[instrument(skip(self, expr), level = "info")]
     fn check_expr_kind(
         &self,
         expr: &'tcx hir::Expr<'tcx>,
@@ -281,27 +302,41 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     ) -> Ty<'tcx> {
         trace!("expr={:#?}", expr);
 
+        debug!("Pending obligations0: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
+
         let tcx = self.tcx;
         match expr.kind {
-            ExprKind::Box(subexpr) => self.check_expr_box(subexpr, expected),
-            ExprKind::Lit(ref lit) => self.check_lit(&lit, expected),
-            ExprKind::Binary(op, lhs, rhs) => self.check_binop(expr, op, lhs, rhs, expected),
+            ExprKind::Box(subexpr) => {
+                self.check_expr_box(subexpr, expected)
+            }
+            ExprKind::Lit(ref lit) => {
+                self.check_lit(&lit, expected)
+            }
+            ExprKind::Binary(op, lhs, rhs) => {
+                self.check_binop(expr, op, lhs, rhs, expected)
+            }
             ExprKind::Assign(lhs, rhs, span) => {
                 self.check_expr_assign(expr, expected, lhs, rhs, span)
             }
             ExprKind::AssignOp(op, lhs, rhs) => {
                 self.check_binop_assign(expr, op, lhs, rhs, expected)
             }
-            ExprKind::Unary(unop, oprnd) => self.check_expr_unary(unop, oprnd, expected, expr),
+            ExprKind::Unary(unop, oprnd) => {
+                self.check_expr_unary(unop, oprnd, expected, expr)
+            }
             ExprKind::AddrOf(kind, mutbl, oprnd) => {
                 self.check_expr_addr_of(kind, mutbl, oprnd, expected, expr)
             }
             ExprKind::Path(QPath::LangItem(lang_item, _, hir_id)) => {
                 self.check_lang_item_path(lang_item, expr, hir_id)
             }
-            ExprKind::Path(ref qpath) => self.check_expr_path(qpath, expr, &[]),
+            ExprKind::Path(ref qpath) => {
+                self.check_expr_path(qpath, expr, &[])
+            }
             ExprKind::InlineAsm(asm) => {
-                // We defer some asm checks as we may not have resolved the input and output types yet (they may still be infer vars).
+                // We defer some asm checks as we may not have resolved the input and output
+                // types yet (they may still be infer vars).
                 self.deferred_asm_checks.borrow_mut().push((asm, expr.hir_id));
                 self.check_expr_asm(asm)
             }
@@ -316,21 +351,33 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     tcx.ty_error()
                 }
             }
-            ExprKind::Ret(ref expr_opt) => self.check_expr_return(expr_opt.as_deref(), expr),
-            ExprKind::Let(let_expr) => self.check_expr_let(let_expr),
+            ExprKind::Ret(ref expr_opt) => {
+                self.check_expr_return(expr_opt.as_deref(), expr)
+            }
+            ExprKind::Let(let_expr) => {
+                self.check_expr_let(let_expr)
+            }
             ExprKind::Loop(body, _, source, _) => {
                 self.check_expr_loop(body, source, expected, expr)
             }
             ExprKind::Match(discrim, arms, match_src) => {
                 self.check_match(expr, &discrim, arms, expected, match_src)
             }
-            ExprKind::Closure(closure) => self.check_expr_closure(closure, expr.span, expected),
-            ExprKind::Block(body, _) => self.check_block_with_expected(&body, expected),
-            ExprKind::Call(callee, args) => self.check_call(expr, &callee, args, expected),
+            ExprKind::Closure(closure) => {
+                self.check_expr_closure(closure, expr.span, expected)
+            }
+            ExprKind::Block(body, _) => {
+                self.check_block_with_expected(&body, expected)
+            }
+            ExprKind::Call(callee, args) => {
+                self.check_call(expr, &callee, args, expected)
+            }
             ExprKind::MethodCall(segment, receiver, args, _) => {
                 self.check_method_call(expr, segment, receiver, args, expected)
             }
-            ExprKind::Cast(e, t) => self.check_expr_cast(e, t, expr),
+            ExprKind::Cast(e, t) => {
+                self.check_expr_cast(e, t, expr)
+            }
             ExprKind::Type(e, t) => {
                 let ty = self.to_ty_saving_user_provided_ty(&t);
                 self.check_expr_eq_type(&e, ty);
@@ -339,22 +386,36 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ExprKind::If(cond, then_expr, opt_else_expr) => {
                 self.check_then_else(cond, then_expr, opt_else_expr, expr.span, expected)
             }
-            ExprKind::DropTemps(e) => self.check_expr_with_expectation(e, expected),
-            ExprKind::Array(args) => self.check_expr_array(args, expected, expr),
+            ExprKind::DropTemps(e) => {
+                self.check_expr_with_expectation(e, expected)
+            }
+            ExprKind::Array(args) => {
+                self.check_expr_array(args, expected, expr)
+            }
             ExprKind::ConstBlock(ref anon_const) => {
                 self.check_expr_const_block(anon_const, expected, expr)
             }
             ExprKind::Repeat(element, ref count) => {
                 self.check_expr_repeat(element, count, expected, expr)
             }
-            ExprKind::Tup(elts) => self.check_expr_tuple(elts, expected, expr),
+            ExprKind::Tup(elts) => {
+                self.check_expr_tuple(elts, expected, expr)
+            }
             ExprKind::Struct(qpath, fields, ref base_expr) => {
                 self.check_expr_struct(expr, expected, qpath, fields, base_expr)
             }
-            ExprKind::Field(base, field) => self.check_field(expr, &base, field),
-            ExprKind::Index(base, idx) => self.check_expr_index(base, idx, expr),
-            ExprKind::Yield(value, ref src) => self.check_expr_yield(value, expr, src),
-            hir::ExprKind::Err => tcx.ty_error(),
+            ExprKind::Field(base, field) => {
+                self.check_field(expr, &base, field)
+            }
+            ExprKind::Index(base, idx) => {
+                self.check_expr_index(base, idx, expr)
+            }
+            ExprKind::Yield(value, ref src) => {
+                self.check_expr_yield(value, expr, src)
+            }
+            ExprKind::Err => {
+                tcx.ty_error()
+            }
         }
     }
 
@@ -516,6 +577,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.resolve_lang_item_path(lang_item, expr.span, expr.hir_id, hir_id).1
     }
 
+    #[instrument(skip(self, expr, args, qpath), level = "info")]
     pub(crate) fn check_expr_path(
         &self,
         qpath: &'tcx hir::QPath<'tcx>,
@@ -525,6 +587,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let tcx = self.tcx;
         let (res, opt_ty, segs) =
             self.resolve_ty_and_res_fully_qualified_call(qpath, expr.hir_id, expr.span);
+
+        info!("pre let ty = match res  = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
         let ty = match res {
             Res::Err => {
                 self.suggest_assoc_method_call(segs);
@@ -539,6 +604,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
             _ => self.instantiate_value_path(segs, opt_ty, res, expr.span, expr.hir_id).0,
         };
+
+
 
         if let ty::FnDef(did, ..) = *ty.kind() {
             let fn_sig = ty.fn_sig(tcx);
@@ -571,12 +638,18 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         infer::LateBoundRegionConversionTime::FnCall,
                         fn_sig.input(i),
                     );
+                    info!("pre require_type_is_sized_deferred = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
                     self.require_type_is_sized_deferred(
                         input,
                         span,
                         traits::SizedArgumentType(None),
                     );
+
                 }
+
+
+
             }
             // Here we want to prevent struct constructors from returning unsized types.
             // There were two cases this happened: fn pointer coercion in stable
@@ -590,12 +663,34 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 fn_sig.output(),
             );
             self.require_type_is_sized_deferred(output, expr.span, traits::SizedReturnType);
+
+            // We always require that the type provided as the value for
+            // a type parameter outlives the moment of instantiation.
+            let substs = self.typeck_results.borrow().node_substs(expr.hir_id);
+
+            info!("deferred sized = {:#?}", self.deferred_sized_obligations);
+            info!("param environment to add = {:#?}", self.param_env);
+            info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
+            for arg in substs.iter().filter(|arg| {
+                matches!(arg.unpack(), ty::GenericArgKind::Type(..) | ty::GenericArgKind::Const(..))
+            }) {
+                let param_env: ParamEnv<'_> = self.tcx.param_env_with_hkt((did, self.param_env));
+                self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
+            }
+
+        } else {
+            // We always require that the type provided as the value for
+            // a type parameter outlives the moment of instantiation.
+            let substs = self.typeck_results.borrow().node_substs(expr.hir_id);
+
+            info!("deferred sized = {:#?}", self.deferred_sized_obligations);
+            info!("param environment to add = {:#?}", self.param_env);
+            info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+            self.add_wf_bounds(substs, expr);
         }
 
-        // We always require that the type provided as the value for
-        // a type parameter outlives the moment of instantiation.
-        let substs = self.typeck_results.borrow().node_substs(expr.hir_id);
-        self.add_wf_bounds(substs, expr);
+
 
         ty
     }

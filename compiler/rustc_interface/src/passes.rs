@@ -422,7 +422,7 @@ pub fn configure_and_expand(
 
     // Add all buffered lints from the `ParseSess` to the `Session`.
     sess.parse_sess.buffered_lints.with_lock(|buffered_lints| {
-        info!("{} parse sess buffered_lints", buffered_lints.len());
+        debug!("{} parse sess buffered_lints", buffered_lints.len());
         for early_lint in buffered_lints.drain(..) {
             resolver.lint_buffer().add_early_lint(early_lint);
         }
@@ -981,7 +981,7 @@ pub fn start_codegen<'tcx>(
     codegen_backend: &dyn CodegenBackend,
     tcx: TyCtxt<'tcx>,
 ) -> Box<dyn Any> {
-    info!("Pre-codegen\n{:?}", tcx.debug_stats());
+    debug!("Pre-codegen\n{:?}", tcx.debug_stats());
 
     let (metadata, need_metadata_module) = rustc_metadata::fs::encode_and_write_metadata(tcx);
 
@@ -996,7 +996,7 @@ pub fn start_codegen<'tcx>(
         rustc_symbol_mangling::test::report_symbol_names(tcx);
     }
 
-    info!("Post-codegen\n{:?}", tcx.debug_stats());
+    debug!("Post-codegen\n{:?}", tcx.debug_stats());
 
     if tcx.sess.opts.output_types.contains_key(&OutputType::Mir) {
         if let Err(error) = rustc_mir_transform::dump_mir::emit_mir(tcx) {

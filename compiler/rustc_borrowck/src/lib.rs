@@ -124,12 +124,13 @@ pub fn provide(providers: &mut Providers) {
     };
 }
 
+#[instrument(skip(tcx), ret, level = "info")]
 fn mir_borrowck(tcx: TyCtxt<'_>, def: ty::WithOptConstParam<LocalDefId>) -> &BorrowCheckResult<'_> {
     let (input_body, promoted) = tcx.mir_promoted(def);
-    debug!("run query mir_borrowck: {}", tcx.def_path_str(def.did.to_def_id()));
+    info!("run query mir_borrowck: {}", tcx.def_path_str(def.did.to_def_id()));
 
     if input_body.borrow().should_skip() {
-        debug!("Skipping borrowck because of injected body");
+        info!("Skipping borrowck because of injected body");
         // Let's make up a borrowck result! Fun times!
         let result = BorrowCheckResult {
             concrete_opaque_types: VecMap::new(),
@@ -142,10 +143,11 @@ fn mir_borrowck(tcx: TyCtxt<'_>, def: ty::WithOptConstParam<LocalDefId>) -> &Bor
 
     let hir_owner = tcx.hir().local_def_id_to_hir_id(def.did).owner;
 
-    let infcx =
-        tcx.infer_ctxt().with_opaque_type_inference(DefiningAnchor::Bind(hir_owner.def_id)).build();
+    let infcx = tcx.infer_ctxt().with_opaque_type_inference(DefiningAnchor::Bind(hir_owner.def_id)).build();
     let input_body: &Body<'_> = &input_body.borrow();
+    info!("Body: {:#?}", input_body);
     let promoted: &IndexVec<_, _> = &promoted.borrow();
+    info!("Promoted: {:#?}", promoted);
     let opt_closure_req = do_mir_borrowck(&infcx, input_body, promoted, false).0;
     debug!("mir_borrowck done");
 
@@ -157,7 +159,7 @@ fn mir_borrowck(tcx: TyCtxt<'_>, def: ty::WithOptConstParam<LocalDefId>) -> &Bor
 /// If `return_body_with_facts` is true, then return the body with non-erased
 /// region ids on which the borrow checking was performed together with Polonius
 /// facts.
-#[instrument(skip(infcx, input_body, input_promoted), fields(id=?input_body.source.with_opt_param().as_local().unwrap()), level = "debug")]
+#[instrument(skip(infcx, input_body, input_promoted), fields(id=?input_body.source.with_opt_param().as_local().unwrap()), level = "info")]
 fn do_mir_borrowck<'tcx>(
     infcx: &InferCtxt<'tcx>,
     input_body: &Body<'tcx>,
@@ -166,7 +168,7 @@ fn do_mir_borrowck<'tcx>(
 ) -> (BorrowCheckResult<'tcx>, Option<Box<BodyWithBorrowckFacts<'tcx>>>) {
     let def = input_body.source.with_opt_param().as_local().unwrap();
 
-    debug!(?def);
+    info!(?def);
 
     let tcx = infcx.tcx;
     let param_env = tcx.param_env(def.did);
@@ -244,6 +246,8 @@ fn do_mir_borrowck<'tcx>(
         Rc::new(BorrowSet::build(tcx, body, locals_are_invalidated_at_exit, &mdpe.move_data));
 
     let use_polonius = return_body_with_facts || infcx.tcx.sess.opts.unstable_opts.polonius;
+
+    info!("Body: {:#?}", body);
 
     // Compute non-lexical lifetimes.
     let nll::NllOutput {

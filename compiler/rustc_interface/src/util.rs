@@ -1,4 +1,3 @@
-use info;
 use libloading::Library;
 use rustc_ast as ast;
 use rustc_codegen_ssa::traits::CodegenBackend;
@@ -293,7 +292,7 @@ fn get_codegen_sysroot(maybe_sysroot: &Option<PathBuf>, backend_name: &str) -> M
             filesearch::make_target_lib_path(sysroot, target).with_file_name("codegen-backends")
         })
         .find(|f| {
-            info!("codegen backend candidate: {}", f.display());
+            debug!("codegen backend candidate: {}", f.display());
             f.exists()
         });
     let sysroot = sysroot.unwrap_or_else(|| {
@@ -308,7 +307,7 @@ fn get_codegen_sysroot(maybe_sysroot: &Option<PathBuf>, backend_name: &str) -> M
         );
         early_error(ErrorOutputType::default(), &err);
     });
-    info!("probing {} for a codegen backend", sysroot.display());
+    debug!("probing {} for a codegen backend", sysroot.display());
 
     let d = sysroot.read_dir().unwrap_or_else(|e| {
         let err = format!(

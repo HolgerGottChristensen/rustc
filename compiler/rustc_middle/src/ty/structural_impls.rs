@@ -112,6 +112,12 @@ impl<'tcx> fmt::Debug for Ty<'tcx> {
     }
 }
 
+impl fmt::Debug for ty::ArgumentDef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/#{}", self.name, self.index)
+    }
+}
+
 impl fmt::Debug for ty::ParamConst {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}/#{}", self.name, self.index)
@@ -230,6 +236,7 @@ TrivialTypeTraversalAndLiftImpls! {
     crate::ty::ParamConst,
     crate::ty::ParamTy,
     crate::ty::HKTTy,
+    crate::ty::ArgumentDef,
     crate::ty::adjustment::PointerCast,
     crate::ty::RegionVid,
     crate::ty::UniverseIndex,

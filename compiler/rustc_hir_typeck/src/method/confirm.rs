@@ -478,7 +478,7 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
         method_predicates: ty::InstantiatedPredicates<'tcx>,
         def_id: DefId,
     ) {
-        debug!(
+        info!(
             "add_obligations: fty={:?} all_substs={:?} method_predicates={:?} def_id={:?}",
             fty, all_substs, method_predicates, def_id
         );

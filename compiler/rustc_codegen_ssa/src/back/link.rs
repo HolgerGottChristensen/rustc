@@ -107,7 +107,7 @@ pub fn link_binary<'a>(
             match crate_type {
                 CrateType::Rlib => {
                     let _timer = sess.timer("link_rlib");
-                    info!("preparing rlib to {:?}", out_filename);
+                    debug!("preparing rlib to {:?}", out_filename);
                     link_rlib(
                         sess,
                         archive_builder_builder,
@@ -502,7 +502,7 @@ fn link_staticlib<'a>(
     out_filename: &Path,
     tempdir: &MaybeTempDir,
 ) -> Result<(), ErrorGuaranteed> {
-    info!("preparing staticlib to {:?}", out_filename);
+    debug!("preparing staticlib to {:?}", out_filename);
     let mut ab = link_rlib(
         sess,
         archive_builder_builder,
@@ -710,7 +710,7 @@ fn link_natively<'a>(
     codegen_results: &CodegenResults,
     tmpdir: &Path,
 ) -> Result<(), ErrorGuaranteed> {
-    info!("preparing {:?} to {:?}", crate_type, out_filename);
+    debug!("preparing {:?} to {:?}", crate_type, out_filename);
     let (linker_path, flavor) = linker_and_flavor(sess);
     let mut cmd = linker_with_args(
         &linker_path,
@@ -740,7 +740,7 @@ fn link_natively<'a>(
     sess.abort_if_errors();
 
     // Invoke the system linker
-    info!("{:?}", &cmd);
+    debug!("{:?}", &cmd);
     let retry_on_segfault = env::var("RUSTC_RETRY_LINKER_ON_SEGFAULT").is_ok();
     let unknown_arg_regex =
         Regex::new(r"(unknown|unrecognized) (command line )?(option|argument)").unwrap();
@@ -770,14 +770,14 @@ fn link_natively<'a>(
             && out.contains("-no-pie")
             && cmd.get_args().iter().any(|e| e.to_string_lossy() == "-no-pie")
         {
-            info!("linker output: {:?}", out);
+            debug!("linker output: {:?}", out);
             warn!("Linker does not support -no-pie command line option. Retrying without.");
             for arg in cmd.take_args() {
                 if arg.to_string_lossy() != "-no-pie" {
                     cmd.arg(arg);
                 }
             }
-            info!("{:?}", &cmd);
+            debug!("{:?}", &cmd);
             continue;
         }
 
@@ -788,7 +788,7 @@ fn link_natively<'a>(
             && (out.contains("-static-pie") || out.contains("--no-dynamic-linker"))
             && cmd.get_args().iter().any(|e| e.to_string_lossy() == "-static-pie")
         {
-            info!("linker output: {:?}", out);
+            debug!("linker output: {:?}", out);
             warn!(
                 "Linker does not support -static-pie command line option. Retrying with -static instead."
             );
@@ -836,7 +836,7 @@ fn link_natively<'a>(
                     cmd.arg(arg);
                 }
             }
-            info!("{:?}", &cmd);
+            debug!("{:?}", &cmd);
             continue;
         }
 
@@ -942,8 +942,8 @@ fn link_natively<'a>(
 
                 sess.abort_if_errors();
             }
-            info!("linker stderr:\n{}", escape_string(&prog.stderr));
-            info!("linker stdout:\n{}", escape_string(&prog.stdout));
+            debug!("linker stderr:\n{}", escape_string(&prog.stderr));
+            debug!("linker stdout:\n{}", escape_string(&prog.stdout));
         }
         Err(e) => {
             let linker_not_found = e.kind() == io::ErrorKind::NotFound;
@@ -1407,13 +1407,13 @@ fn exec_linker(
                 return output;
             }
             Err(ref e) if command_line_too_big(e) => {
-                info!("command line to linker was too big: {}", e);
+                debug!("command line to linker was too big: {}", e);
             }
             Err(e) => return Err(e),
         }
     }
 
-    info!("falling back to passing arguments to linker via an @-file");
+    debug!("falling back to passing arguments to linker via an @-file");
     let mut cmd2 = cmd.clone();
     let mut args = String::new();
     for arg in cmd2.take_args() {
@@ -1438,7 +1438,7 @@ fn exec_linker(
     };
     fs::write(&file, &bytes)?;
     cmd2.arg(format!("@{}", file.display()));
-    info!("invoking linker {:?}", cmd2);
+    debug!("invoking linker {:?}", cmd2);
     let output = cmd2.output();
     flush_linked_file(&output, out_filename)?;
     return output;

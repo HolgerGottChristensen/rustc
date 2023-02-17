@@ -21,12 +21,13 @@ use super::SelectionCandidate::*;
 use super::{SelectionCandidateSet, SelectionContext, TraitObligationStack};
 
 impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
-    #[instrument(skip(self, stack), level = "debug")]
+    #[instrument(skip(self, stack), level = "info")]
     pub(super) fn assemble_candidates<'o>(
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
     ) -> Result<SelectionCandidateSet<'tcx>, SelectionError<'tcx>> {
         let TraitObligationStack { obligation, .. } = *stack;
+        debug!("PARAM_ENV: {:#?}", obligation.param_env);
         let obligation = &Obligation {
             param_env: obligation.param_env,
             cause: obligation.cause.clone(),
@@ -80,6 +81,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 // `Pointee` is automatically implemented for every type.
                 candidates.vec.push(BuiltinCandidate { has_nested: false });
             } else if lang_items.sized_trait() == Some(def_id) {
+                debug!("Sized condition hit");
                 // Sized is never implementable by end-users, it is
                 // always automatically computed.
                 let sized_conditions = self.sized_conditions(obligation);

@@ -51,7 +51,7 @@ impl<'tcx> TraitEngineExt<'tcx> for dyn TraitEngine<'tcx> {
 /// with obligations outside of hir or mir typeck.
 pub struct ObligationCtxt<'a, 'tcx> {
     pub infcx: &'a InferCtxt<'tcx>,
-    engine: RefCell<Box<dyn TraitEngine<'tcx>>>,
+    pub engine: RefCell<Box<dyn TraitEngine<'tcx>>>,
 }
 
 impl<'a, 'tcx> ObligationCtxt<'a, 'tcx> {
@@ -64,6 +64,7 @@ impl<'a, 'tcx> ObligationCtxt<'a, 'tcx> {
     }
 
     pub fn register_obligation(&self, obligation: PredicateObligation<'tcx>) {
+        debug!("Register obligation: {:?} with env: {:#?} and cause {:#?}", obligation, obligation.param_env, obligation.cause);
         self.engine.borrow_mut().register_predicate_obligation(self.infcx, obligation);
     }
 

@@ -98,7 +98,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
 
         Ok(match *t.kind() {
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
             ty::Slice(_) | ty::Str => Some(PointerKind::Length),

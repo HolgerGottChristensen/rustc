@@ -964,7 +964,7 @@ impl SourceMap {
 
     /// Finds the width of the character, either before or after the end of provided span,
     /// depending on the `forwards` parameter.
-    #[instrument(skip(self, sp))]
+    #[instrument(skip(self, sp), level = "debug")]
     fn find_width_of_character_at_span(&self, sp: Span, forwards: bool) -> u32 {
         let sp = sp.data();
 

@@ -26,10 +26,10 @@ use rustc_infer::infer::InferOk;
 use rustc_infer::infer::TypeTrace;
 use rustc_middle::ty::adjustment::AllowTwoPhase;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, DefIdTree, FnSig, GenericArgKind, IsSuggestable, SubstsRef, Ty, TyKind, TypeParameter, TypeParamResult, TypeSuperVisitable, TypeVisitor};
+use rustc_middle::ty::{self, DefIdTree, IsSuggestable, SubstsRef, Ty, TyKind, TypeParameter, TypeParamResult, TypeSuperVisitable, TypeVisitor};
 use rustc_session::Session;
 use rustc_span::symbol::{kw, Ident};
-use rustc_span::{self, sym, Span, Symbol};
+use rustc_span::{self, sym, Span};
 use rustc_trait_selection::traits::{self, ObligationCauseCode, SelectionContext};
 
 use std::iter;
@@ -140,103 +140,39 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     }
 
 
-    #[allow(rustc::usage_of_ty_tykind)]
-    fn ty_kind_substitution(&self, ty: &'tcx ty::TyKind<'tcx>, with: &ty::TyKind<'tcx>, name: Symbol) -> ty::TyKind<'tcx> {
-        match ty {
-            TyKind::Argument(arg_name) if name == *arg_name => {
-                with.clone()
-            }
-            TyKind::Bool
-            | TyKind::Char
-            | TyKind::Int(_)
-            | TyKind::Uint(_)
-            | TyKind::Error(_)
-            | TyKind::Argument(_)
-            | TyKind::Param(_)
-            | TyKind::HKT(_, _)
-            | TyKind::Float(_) => {
-                ty.clone()
-            }
-            TyKind::Adt(a, substs) => {
-                let substs: &SubstsRef<'_> = substs;
-
-                let new_substs = substs.iter().map(|a| {
-                    match a.unpack() {
-                        GenericArgKind::Const(_)
-                        | GenericArgKind::Lifetime(_) => a,
-                        GenericArgKind::Type(t) => {
-                            self.tcx.mk_ty(self.ty_kind_substitution(t.kind(), with, name)).into()
-                        }
-                    }
-                }).collect::<Vec<_>>();
-
-                TyKind::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter()))
-            }
-            _ => {
-                todo!("here: {:#?}", ty)
-            }
-        }
-    }
-
-    ///
-    fn evaluate_type_functions(&self, fn_def_id: Option<DefId>, arguments: &[Ty<'tcx>]) -> Vec<Ty<'tcx>> {
-        let fn_def_id = fn_def_id.expect("Investigation needed hoch");
-
-        let sig: FnSig<'_> = self.tcx.fn_sig(fn_def_id).skip_binder();
-        let generics: &ty::Generics = self.tcx.generics_of(fn_def_id);
-
-        let mut evaluated = vec![];
-
-        for (input, argument) in sig.inputs().iter().zip(arguments) {
-            match input.kind() {
-                ty::HKT(p, substs) => {
-                    let substs: &SubstsRef<'_> = substs;
-                    let hkt_generics: &ty::Generics = self.tcx.generics_of(generics.params[(*p).index() as usize].def_id);
-
-                    let res_type = self.ty_kind_substitution(argument.kind(), substs[0].expect_ty().kind(), hkt_generics.params[0].name);
-                    //todo!("{:#?}, {:#?}, {:#?}, {:#?}", argument, hkt_generics, substs, res_type)
-                    evaluated.push(self.tcx.mk_ty(res_type))
-                }
-                _ => evaluated.push(*argument)
-            }
-        }
-
-        evaluated
-    }
-
     /// Generic function that factors out common logic from function calls,
     /// method calls and overloaded operators.
-    #[instrument(level = "debug", skip(self, call_span, call_expr, formal_input_tys, expected_input_tys, provided_args, c_variadic, tuple_arguments))]
+    ///
+    /// # Arguments
+    ///
+    /// * `call_span`: Span enclosing the call site
+    /// * `call_expr`: Expression of the call site
+    /// * `formal_input_tys`: Types (as defined in the *signature* of the target function)
+    /// * `expected_input_tys`: More specific expected types, after unifying with caller output types
+    /// * `provided_args`: The expressions for each provided argument
+    /// * `c_variadic`: Whether the function is variadic, for example when imported from C
+    /// * `tuple_arguments`: Whether the arguments have been bundled in a tuple (ex: closures)
+    /// * `fn_def_id`: The DefId for the function being called, for better error messages
+    ///
+    #[instrument(level = "info", skip(self, call_span, call_expr, formal_input_tys, expected_input_tys, provided_args, c_variadic, tuple_arguments))]
     pub(in super::super) fn check_argument_types(
         &self,
-        // Span enclosing the call site
         call_span: Span,
-        // Expression of the call site
         call_expr: &'tcx hir::Expr<'tcx>,
-        // Types (as defined in the *signature* of the target function)
         formal_input_tys: &[Ty<'tcx>],
-        // More specific expected types, after unifying with caller output types
         expected_input_tys: Option<Vec<Ty<'tcx>>>,
-        // The expressions for each provided argument
         provided_args: &'tcx [hir::Expr<'tcx>],
-        // Whether the function is variadic, for example when imported from C
         c_variadic: bool,
-        // Whether the arguments have been bundled in a tuple (ex: closures)
         tuple_arguments: TupleArgumentsFlag,
-        // The DefId for the function being called, for better error messages
         fn_def_id: Option<DefId>,
     ) {
-        //warn!("{:#?}", fn_def_id);
-        //warn!("{:#?}", call_expr);
-        //warn!("{:#?}", formal_input_tys);
-        //warn!("{:#?}", expected_input_tys);
-        //warn!("{:#?}", provided_args);
+        // debug!("fn_def_id={:#?}", fn_def_id);
+        // debug!("{:#?}", call_expr);
+        // debug!("formal_input_tys={:#?}", formal_input_tys);
+        // debug!("expected_input_tys={:#?}", expected_input_tys);
+        // debug!("provided_args={:#?}", provided_args);
         let tcx = self.tcx;
 
-
-        // Simplify the types and evaluate the type functions
-        let formal_input_tys = &self.evaluate_type_functions(fn_def_id, formal_input_tys)[..];
-        info!("Evaluated formal inputs: {:#?}", formal_input_tys);
 
 
         // Conceptually, we've got some number of expected inputs, and some number of provided arguments
@@ -261,7 +197,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         // If the arguments should be wrapped in a tuple (ex: closures), unwrap them here
         let (formal_input_tys, expected_input_tys) = if tuple_arguments == TupleArguments {
+
             let tuple_type = self.structurally_resolved_type(call_span, formal_input_tys[0]);
+
             match tuple_type.kind() {
                 // We expected a tuple and got a tuple
                 ty::Tuple(arg_types) => {
@@ -299,7 +237,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             (formal_input_tys.to_vec(), expected_input_tys)
         };
 
-        // If there are no external expectations at the call site, just use the types from the function defn
+        // If there are no external expectations at the call site, just use the types from the function definition
         let expected_input_tys = if let Some(expected_input_tys) = expected_input_tys {
             assert_eq!(expected_input_tys.len(), formal_input_tys.len());
             expected_input_tys
@@ -328,20 +266,25 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // We're on the happy path here, so we'll do a more involved check and write back types
             // To check compatibility, we'll do 3 things:
             // 1. Unify the provided argument with the expected type
+            debug!("pre Expectation::rvalue_hint");
             let expectation = Expectation::rvalue_hint(self, expected_input_ty);
 
+            debug!("pre check_expr_with_expectation");
             let checked_ty = self.check_expr_with_expectation(provided_arg, expectation);
 
             // 2. Coerce to the most detailed type that could be coerced
             //    to, which is `expected_ty` if `rvalue_hint` returns an
             //    `ExpectHasType(expected_ty)`, or the `formal_ty` otherwise.
+            debug!("pre expectation.only_has_type(self)");
             let coerced_ty = expectation.only_has_type(self).unwrap_or(formal_input_ty);
 
             // Cause selection errors caused by resolving a single argument to point at the
             // argument and not the call. This lets us customize the span pointed to in the
             // fulfillment error to be more accurate.
+            debug!("pre self.resolve_vars_with_obligations");
             let coerced_ty = self.resolve_vars_with_obligations(coerced_ty);
 
+            debug!("pre try_coerce");
             let coerce_error = self
                 .try_coerce(provided_arg, checked_ty, coerced_ty, AllowTwoPhase::Yes, None)
                 .err();
@@ -411,6 +354,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             provided_arg_count == minimum_input_count
         };
 
+
+        debug!("Pre check closures");
         // Check the arguments.
         // We do this in a pretty awful way: first we type-check any arguments
         // that are not closures, then we type-check the closures. This is so
@@ -420,8 +365,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // More awful hacks: before we check argument types, try to do
             // an "opportunistic" trait resolution of any trait bounds on
             // the call. This helps coercions.
+            debug!("Check closures: {}", check_closures);
             if check_closures {
-                self.select_obligations_where_possible(|_| {})
+                debug!("Pre select where possible");
+                self.select_obligations_where_possible(|_| {});
+                debug!("Post select where possible");
             }
 
             // Check each argument, to satisfy the input it was provided for
@@ -448,7 +396,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     continue;
                 }
 
+                debug!("Pre demand compatible arg: {}", idx);
                 let compatible = demand_compatible(idx);
+                debug!("Post demand compatible arg: {}", idx);
                 let is_compatible = matches!(compatible, Compatibility::Compatible);
                 compatibility_diagonal[idx] = compatible;
 
@@ -457,6 +407,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 }
             }
         }
+
+        debug!("Post check closures");
 
         if c_variadic && provided_arg_count < minimum_input_count {
             err_code = "E0060";
@@ -506,6 +458,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
 
         if !call_appears_satisfied {
+            debug!("Not satisfied");
             let compatibility_diagonal = IndexVec::from_raw(compatibility_diagonal);
             let provided_args = IndexVec::from_iter(provided_args.iter().take(if c_variadic {
                 minimum_input_count
@@ -535,6 +488,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 call_span,
                 call_expr,
             );
+        } else {
+            debug!("Satisfied");
         }
     }
 
@@ -1845,7 +1800,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     {
                         Some(arg)
                     } else if let ty::GenericArgKind::Type(ty) = arg.unpack()
-                        && let ty::HKT(param_ty, ..) = ty.kind()
+                        && let ty::HKT(_, param_ty, ..) = ty.kind()
                         && matches(&TypeParamResult::HKT(*param_ty))
                     {
                         todo!("hoch")

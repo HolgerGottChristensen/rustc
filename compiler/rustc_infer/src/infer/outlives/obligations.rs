@@ -171,7 +171,7 @@ impl<'tcx> InferCtxt<'tcx> {
         }
     }
 
-    /// Processes registered region obliations and resolves regions, reporting
+    /// Processes registered region obligations and resolves regions, reporting
     /// any errors if any were raised. Prefer using this function over manually
     /// calling `resolve_regions_and_report_errors`.
     pub fn check_region_obligations_and_report_errors(

@@ -95,15 +95,17 @@ impl FlagComputation {
                 self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE);
             }
 
-            &ty::Argument(_) => {
-                // TODO: hoch
+            &ty::Argument(..) => {
+                // FIXMIG: Are these the correct flags to add?
+                self.add_flags(TypeFlags::HAS_TY_PARAM);
+                self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE);
             }
 
-            &ty::HKT(..) => {
+            &ty::HKT(_, _, substs) => {
                 // TODO(hoch): Combined param and adt
                 self.add_flags(TypeFlags::HAS_TY_PARAM);
                 self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE);
-                //self.add_substs(substs);
+                self.add_substs(substs);
             }
 
             ty::Generator(_, substs, _) => {

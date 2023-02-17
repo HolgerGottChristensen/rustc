@@ -135,7 +135,7 @@ impl<'tcx> TraitEngine<'tcx> for FulfillmentContext<'tcx> {
         // debug output much nicer to read and so on.
         let obligation = infcx.resolve_vars_if_possible(obligation);
 
-        debug!(?obligation, "register_predicate_obligation");
+        info!("register_predicate_obligation: {:?}, with param_env: {:#?}", obligation.predicate, obligation.param_env);
 
         assert!(!infcx.is_in_snapshot() || self.usable_in_snapshot);
 
@@ -228,7 +228,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
     /// This is called much less often than `needs_process_obligation`, so we
     /// never inline it.
     #[inline(never)]
-    #[instrument(level = "debug", skip(self, pending_obligation))]
+    #[instrument(level = "info", skip(self, pending_obligation))]
     fn process_obligation(
         &mut self,
         pending_obligation: &mut PendingPredicateObligation<'tcx>,
@@ -237,15 +237,16 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 
         let obligation = &mut pending_obligation.obligation;
 
-
-        debug!(?obligation, "pre-resolve");
+        info!("pre-resolve: {:#?}", obligation);
         debug!("{:#?}", obligation.cause);
+        //debug!("EENNVV: {:#?}", obligation.param_env);
 
         if obligation.predicate.has_non_region_infer() {
             debug!("Has non region infer");
             obligation.predicate = self.selcx.infcx.resolve_vars_if_possible(obligation.predicate);
+            debug!(?obligation, "post-resolve-vars-if-possible");
         }
-        debug!(?obligation, "post-resolve-vars-if-possible");
+
 
         let obligation = &pending_obligation.obligation;
 
@@ -272,7 +273,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 
         match binder.no_bound_vars() {
             None => {
-                debug!("Contains bound vars");
+                info!("Contains bound vars: NONE");
 
                 match binder.skip_binder() {
                     // Evaluation will discard candidates using the leak check.
@@ -316,10 +317,10 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                 }
             },
             Some(pred) => {
-                debug!("Contains NO bound vars at all");
+                info!("Contains NO bound vars at all: SOME");
                 match pred {
                     ty::PredicateKind::Clause(ty::Clause::Trait(data)) => {
-                        debug!("Clause trait obligation: {:?}", data);
+                        info!("Clause trait obligation: {:?}", data);
                         let trait_obligation = obligation.with(infcx.tcx, Binder::dummy(data));
 
                         self.process_trait_obligation(
@@ -379,6 +380,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                     }
 
                     ty::PredicateKind::WellFormed(arg) => {
+                        info!("wf::obligations param_env: {:#?}", obligation.param_env);
                         match wf::obligations(
                             self.selcx.infcx,
                             obligation.param_env,

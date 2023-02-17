@@ -68,11 +68,11 @@ impl<'tcx> WfCheckingCtxt<'_, 'tcx> {
         loc: Option<WellFormedLoc>,
         arg: ty::GenericArg<'tcx>,
     ) {
-        debug!("Register wf obligation for: {:?}", arg.expect_ty().kind());
+        let param_env = self.param_env.without_const();
+        //info!("Register wf obligation for: {:?}, with env: {:#?}", arg.expect_ty().kind(), param_env);
         let cause =
             traits::ObligationCause::new(span, self.body_id, ObligationCauseCode::WellFormed(loc));
         // for a type to be WF, we do not need to check if const trait predicates satisfy.
-        let param_env = self.param_env.without_const();
         self.ocx.register_obligation(traits::Obligation::new(
             self.tcx(),
             cause,
@@ -96,6 +96,7 @@ pub(super) fn enter_wf_checking_ctxt<'tcx, F>(
     let ocx = ObligationCtxt::new(infcx);
 
     let assumed_wf_types = ocx.assumed_wf_types(param_env, span, body_def_id);
+    debug!("assumed_wf_types = {:#?}", assumed_wf_types);
 
     let mut wfcx = WfCheckingCtxt { ocx, span, body_id, param_env };
 
@@ -103,6 +104,7 @@ pub(super) fn enter_wf_checking_ctxt<'tcx, F>(
         wfcx.check_false_global_bounds()
     }
     f(&mut wfcx);
+    info!("Pending obligations after function run: {:#?}", wfcx.ocx.engine.borrow().pending_obligations());
     let errors = wfcx.select_all_or_error();
     if !errors.is_empty() {
         infcx.err_ctxt().report_fulfillment_errors(&errors, None);
@@ -1288,16 +1290,16 @@ fn check_impl<'tcx>(
 }
 
 /// Checks where-clauses and inline bounds that are declared on `def_id`.
-#[instrument(level = "debug", skip(wfcx))]
+#[instrument(level = "info", skip(wfcx))]
 fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id: LocalDefId) {
     let infcx = wfcx.infcx;
     let tcx = wfcx.tcx();
 
-    info!("Hejsa1");
+    debug!("Hejsa1");
     let predicates = tcx.bound_predicates_of(def_id.to_def_id());
     info!("post bound_predicates_of - {:#?}", predicates);
     let generics = tcx.generics_of(def_id);
-    info!("Hejsa3");
+    debug!("Hejsa3");
 
     let is_our_default = |def: &ty::GenericParamDef| match def.kind {
         GenericParamDefKind::Type { has_default, .. }
@@ -1402,7 +1404,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
         }
     });
 
-    info!("substs = {:?}", substs);
+    debug!("substs = {:?}", substs);
 
     // Now we build the substituted predicates.
     let default_obligations = predicates
@@ -1421,7 +1423,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
                     if let ty::Param(param) = t.kind() {
                         self.params.insert(param.index());
                     }
-                    if let ty::HKT(param, ..) = t.kind() {
+                    if let ty::HKT(_, param, ..) = t.kind() {
                         self.params.insert(param.index());
                     }
                     t.super_visit_with(self)
@@ -1442,7 +1444,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             let has_region = pred.visit_with(&mut param_count).is_break();
             let substituted_pred = predicates.rebind(pred).subst(tcx, substs);
 
-            info!(?substituted_pred);
+            debug!(?substituted_pred);
             // Don't check non-defaulted params, dependent defaults (including lifetimes)
             // or preds with multiple params.
             if substituted_pred.has_non_region_param() || param_count.params.len() > 1 || has_region
@@ -1465,9 +1467,9 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             // Note the subtle difference from how we handle `predicates`
             // below: there, we are not trying to prove those predicates
             // to be *true* but merely *well-formed*.
-            info!(?pred, "pre");
+            debug!(?pred, "pre");
             let pred = wfcx.normalize(sp, None, pred);
-            info!(?pred, "post");
+            debug!(?pred, "post");
             let cause = traits::ObligationCause::new(
                 sp,
                 wfcx.body_id,
@@ -1476,19 +1478,20 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             traits::Obligation::new(tcx, cause, wfcx.param_env, pred)
         });
 
-    info!("pre instantiate_identity - {:#?}", predicates);
+    debug!("pre instantiate_identity - {:#?}", predicates);
     let predicates = predicates.0.instantiate_identity(tcx);
-    info!("pre normalize - {:#?}", predicates);
+    debug!("pre normalize - {:#?}", predicates);
     let predicates = wfcx.normalize(span, None, predicates);
     info!("post normalize - {:#?}", predicates);
 
-    info!(?predicates.predicates);
+    debug!(?predicates.predicates);
     assert_eq!(predicates.predicates.len(), predicates.spans.len());
     let wf_obligations =
         iter::zip(&predicates.predicates, &predicates.spans).flat_map(|(&p, &sp)| {
+            let param_env = tcx.param_env_with_hkt((def_id.to_def_id(), wfcx.param_env.without_const()));
             traits::wf::predicate_obligations(
                 infcx,
-                wfcx.param_env.without_const(),
+                param_env,
                 wfcx.body_id,
                 p,
                 sp,
@@ -1499,7 +1502,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
     wfcx.register_obligations(obligations);
 }
 
-#[instrument(level = "debug", skip(wfcx, span, hir_decl))]
+#[instrument(level = "info", skip(wfcx, span, hir_decl))]
 fn check_fn_or_method<'tcx>(
     wfcx: &WfCheckingCtxt<'_, 'tcx>,
     span: Span,
@@ -1540,11 +1543,11 @@ fn check_fn_or_method<'tcx>(
         abi: wfcx.normalize(span, None, abi),
     };
 
-    info!("post-normalize sig = {:?}", sig);
+    debug!("post-normalize sig = {:?}", sig);
 
     // All inputs are obligated to be well-formed
     for (i, (&input_ty, ty)) in iter::zip(sig.inputs(), hir_decl.inputs).enumerate() {
-        //info!("ty = {:#?}", ty);
+        //debug!("ty = {:#?}", ty);
         wfcx.register_wf_obligation(
             ty.span,
             Some(WellFormedLoc::Param { function: def_id, param_idx: i.try_into().unwrap() }),
@@ -1566,7 +1569,7 @@ fn check_fn_or_method<'tcx>(
 
     check_where_clauses(wfcx, span, def_id);
 
-    info!("Before check_return_position_impl_trait_in_trait_bounds");
+    debug!("Before check_return_position_impl_trait_in_trait_bounds");
     check_return_position_impl_trait_in_trait_bounds(
         wfcx,
         def_id,
@@ -1574,8 +1577,11 @@ fn check_fn_or_method<'tcx>(
         hir_decl.output.span(),
     );
 
+    debug!("After check_return_position_impl_trait_in_trait_bounds");
+
+
     if sig.abi == Abi::RustCall {
-        info!("I am wrong");
+        debug!("I am wrong");
         let span = tcx.def_span(def_id);
         let has_implicit_self = hir_decl.implicit_self != hir::ImplicitSelfKind::None;
         let mut inputs = sig.inputs().iter().skip(if has_implicit_self { 1 } else { 0 });
@@ -1604,7 +1610,7 @@ fn check_fn_or_method<'tcx>(
 }
 
 /// Basically `check_associated_type_bounds`, but separated for now and should be
-/// deduplicated when RPITITs get lowered into real associated items.
+/// deduplicated when RPITITs(return position impl trait in trait bounds) get lowered into real associated items.
 #[tracing::instrument(level = "trace", skip(wfcx))]
 fn check_return_position_impl_trait_in_trait_bounds<'tcx>(
     wfcx: &WfCheckingCtxt<'_, 'tcx>,
@@ -1860,7 +1866,7 @@ fn check_variances_for_type_defn<'tcx>(
                 hir::WherePredicate::BoundPredicate(predicate) => {
                     match icx.to_ty(predicate.bounded_ty).kind() {
                         ty::Param(data) => Some(Parameter(data.index())),
-                        ty::HKT(data, ..) => Some(Parameter(data.index())),
+                        ty::HKT(_, data, ..) => Some(Parameter(data.index())),
                         _ => None,
                     }
                 }
@@ -1941,6 +1947,7 @@ impl<'tcx> WfCheckingCtxt<'_, 'tcx> {
                 continue;
             }
             let pred = obligation.predicate;
+            debug!("We are getting insane: {:?} is global = {}, has_late_bound_shit: {}", pred, pred.is_global(), pred.has_late_bound_regions());
             // Match the existing behavior.
             if pred.is_global() && !pred.has_late_bound_regions() {
                 let pred = self.normalize(span, None, pred);

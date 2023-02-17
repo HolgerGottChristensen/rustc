@@ -212,7 +212,7 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
         &self,
         param_ty: impl TypeParameter<'tcx>,
     ) -> Vec<ty::Binder<'tcx, ty::OutlivesPredicate<Ty<'tcx>, ty::Region<'tcx>>>> {
-        // TODO muki make copy with HKTTy
+        // FIXMIG: muki make copy with HKTTy
         let generic_ty = param_ty.to_ty(self.tcx);
         self.declared_generic_bounds_from_env_for_erased_ty(generic_ty)
     }

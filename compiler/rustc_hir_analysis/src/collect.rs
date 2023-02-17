@@ -62,6 +62,7 @@ pub fn provide(providers: &mut Providers) {
         explicit_item_bounds: item_bounds::explicit_item_bounds,
         generics_of: generics_of::generics_of,
         predicates_of: predicates_of::predicates_of,
+        param_env_with_hkt: predicates_of::param_env_with_hkt,
         predicates_defined_on,
         explicit_predicates_of: predicates_of::explicit_predicates_of,
         super_predicates_of: predicates_of::super_predicates_of,
@@ -520,6 +521,10 @@ impl<'tcx> AstConv<'tcx> for ItemCtxt<'tcx> {
     fn record_ty(&self, _hir_id: hir::HirId, _ty: Ty<'tcx>, _span: Span) {
         // There's no place to record types from signatures?
     }
+
+    fn current_argument_env(&self) -> Option<DefId> {
+        todo!("hoch")
+    }
 }
 
 /// Synthesize a new lifetime name that doesn't clash with any of the lifetimes already present.
@@ -561,7 +566,7 @@ fn get_new_lifetime_name<'tcx>(
 
 fn convert_item(tcx: TyCtxt<'_>, item_id: hir::ItemId) {
     let it = tcx.hir().item(item_id);
-    info!("convert: item {} with id {}", it.ident, it.hir_id());
+    debug!("convert: item {} with id {}", it.ident, it.hir_id());
     let def_id = item_id.owner_id.def_id;
 
     match it.kind {

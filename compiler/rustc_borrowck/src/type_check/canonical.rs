@@ -24,7 +24,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
     /// **Any `rustc_infer::infer` operations that might generate region
     /// constraints should occur within this method so that those
     /// constraints can be properly localized!**
-    #[instrument(skip(self, op), level = "trace")]
+    #[instrument(skip(self, op), level = "debug")]
     pub(super) fn fully_perform_op<R: fmt::Debug, Op>(
         &mut self,
         locations: Locations,
@@ -98,7 +98,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         );
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "debug", skip(self, instantiated_predicates))]
     pub(super) fn normalize_and_prove_instantiated_predicates(
         &mut self,
         // Keep this parameter for now, in case we start using
@@ -107,6 +107,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         instantiated_predicates: ty::InstantiatedPredicates<'tcx>,
         locations: Locations,
     ) {
+        debug!("instantiated_predicates={:#?}", instantiated_predicates);
         for (predicate, span) in instantiated_predicates
             .predicates
             .into_iter()
@@ -139,6 +140,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
     ) {
         let param_env = self.param_env;
         let predicate = predicate.to_predicate(self.tcx());
+
         self.fully_perform_op(
             locations,
             category,

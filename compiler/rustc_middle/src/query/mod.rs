@@ -230,6 +230,10 @@ rustc_queries! {
         cache_on_disk_if { key.is_local() }
     }
 
+    query param_env_with_hkt(key: (DefId, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
+        desc { |tcx| "computing hkt predicates of `{}`", tcx.def_path_str(key.0) }
+    }
+
     /// Returns the list of bounds that can be used for
     /// `SelectionCandidate::ProjectionCandidate(_)` and
     /// `ProjectionTyCandidate::TraitDef`.

@@ -1,4 +1,4 @@
-use crate::astconv::AstConv;
+use crate::astconv::{add_implicitly_sized_inner, AstConv};
 use crate::bounds::Bounds;
 use crate::collect::ItemCtxt;
 use crate::constrained_generic_params as cgp;
@@ -9,7 +9,7 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::intravisit::{self, Visitor};
 use rustc_middle::ty::subst::InternalSubsts;
-use rustc_middle::ty::{ToPredicate, TypeParameter};
+use rustc_middle::ty::{ArgumentDef, GenericParamDefKind, ParamEnv, ToPredicate, TypeParameter};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::symbol::{sym, Ident};
 use rustc_span::{Span, DUMMY_SP};
@@ -55,13 +55,60 @@ pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredic
                 span,
             ))));
     }
-    debug!("predicates_of(def_id={:?}) = {:?}", def_id, result);
+    debug!("predicates_of(def_id={:?}) = {:#?}", def_id, result);
     result
+}
+
+pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
+    if tcx.def_kind(def_id) == DefKind::Fn {
+        let outer_generics: &ty::Generics = tcx.generics_of(def_id);
+        let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
+
+        for param in &outer_generics.params {
+            match param.kind {
+                GenericParamDefKind::HKT => {
+                    let inner_generics: &ty::Generics = tcx.generics_of(param.def_id);
+
+                    for inner_param in &inner_generics.params {
+                        let ty = tcx.mk_ty(ty::Argument(ArgumentDef {
+                            def_id: param.def_id,
+                            index: inner_param.index,
+                            name: inner_param.name,
+                        }));
+
+                        let mut bounds = Bounds::default();
+                        // Params are implicitly sized unless a `?Sized` bound is found
+                        add_implicitly_sized_inner(
+                            tcx,
+                            &mut bounds,
+                            &[],
+                            None,
+                            tcx.def_span(def_id),
+                        );
+                        trace!(?bounds);
+                        predicates.extend(bounds.predicates(tcx, ty));
+                        trace!(?predicates);
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        let res = ParamEnv::new(
+            tcx.mk_predicates(predicates.into_iter().map(|t| t.0).chain(param_env.caller_bounds())),
+            param_env.reveal(),
+            param_env.constness()
+        );
+        info!("Param for {:?}, {:#?}", def_id, res);
+        res
+    } else {
+        param_env
+    }
 }
 
 /// Returns a list of user-specified type predicates for the definition with ID `def_id`.
 /// N.B., this does not include any implied/inferred constraints.
-#[instrument(level = "trace", skip(tcx), ret)]
+#[instrument(level = "debug", skip(tcx), ret)]
 fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicates<'_> {
     use rustc_hir::*;
 
@@ -79,6 +126,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
     // Preserving the order of insertion is important here so as not to break UI tests.
     let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
+    debug!("Node: {:#?}", node);
     let ast_generics = match node {
         Node::TraitItem(item) => item.generics,
 
@@ -110,6 +158,8 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             ForeignItemKind::Fn(_, _, ref generics) => *generics,
             ForeignItemKind::Type => NO_GENERICS,
         },
+
+        Node::GenericParam(GenericParam{kind: GenericParamKind::HKT(generics), ..}) => *generics,
 
         _ => NO_GENERICS,
     };
@@ -146,9 +196,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         + has_own_self as u32
         + super::early_bound_lifetimes_from_generics(tcx, ast_generics).count() as u32;
 
-    info!("predicates = {:#?}", predicates);
-    info!("ast_generics = {:#?}", ast_generics);
-    info!("generics = {:#?}", generics);
+    debug!("predicatesss = {:#?}", predicates);
+    debug!("ast_generics = {:#?}", ast_generics);
+    debug!("generics = {:#?}", generics);
 
     // Collect the predicates that were written inline by the user on each
     // type parameter (e.g., `<T: Foo>`).
@@ -179,10 +229,8 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                 index += 1;
             }
             GenericParamKind::HKT(..) => {
-                // TODO(hoch)
                 let name = param.name.ident().name;
-                let param_ty = ty::HKTTy::new(index, name).to_ty(tcx);
-                index += 1;
+                let param_ty = ty::HKTTy::new(param.def_id.to_def_id(), index, name).to_ty(tcx);
 
                 let mut bounds = Bounds::default();
                 // Params are implicitly sized unless a `?Sized` bound is found
@@ -193,9 +241,11 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                     Some((param.def_id, ast_generics.predicates)),
                     param.span,
                 );
-                info!(?bounds);
+                debug!("bounds = {:#?}", bounds);
                 predicates.extend(bounds.predicates(tcx, param_ty));
-                info!(?predicates);
+
+                debug!("predicatesa = {:#?}", predicates);
+                index += 1;
             }
         }
     }

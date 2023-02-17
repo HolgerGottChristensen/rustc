@@ -4,6 +4,7 @@ use rustc_ast::{Generics, token};
 use rustc_ast::{
     self as ast, AttrVec, GenericBounds, GenericParam, GenericParamKind, TyKind, WhereClause,
 };
+use rustc_ast::token::BinOp;
 use rustc_errors::{Applicability, PResult};
 use rustc_span::symbol::kw;
 
@@ -26,7 +27,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_hkt_param_helper1(&mut self) -> PResult<'a, GenericParam> {
-        let _ = self.expect(&token::Question)?;
+        let _ = self.expect(&BinOp(token::Percent))?;
 
         let ident = self.parse_ident()?;
 
@@ -36,7 +37,6 @@ impl<'a> Parser<'a> {
 
             self.expect_gt()?;
 
-
             Ok(GenericParam {
                 ident,
                 id: ast::DUMMY_NODE_ID,
@@ -45,7 +45,7 @@ impl<'a> Parser<'a> {
                 kind: GenericParamKind::HKT(Generics {
                     params,
                     where_clause: Default::default(),
-                    span: Default::default(), // Todo: hoch fix spans
+                    span: Default::default(), // FIXMIG: hoch fix spans
                 }),
                 is_placeholder: false,
                 colon_span: None,
@@ -98,7 +98,7 @@ impl<'a> Parser<'a> {
             GenericParamKind::HKT( Generics {
                 params: p,
                 where_clause: Default::default(),
-                span: Default::default(), // Todo: hoch fix spans
+                span: Default::default(), // FIXMIG: hoch fix spans
             })
         } else {
             GenericParamKind::Type { default: None }
@@ -349,7 +349,7 @@ impl<'a> Parser<'a> {
         }
 
         use rustc_ast_pretty::pprust::PrintState;
-        info!("{}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
+        debug!("{}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
 
         Ok(params)
     }
@@ -373,7 +373,7 @@ impl<'a> Parser<'a> {
         };
 
         use rustc_ast_pretty::pprust::PrintState;
-        info!("Parsed: {}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
+        debug!("Parsed: {}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
 
 
         Ok(ast::Generics {

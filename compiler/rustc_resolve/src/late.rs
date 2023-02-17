@@ -3378,7 +3378,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
     ) -> PartialRes {
         let ns = source.namespace();
 
-        info!("{:?}", ns);
+        debug!("{:?}", ns);
 
         let Finalize { node_id, path_span, .. } = finalize;
         let report_errors = |this: &mut Self, res: Option<Res>| {
@@ -3669,7 +3669,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         ns: Namespace,
         finalize: Finalize,
     ) -> Result<Option<PartialRes>, Spanned<ResolutionError<'a>>> {
-        info!(
+        debug!(
             "resolve_qpath(qself={:?}, path={:?}, ns={:?}, finalize={:?})",
             qself, path, ns, finalize,
         );
@@ -3741,7 +3741,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
             }
             PathResult::Module(..) |
             PathResult::Failed { .. } => {
-                info!("Here failed");
+                debug!("Here failed");
                 return Ok(None)
             },
             PathResult::Indeterminate => bug!("indeterminate path result in resolve_qpath"),

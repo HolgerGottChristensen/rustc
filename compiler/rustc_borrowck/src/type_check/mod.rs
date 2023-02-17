@@ -74,7 +74,7 @@ macro_rules! span_mirbug {
             $context.tcx(),
             $context.last_span,
             &format!(
-                "broken MIR in {:?} ({:?}): {}",
+                "broken MIR in {:#?} ({:#?}): {}",
                 $context.body().source.def_id(),
                 $elem,
                 format_args!($($message)*),
@@ -161,7 +161,7 @@ pub(crate) fn type_check<'mir, 'tcx>(
         &mut constraints,
     );
 
-    debug!(?normalized_inputs_and_output);
+    info!(?normalized_inputs_and_output);
 
     for u in ty::UniverseIndex::ROOT..=infcx.universe() {
         constraints.universe_causes.insert(u, UniverseInfo::other());
@@ -1011,6 +1011,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         implicit_region_bound: ty::Region<'tcx>,
         borrowck_context: &'a mut BorrowCheckContext<'a, 'tcx>,
     ) -> Self {
+        info!("Param env: {:#?}", param_env);
         let mut checker = Self {
             infcx,
             last_span: DUMMY_SP,
@@ -1036,17 +1037,23 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
     }
 
     /// Equate the inferred type and the annotated type for user type annotations
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     fn check_user_type_annotations(&mut self) {
-        debug!(?self.user_type_annotations);
+        info!("User annotations = {:#?}", self.user_type_annotations);
         for user_annotation in self.user_type_annotations {
             let CanonicalUserTypeAnnotation { span, ref user_ty, inferred_ty } = *user_annotation;
+            info!("BEFORE NORMALIZE: {:#?}", inferred_ty);
             let inferred_ty = self.normalize(inferred_ty, Locations::All(span));
+            info!("AFTER  NORMALIZE: {:#?}", inferred_ty);
+
             let annotation = self.instantiate_canonical_with_fresh_inference_vars(span, user_ty);
-            debug!(?annotation);
+
+            info!("Annotation = {:#?}", annotation);
             match annotation {
                 UserType::Ty(mut ty) => {
+                    info!("USER TY BEFORE: {:#?}", ty);
                     ty = self.normalize(ty, Locations::All(span));
+                    info!("USER TY AFTER: {:#?}", ty);
 
                     if let Err(terr) = self.eq_types(
                         ty,
@@ -1071,10 +1078,12 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                     );
                 }
                 UserType::TypeOf(def_id, user_substs) => {
+                    let param_env = self.tcx().param_env_with_hkt((def_id, self.param_env));
+
                     if let Err(terr) = self.fully_perform_op(
                         Locations::All(span),
                         ConstraintCategory::BoringNoLocation,
-                        self.param_env.and(type_op::ascribe_user_type::AscribeUserType::new(
+                        param_env.and(type_op::ascribe_user_type::AscribeUserType::new(
                             inferred_ty,
                             def_id,
                             user_substs,
@@ -1083,20 +1092,21 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                         span_mirbug!(
                             self,
                             user_annotation,
-                            "bad user type AscribeUserType({:?}, {:?} {:?}, type_of={:?}): {:?}",
+                            "bad user type AscribeUserType({:#?}, {:#?} {:#?}, type_of={:#?}): {:#?}",
                             inferred_ty,
                             def_id,
                             user_substs,
                             self.tcx().type_of(def_id),
                             terr,
                         );
+                        todo!("Fail here")
                     }
                 }
             }
         }
     }
 
-    #[instrument(skip(self, data), level = "debug")]
+    #[instrument(skip(self, data), level = "info")]
     fn push_region_constraints(
         &mut self,
         locations: Locations,
@@ -1383,12 +1393,15 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                 debug!("func_ty.kind: {:?}", func_ty.kind());
 
                 let sig = match func_ty.kind() {
-                    ty::FnDef(..) | ty::FnPtr(_) => func_ty.fn_sig(tcx),
+                    ty::FnDef(_, ..) | ty::FnPtr(_) => {
+                        func_ty.fn_sig(tcx)
+                    },
                     _ => {
                         span_mirbug!(self, term, "call to non-function {:?}", func_ty);
                         return;
                     }
                 };
+
                 let (sig, map) = tcx.replace_late_bound_regions(sig, |br| {
                     self.infcx.next_region_var(LateBoundRegion(
                         term.source_info.span,
@@ -1396,7 +1409,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                         LateBoundRegionConversionTime::FnCall,
                     ))
                 });
-                debug!(?sig);
+                info!(?sig);
                 // IMPORTANT: We have to prove well formed for the function signature before
                 // we normalize it, as otherwise types like `<&'a &'b () as Trait>::Assoc`
                 // get normalized away, causing us to ignore the `'b: 'a` bound used by the function.
@@ -2662,10 +2675,10 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         tcx.predicates_of(def_id).instantiate(tcx, substs)
     }
 
-    #[instrument(skip(self, body), level = "debug")]
+    #[instrument(skip(self, body), level = "info")]
     fn typeck_mir(&mut self, body: &Body<'tcx>) {
         self.last_span = body.span;
-        debug!(?body.span);
+        info!(?body.span);
 
         for (local, local_decl) in body.local_decls.iter_enumerated() {
             self.check_local(&body, local, local_decl);
@@ -2680,6 +2693,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                 self.check_stmt(body, stmt, location);
                 location.statement_index += 1;
             }
+
 
             self.check_terminator(&body, block_data.terminator(), location);
             self.check_iscleanup(&body, block_data);

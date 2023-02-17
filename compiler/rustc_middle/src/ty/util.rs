@@ -439,7 +439,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     },
                     GenericArgKind::Type(ty) => match ty.kind() {
                         ty::Param(ref pt) => !impl_generics.type_param(*pt, self).pure_wrt_drop,
-                        ty::HKT(ref pt, ..) => !impl_generics.type_param(*pt, self).pure_wrt_drop,
+                        ty::HKT(_, ref pt, ..) => !impl_generics.type_param(*pt, self).pure_wrt_drop,
                         // Error: not a type param
                         _ => false,
                     },
@@ -483,7 +483,7 @@ impl<'tcx> TyCtxt<'tcx> {
                             return Err(NotUniqueParam::DuplicateParam(t.into()));
                         }
                     }
-                    ty::HKT(p, ..) => {
+                    ty::HKT(_, p, ..) => {
                         if !seen.insert((*p).index()) {
                             return Err(NotUniqueParam::DuplicateParam(t.into()));
                         }
@@ -688,7 +688,6 @@ impl<'tcx> TyCtxt<'tcx> {
         self,
         def_id: DefId,
     ) -> ty::EarlyBinder<ty::generics::GenericPredicates<'tcx>> {
-        info!("awdoaiwdawd");
         ty::EarlyBinder(self.predicates_of(def_id))
     }
 
@@ -955,7 +954,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Alias(..)
             | ty::Param(_)
             | ty::HKT(..)
-            | ty::Argument(_)
+            | ty::Argument(..)
             | ty::Placeholder(_) => false,
         }
     }
@@ -996,7 +995,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Alias(..)
             | ty::Param(_)
             | ty::HKT(..)
-            | ty::Argument(_)
+            | ty::Argument(..)
             | ty::Placeholder(_) => false,
         }
     }
@@ -1121,7 +1120,7 @@ impl<'tcx> Ty<'tcx> {
                 false
             }
 
-            ty::Argument(_) => todo!("hoch"), // true
+            ty::Argument(..) => todo!("hoch"), // true
 
             ty::Foreign(_) | ty::GeneratorWitness(..) | ty::Error(_) => false,
         }
@@ -1261,7 +1260,7 @@ pub fn needs_drop_components<'tcx>(
         | ty::Closure(..)
         | ty::Generator(..) => Ok(smallvec![ty]),
 
-        ty::Argument(_) => todo!("hoch")
+        ty::Argument(..) => todo!("hoch")
     }
 }
 
@@ -1299,7 +1298,7 @@ pub fn is_trivially_const_drop(ty: Ty<'_>) -> bool {
 
         ty::Tuple(tys) => tys.iter().all(|ty| is_trivially_const_drop(ty)),
 
-        ty::Argument(_) => todo!("hoch")
+        ty::Argument(..) => todo!("hoch")
     }
 }
 

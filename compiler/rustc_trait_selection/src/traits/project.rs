@@ -342,7 +342,7 @@ where
     result
 }
 
-#[instrument(level = "info", skip(selcx, param_env, cause, obligations))]
+#[instrument(level = "debug", skip(selcx, param_env, cause, obligations))]
 pub(crate) fn try_normalize_with_depth_to<'a, 'b, 'tcx, T>(
     selcx: &'a mut SelectionContext<'b, 'tcx>,
     param_env: ty::ParamEnv<'tcx>,
@@ -1222,7 +1222,7 @@ impl<'tcx> Progress<'tcx> {
 ///
 /// IMPORTANT:
 /// - `obligation` must be fully normalized
-#[instrument(level = "info", skip(selcx))]
+#[instrument(level = "debug", skip(selcx))]
 fn project<'cx, 'tcx>(
     selcx: &mut SelectionContext<'cx, 'tcx>,
     obligation: &ProjectionTyObligation<'tcx>,
@@ -1611,7 +1611,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         | ty::Infer(ty::InferTy::IntVar(_) | ty::InferTy::FloatVar(..)) => true,
 
 
-                        ty::Argument(_) => todo!("hoch"),
+                        ty::Argument(..) => todo!("hoch"),
                          // type parameters, opaques, and unnormalized projections have pointer
                         // metadata if they're known (e.g. by the param_env) to be sized
                         ty::Param(_)

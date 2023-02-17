@@ -1,0 +1,17 @@
+error[E0107]: this hkt parameter takes 1 generic argument but 2 generic arguments were supplied
+  --> $DIR/too_many_params.rs:4:23
+   |
+LL | fn test<I<%J>>(input: I<u32, u32>) {}
+   |                       ^      --- help: remove this generic argument
+   |                       |
+   |                       expected 1 generic argument
+   |
+note: hkt parameter defined here, with 1 generic parameter: `J`
+  --> $DIR/too_many_params.rs:4:9
+   |
+LL | fn test<I<%J>>(input: I<u32, u32>) {}
+   |         ^
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0107`.

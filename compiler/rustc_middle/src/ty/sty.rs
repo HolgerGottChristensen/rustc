@@ -1291,6 +1291,26 @@ impl<'tcx> PolyFnSig<'tcx> {
 
 pub type CanonicalPolyFnSig<'tcx> = Canonical<'tcx, Binder<'tcx, FnSig<'tcx>>>;
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
+#[derive(HashStable)]
+pub struct ArgumentDef {
+    pub def_id: DefId,
+    pub index: u32,
+    pub name: Symbol,
+}
+
+impl PartialEq<u32> for ArgumentDef {
+    fn eq(&self, other: &u32) -> bool {
+        self.index == *other
+    }
+}
+
+impl PartialEq<DefId> for ArgumentDef {
+    fn eq(&self, other: &DefId) -> bool {
+        self.def_id == *other
+    }
+}
+
 pub trait TypeParameter<'tcx>: Clone + Copy + PartialEq + Eq + PartialOrd + Ord + Hash + Debug {
     fn new(index: u32, name: Symbol) -> Self;
     fn for_def(def: &ty::GenericParamDef) -> Self;
@@ -1335,6 +1355,7 @@ pub struct ParamTy {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
 #[derive(HashStable)]
 pub struct HKTTy {
+    def_id: DefId,
     index: u32,
     name: Symbol,
 }
@@ -1388,14 +1409,26 @@ impl<'tcx> TypeParameter<'tcx> for ParamTy {
     }
 
     #[inline]
+    pub fn def_id(&self) -> DefId {
+        match *self {
+            ParamTy::Param { .. } => {
+                todo!("What to do here")
+            }
+            ParamTy::HKT { def_id, .. } => {
+                def_id
+            }
+        }
+    }
+
+    #[inline]
     fn name(&self) -> Symbol {
         self.name
     }
 }
 
 impl<'tcx> TypeParameter<'tcx> for HKTTy {
-    fn new(index: u32, name: Symbol) -> HKTTy {
-        Self { index, name }
+    fn new(def_id: DefId, index: u32, name: Symbol) -> HKTTy {
+        Self {def_id,  index, name }
     }
 
     fn for_def(def: &ty::GenericParamDef) -> HKTTy {
@@ -1406,7 +1439,7 @@ impl<'tcx> TypeParameter<'tcx> for HKTTy {
                 bug!("Cannot convert HKT to Lifetime, Type, or Const");
             }
             GenericParamDefKind::HKT => {
-                HKTTy::new(def.index, def.name)
+                HKTTy::new(def.def_id, def.index, def.name)
             }
         }
     }
@@ -1817,7 +1850,7 @@ impl<'tcx> Ty<'tcx> {
     pub fn is_param(self, index: u32) -> bool {
         match self.kind() {
             ty::Param(ref data) => data.index() == index,
-            ty::HKT(ref data, ..) => data.index() == index,
+            ty::HKT(_, ref data, ..) => data.index() == index,
             _ => false,
         }
     }
@@ -2070,7 +2103,9 @@ impl<'tcx> Ty<'tcx> {
 
     pub fn fn_sig(self, tcx: TyCtxt<'tcx>) -> PolyFnSig<'tcx> {
         match self.kind() {
-            FnDef(def_id, substs) => tcx.bound_fn_sig(*def_id).subst(tcx, substs),
+            FnDef(def_id, substs) => {
+                tcx.bound_fn_sig(*def_id).subst(tcx, substs)
+            },
             FnPtr(f) => *f,
             Error(_) => {
                 // ignore errors (#54954)
@@ -2169,7 +2204,7 @@ impl<'tcx> Ty<'tcx> {
                 tcx.mk_projection(assoc_items[0], tcx.intern_substs(&[self.into()]))
             }
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
@@ -2238,7 +2273,7 @@ impl<'tcx> Ty<'tcx> {
             // a.k.a. unit type, which is Sized
             | ty::Tuple(..) => (tcx.types.unit, false),
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
@@ -2330,7 +2365,7 @@ impl<'tcx> Ty<'tcx> {
 
             ty::Infer(ty::TyVar(_)) => false,
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
@@ -2388,7 +2423,7 @@ impl<'tcx> Ty<'tcx> {
             // Might be, but not "trivial" so just giving the safe answer.
             ty::Adt(..) | ty::Closure(..) => false,
 
-            ty::Argument(_) => {
+            ty::Argument(..) => {
                 todo!("hoch")
             }
 
