@@ -1,0 +1,14 @@
+error[E9999]: hkt argument `%J2` could not be found in the definition
+  --> $DIR/name_resolution.rs:8:20
+   |
+LL |     test::<Option<%J2>>(Some(42));
+   |                    ^^
+   |
+note: expected one of the parameters `%J` inside the definition
+  --> $DIR/name_resolution.rs:4:9
+   |
+LL | fn test<I<%J>>(input: I<u32>) {
+   |         ^
+
+error: aborting due to previous error
+
