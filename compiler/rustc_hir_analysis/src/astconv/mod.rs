@@ -2750,8 +2750,17 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                             }))
                         }
                     }
-                    // FIXMIG: Give an error message that the %j is not found in the env.
-                    todo!("hoch")
+
+                    let possibilities = generics.params.iter().map(|param| {
+                        format!("`%{}`", param.name)
+                    }).collect::<Vec<_>>().join(", ");
+
+                    // FIXMIG: Give a proper error code
+                    struct_span_err!(tcx.sess, i.span, E9999, "hkt argument `%{}` could not be found in the definition", i.name)
+                        .span_note(tcx.def_span(did), &format!("expected one of the parameters {} inside the definition", possibilities))
+                        .emit();
+
+                    tcx.ty_error()
                 } else {
                     todo!("hoch") // FIXMIG: Give a proper error message
                 }
