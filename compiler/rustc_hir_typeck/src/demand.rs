@@ -340,7 +340,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                             param_args.insert(param_ty, (arg, arg_ty));
                         }
                         if def_self_ty.contains(*param_ty) && let ty::HKT(..) = param_ty.kind() {
-                            todo!("hoch")
+                            todo!("hoch") // FIXMIG: what to do here?
                             /*// We found an argument that references a type parameter in `Self`,
                             // so we assume that this is the argument that caused the found
                             // type, which we know already because of `can_eq` above was first

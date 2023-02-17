@@ -188,7 +188,7 @@ impl<'tcx> InherentCollect<'tcx> {
 
         let self_ty = self.tcx.type_of(item.owner_id);
         match *self_ty.kind() {
-            ty::Argument(..) => todo!("hoch"),
+            ty::Argument(..) => todo!("hoch"), // FIXMIG: What to do here?
             ty::Adt(def, _) => {
                 self.check_def_id(item, self_ty, def.did());
             }
@@ -225,7 +225,7 @@ impl<'tcx> InherentCollect<'tcx> {
                 self.check_primitive_impl(item.owner_id.def_id, self_ty, items, ty.span)
             }
             ty::HKT(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: What to do here?
             }
             ty::Alias(..) | ty::Param(_) => {
                 let mut err = struct_span_err!(

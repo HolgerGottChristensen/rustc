@@ -2113,7 +2113,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         match *self_ty.kind() {
 
-            ty::Argument(..) => todo!("hoch"),
+            ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
 
             ty::Infer(ty::IntVar(_))
             | ty::Infer(ty::FloatVar(_))
@@ -2194,7 +2194,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }
             }
 
-            ty::Adt(..) | ty::Alias(..) | ty::Param(..) | ty::HKT(..) => { // TODO(hoch)
+            ty::Adt(..) | ty::Alias(..) | ty::Param(..) | ty::HKT(..) => {
+                // FIXMIG: what to do here?
                 // Fallback to whatever user-defined impls exist in this case.
                 None
             }
@@ -2244,13 +2245,13 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Char => ty::Binder::dummy(Vec::new()),
 
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
 
             ty::Placeholder(..)
             | ty::Dynamic(..)
             | ty::Param(..)
-            | ty::HKT(..) // TODO(hoch)
+            | ty::HKT(..) // FIXMIG: what to do here?
             | ty::Foreign(..)
             | ty::Alias(ty::Projection, ..)
             | ty::Bound(..)

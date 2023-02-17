@@ -142,9 +142,9 @@ fn visit_implementation_of_copy(tcx: TyCtxt<'_>, impl_did: LocalDefId) {
                                 Some(trait_ref.def_id),
                             ));
                         }
-                        // TODO(hoch)
+
                         if let ty::HKT(..) = ty.kind() {
-                            todo!()
+                            todo!() // FIXMIG: What to do here?
                             /*bounds.push((
                                 format!("{ty}"),
                                 trait_ref.print_only_trait_path().to_string(),

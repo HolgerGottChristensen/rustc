@@ -1611,11 +1611,11 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         | ty::Infer(ty::InferTy::IntVar(_) | ty::InferTy::FloatVar(..)) => true,
 
 
-                        ty::Argument(..) => todo!("hoch"),
+                        ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
                          // type parameters, opaques, and unnormalized projections have pointer
                         // metadata if they're known (e.g. by the param_env) to be sized
                         ty::Param(_)
-                        | ty::HKT(..) // TODO(hoch)
+                        | ty::HKT(..) // TODO(hoch) // FIXMIG: what to do here?
                         | ty::Alias(..)
                         | ty::Bound(..)
                         | ty::Placeholder(..)
@@ -1668,8 +1668,8 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         // Integers and floats are always Sized, and so have unit type metadata.
                         | ty::Infer(ty::InferTy::IntVar(_) | ty::InferTy::FloatVar(..)) => true,
 
-                        ty::HKT(..) => todo!("hoch"),
-                        ty::Argument(..) => todo!("hoch"),
+                        ty::HKT(..) => todo!("hoch"), // FIXMIG: what to do here?
+                        ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
 
                         // type parameters, opaques, and unnormalized projections have pointer
                         // metadata if they're known (e.g. by the param_env) to be sized

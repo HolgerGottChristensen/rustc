@@ -132,7 +132,7 @@ pub(crate) fn insert_outlives_predicate<'tcx>(
 
                     Component::UnresolvedInferenceVariable(_) => bug!("not using infcx"),
                     Component::HKT(_) => {
-                        todo!("hoch")
+                        todo!("hoch") // FIXMIG: What to do here?
                     }
                 }
             }

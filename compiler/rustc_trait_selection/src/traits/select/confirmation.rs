@@ -564,7 +564,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                                 )
                                 .into()
                             }
-                            GenericParamDefKind::HKT => todo!("hoch")
+                            GenericParamDefKind::HKT => todo!("hoch") // FIXMIG: what to do here?
                         });
                         let bound_vars = tcx.mk_bound_variable_kinds(bound_vars.into_iter());
                         let assoc_ty_substs = tcx.intern_substs(&substs);
@@ -1070,7 +1070,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 let maybe_unsizing_param_idx = |arg: GenericArg<'tcx>| match arg.unpack() {
                     GenericArgKind::Type(ty) => match ty.kind() {
                         ty::Param(p) => Some(p.index()),
-                        ty::HKT(..) => todo!("hoch"),
+                        ty::HKT(..) => todo!("hoch"), // FIXMIG: what to do here?
                         _ => None,
                     },
 

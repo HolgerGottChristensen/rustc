@@ -1812,7 +1812,7 @@ impl<'tcx> TyCtxt<'tcx> {
                         self.bound_type_of(param.def_id).subst(self, substs).into()
                     }
                 }
-                GenericParamDefKind::HKT => todo!("hoch")
+                GenericParamDefKind::HKT => todo!("hoch") // FIXMIG: what to do here?
             });
         self.mk_ty(Adt(adt_def, substs))
     }

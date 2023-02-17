@@ -112,7 +112,7 @@ fn layout_of_uncached<'tcx>(
     debug_assert!(!ty.has_non_region_infer());
 
     Ok(match *ty.kind() {
-        ty::Argument(..) => todo!("hoch"),
+        ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
         // Basic scalars.
         ty::Bool => tcx.intern_layout(LayoutS::scalar(
             cx,

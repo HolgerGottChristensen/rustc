@@ -1793,7 +1793,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let find_param_matching = |matches: &dyn Fn(&ty::ParamTy) -> bool| {
             predicate_substs.types().find_map(|ty| {
                 ty.walk().find_map(|arg| {
-                    // TODO(hoch)
                     if let ty::GenericArgKind::Type(ty) = arg.unpack()
                         && let ty::Param(param_ty) = ty.kind()
                         && matches(param_ty)
@@ -1803,7 +1802,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         && let ty::HKT(_, param_ty, ..) = ty.kind()
                         && matches(param_ty)
                     {
-                        todo!("hoch")
+                        todo!("hoch") // FIXMIG: what to do here?
                     } else {
                         None
                     }
@@ -2151,7 +2150,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             let callee_ty = callee_ty.peel_refs();
             match *callee_ty.kind() {
                 ty::HKT(..) => {
-                    todo!("hoch")
+                    todo!("hoch") // FIXMIG: what to do here?
                 }
                 ty::Param(ref param) => {
                     let param =

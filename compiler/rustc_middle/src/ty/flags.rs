@@ -102,7 +102,7 @@ impl FlagComputation {
             }
 
             &ty::HKT(_, _, substs) => {
-                // TODO(hoch): Combined param and adt
+                // FIXMIG: Are these the correct flags to add?
                 self.add_flags(TypeFlags::HAS_TY_PARAM);
                 self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE);
                 self.add_substs(substs);

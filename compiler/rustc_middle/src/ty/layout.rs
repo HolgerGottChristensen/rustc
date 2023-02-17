@@ -779,10 +779,10 @@ where
                 }
 
                 ty::HKT(..) => {
-                    todo!("hoch")
+                    todo!("hoch") // FIXMIG: what to do here?
                 }
                 ty::Argument(..) => {
-                    todo!("hoch")
+                    todo!("hoch") // FIXMIG: what to do here?
                 }
 
                 ty::Alias(..)

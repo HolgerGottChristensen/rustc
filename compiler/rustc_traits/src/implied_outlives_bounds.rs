@@ -172,7 +172,7 @@ fn implied_bounds_from_components<'tcx>(
                 }
                 Component::UnresolvedInferenceVariable(..) => None,
                 Component::HKT(_) => {
-                    todo!("hoch")
+                    todo!("hoch") // FIXMIG: what to do here?
                 }
             }
         })

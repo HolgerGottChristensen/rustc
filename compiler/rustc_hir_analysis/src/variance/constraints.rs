@@ -217,7 +217,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
             }
 
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: What to do here?
             }
 
             ty::FnDef(..) | ty::Generator(..) | ty::Closure(..) => {
@@ -283,7 +283,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
             }
 
             ty::HKT(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: What to do here?
             }
             ty::Param(ref data) => {
                 self.add_constraint(current, data.index(), variance);

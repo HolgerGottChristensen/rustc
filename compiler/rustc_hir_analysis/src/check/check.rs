@@ -461,7 +461,6 @@ fn check_opaque_meets_bounds<'tcx>(
     let errors = ocx.select_all_or_error();
     if !errors.is_empty() {
         infcx.err_ctxt().report_fulfillment_errors(&errors, None);
-        todo!("hococo1")
     }
     match origin {
         // Checked when type checking the function containing them.
@@ -1353,7 +1352,7 @@ pub(super) fn check_type_params_are_used<'tcx>(
         if let GenericArgKind::Type(leaf_ty) = leaf.unpack()
             && let ty::HKT(_param, ..) = leaf_ty.kind()
         {
-            todo!("hoch");
+            todo!("hoch"); // FIXMIG: What to do here?
             //debug!("found use of hkt param {:?}", param);
             //params_used.insert(param.index);
         }

@@ -576,7 +576,7 @@ impl<'tcx> AutoTraitFinder<'tcx> {
     pub fn is_of_param(&self, ty: Ty<'_>) -> bool {
         match ty.kind() {
             ty::Param(_) => true,
-            ty::HKT(..) => todo!(), // TODO(hoch)
+            ty::HKT(..) => todo!(), // FIXMIG: what to do here?
             ty::Alias(ty::Projection, p) => self.is_of_param(p.self_ty()),
             _ => false,
         }

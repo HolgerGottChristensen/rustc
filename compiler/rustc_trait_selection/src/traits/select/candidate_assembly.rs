@@ -741,8 +741,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Error(_)
             | ty::Bound(..)
             | ty::Param(_)
-            | ty::HKT(..) // TODO(hoch)
-            | ty::Argument(..) // TODO(hoch)
+            | ty::HKT(..) // FIXMIG: what to do here?
+            | ty::Argument(..) // FIXMIG: what to do here?
             | ty::Placeholder(_) => {
                 // We don't know if these are `~const Destruct`, at least
                 // not structurally... so don't push a candidate.

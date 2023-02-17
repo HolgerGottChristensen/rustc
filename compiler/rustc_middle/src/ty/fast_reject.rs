@@ -117,7 +117,7 @@ pub fn simplify_type<'tcx>(
             TreatParams::AsPlaceholder => Some(PlaceholderSimplifiedType),
             TreatParams::AsInfer => None,
         },
-        // TODO(hoch)
+        // FIXMIG: what to do here?
         ty::HKT(..) => match treat_params {
             TreatParams::AsPlaceholder => Some(PlaceholderSimplifiedType),
             TreatParams::AsInfer => None,
@@ -221,7 +221,7 @@ impl DeepRejectCtxt {
             | ty::Bound(..)
             | ty::Infer(_) => bug!("unexpected impl_ty: {impl_ty}"),
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
         }
 
@@ -328,7 +328,7 @@ impl DeepRejectCtxt {
             }
 
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
         }
     }

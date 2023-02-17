@@ -789,7 +789,7 @@ fn contains_illegal_self_type_reference<'tcx, T: TypeVisitable<'tcx>>(
                     }
                 }
                 ty::HKT(..) => {
-                    todo!()
+                    todo!() // FIXMIG: what to do here?
                     /*if t == self.tcx.types.self_param {
                         ControlFlow::BREAK
                     } else {

@@ -470,7 +470,7 @@ impl<'tcx> TypeVisitor<'tcx> for IsSuggestableVisitor<'tcx> {
             }
 
             HKT(_param, ..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
                 /*if param.name().as_str().starts_with("impl ") {
                     return ControlFlow::Break(());
                 }*/

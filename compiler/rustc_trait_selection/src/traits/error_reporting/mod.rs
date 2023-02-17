@@ -1829,7 +1829,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                 ty::Closure(..) => Some(9),
                 ty::Tuple(..) => Some(10),
                 ty::Param(..) => Some(11),
-                ty::HKT(..) => Some(11), // TODO(hoch)
+                ty::HKT(..) => Some(11), // FIXMIG: what to do here?
                 ty::Alias(ty::Projection, ..) => Some(12),
                 ty::Alias(ty::Opaque, ..) => Some(13),
                 ty::Never => Some(14),
@@ -1838,7 +1838,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                 ty::Foreign(..) => Some(17),
                 ty::GeneratorWitness(..) => Some(18),
                 ty::Placeholder(..) | ty::Bound(..) | ty::Infer(..) | ty::Error(_) => None,
-                ty::Argument(..) => todo!("hoch"),
+                ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
             }
         }
 
@@ -2015,7 +2015,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                     if let ty::Param(_) = self_ty.kind() {
                         false
                     } else if let ty::HKT(..) = self_ty.kind() {
-                        todo!("hoch")
+                        todo!("hoch") // FIXMIG: what to do here?
                     }
                     // Avoid mentioning types that are private to another crate
                     else if let ty::Adt(def, _) = self_ty.peel_refs().kind() {
@@ -2594,7 +2594,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                         })
                     })
                 } else if let ty::HKT(_, ty::ParamTy::HKT { name, .. }, ..) = *ty.kind() {
-                    // TODO(hoch)
+                    // FIXMIG: what to do here?
                     let infcx = self.infcx;
                     *self.var_map.entry(ty).or_insert_with(|| {
                         infcx.next_ty_var(TypeVariableOrigin {

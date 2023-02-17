@@ -825,7 +825,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                             Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }
                         ty::HKT(_, ref p, ..) if p.clone() == param_ty => {
-                            // TODO(hoch)
+                            // FIXMIG: is this correct?
                             Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }
                         _ => None,
@@ -1856,7 +1856,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                             self.var_for_def(self.span, param)
                         }
                         GenericParamDefKind::HKT => {
-                            todo!("hoch")
+                            todo!("hoch") // FIXMIG: what to do here?
                         }
                     }
                 }
@@ -1893,7 +1893,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 self.next_const_var(self.tcx.type_of(param.def_id), origin).into()
             }
             GenericParamDefKind::HKT => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
         })
     }

@@ -973,7 +973,7 @@ impl<'tcx> TypeFolder<'tcx> for TypeParamEraser<'_, 'tcx> {
                 span: self.1,
             }),
             ty::HKT(..) => {
-                todo!();
+                todo!(); // FIXMIG: what to do here?
                 /*self.0.next_ty_var(TypeVariableOrigin {
                     kind: TypeVariableOriginKind::MiscVariable,
                     span: self.1,

@@ -99,7 +99,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         Ok(match *t.kind() {
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
             ty::Slice(_) | ty::Str => Some(PointerKind::Length),
             ty::Dynamic(ref tty, _, ty::Dyn) => Some(PointerKind::VTable(tty.principal_def_id())),
@@ -121,7 +121,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ty::Alias(_, pi) => Some(PointerKind::OfAlias(pi)),
             ty::Param(ref p) => Some(PointerKind::OfParam(p.clone())),
             ty::HKT(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             },
             // Insufficient type information.
             ty::Placeholder(..) | ty::Bound(..) | ty::Infer(_) => None,

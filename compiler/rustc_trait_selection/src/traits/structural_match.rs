@@ -87,10 +87,10 @@ impl<'tcx> TypeVisitor<'tcx> for Search<'tcx> {
         let (adt_def, substs) = match *ty.kind() {
             ty::Adt(adt_def, substs) => (adt_def, substs),
             ty::HKT(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
             ty::Param(_) => {
                 return ControlFlow::Break(ty);

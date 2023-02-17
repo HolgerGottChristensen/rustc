@@ -14,7 +14,7 @@ fn sized_constraint_for_ty<'tcx>(
 
     let result = match ty.kind() {
         Argument(..) => {
-            todo!("hoch")
+            todo!("hoch") // FIXMIG: what to do here?
         }
         Bool | Char | Int(..) | Uint(..) | Float(..) | RawPtr(..) | Ref(..) | FnDef(..)
         | FnPtr(_) | Array(..) | Closure(..) | Generator(..) | Never => vec![],
@@ -47,7 +47,7 @@ fn sized_constraint_for_ty<'tcx>(
             vec![ty]
         }
         HKT(..) => {
-            todo!("hoch")
+            todo!("hoch") // FIXMIG: what to do here?
         }
 
         Param(..) => {

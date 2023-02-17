@@ -2486,7 +2486,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 self.point_at_param_definition(&mut err, param_ty.clone());
             }
             ty::HKT(ref _param_ty, ..) => {
-                todo!("hoch");
+                todo!("hoch"); // FIXMIG: what to do here?
                 //self.point_at_param_definition(&mut err, param_ty);
             }
             ty::Alias(ty::Opaque, _) => {

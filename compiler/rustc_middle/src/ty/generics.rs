@@ -38,7 +38,7 @@ impl GenericParamDefKind {
         match self {
             GenericParamDefKind::Lifetime => false,
             GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => true,
-            GenericParamDefKind::HKT => todo!("hoch")
+            GenericParamDefKind::HKT => todo!("hoch") // FIXMIG: what to do here?
         }
     }
 
@@ -114,7 +114,7 @@ impl GenericParamDef {
                 tcx.const_error(tcx.bound_type_of(self.def_id).subst(tcx, preceding_substs)).into()
             }
             GenericParamDefKind::HKT => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
         }
     }
@@ -228,7 +228,6 @@ impl<'tcx> Generics {
                 GenericParamDefKind::HKT => {
                     // If we encounter a HKT we require monomorphization
                     return true;
-                    //todo!("hoch")
                 }
             }
         }

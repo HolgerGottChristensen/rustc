@@ -2153,7 +2153,7 @@ impl<'tcx> Ty<'tcx> {
             }
 
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
 
             ty::Bool
@@ -2222,7 +2222,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Tuple(..) => (tcx.types.unit, false),
 
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
 
             ty::Str | ty::Slice(_) => (tcx.types.usize, false),
@@ -2233,7 +2233,7 @@ impl<'tcx> Ty<'tcx> {
 
             // type parameters only have unit metadata if they're sized, so return true
             // to make sure we double check this during confirmation
-            ty::HKT(..) | ty::Param(_) |  ty::Alias(..) => (tcx.types.unit, true), // TODO(hoch)
+            ty::HKT(..) | ty::Param(_) |  ty::Alias(..) => (tcx.types.unit, true), // FIXMIG: is this correct?
 
             ty::Infer(ty::TyVar(_))
             | ty::Bound(..)
@@ -2314,7 +2314,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Infer(ty::TyVar(_)) => false,
 
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
 
             ty::Bound(..)
@@ -2372,7 +2372,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Adt(..) | ty::Closure(..) => false,
 
             ty::Argument(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
 
             // Needs normalization or revealing to determine, so no is the safe answer.

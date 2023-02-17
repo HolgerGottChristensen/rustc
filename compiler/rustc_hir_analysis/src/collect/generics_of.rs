@@ -294,7 +294,6 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
             })
         }
         GenericParamKind::HKT(..) => {
-            // TODO(hoch)
             let kind = ty::GenericParamDefKind::HKT;
 
             Some(ty::GenericParamDef {

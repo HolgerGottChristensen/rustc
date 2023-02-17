@@ -2002,7 +2002,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 &ty::Param(_),
                 Res::SelfTyParam { trait_: param_did } | Res::Def(DefKind::TyParam, param_did),
             ) => self.find_bound_for_assoc_item(param_did.expect_local(), assoc_ident, span)?,
-            // TODO(hoch)
+            // FIXMIG: Is this correct?
             (
                 &ty::HKT(..),
                 Res::SelfTyParam { trait_: param_did } | Res::Def(DefKind::HKTParam, param_did),

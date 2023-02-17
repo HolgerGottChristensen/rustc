@@ -157,7 +157,7 @@ impl<'tcx> TypeFolder<'tcx> for ReverseMapper<'tcx> {
                 self.tcx.mk_generator(def_id, substs, movability)
             }
             ty::HKT(..) => {
-                todo!("hoch")
+                todo!("hoch") // FIXMIG: what to do here?
             }
             ty::Param(ref param) => {
                 // Look it up in the substitution list.

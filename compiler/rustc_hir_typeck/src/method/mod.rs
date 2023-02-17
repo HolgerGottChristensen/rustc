@@ -282,7 +282,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     }
                 }
                 GenericParamDefKind::HKT => {
-                    todo!("hoch")
+                    todo!("hoch") // FIXMIG: what to do here?
                 }
             }
             self.var_for_def(cause.span, param)

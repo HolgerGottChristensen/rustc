@@ -674,7 +674,6 @@ impl<'f, 'tcx> Coerce<'f, 'tcx> {
                 Err(traits::Unimplemented) => {
                     debug!("coerce_unsized: early return - can't prove obligation");
                     return Err(TypeError::Mismatch);
-                    //todo!("return Err(TypeError::Mismatch);")
                 }
 
                 // Object safety violations or miscellaneous.
