@@ -832,7 +832,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             Some(GenericArgKind::Type(ty)) => {
                 let mut current = ty;
                 for (index, arg) in substs.iter().enumerate() {
-                    current = self.ty_kind_substitution(current, arg.expect_ty(), p.index(), index as u32)
+                    current = self.ty_kind_substitution(current, arg.expect_ty(), p.def_id(), index as u32)
                 }
                 current
             },
@@ -846,9 +846,9 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
     // FIXMIG: Make this function a type folder, because that is basically what it should do.
     #[allow(rustc::usage_of_ty_tykind)]
-    fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, index: u32, sub_index: u32) -> Ty<'tcx> {
+    fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, def_id: DefId, index: u32) -> Ty<'tcx> {
         match ty.kind() {
-            ty::TyKind::Argument(gen_index, gen_sub_index) if index == *gen_index && sub_index == *gen_sub_index => {
+            ty::TyKind::Argument(a) if *a == def_id && *a == index => {
                 with
             }
             ty::TyKind::Bool
@@ -856,6 +856,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             | ty::TyKind::Int(_)
             | ty::TyKind::Uint(_)
             | ty::TyKind::Error(_)
+            | ty::TyKind::Argument(_)
             | ty::TyKind::Float(_) => {
                 ty
             }
@@ -867,7 +868,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                         GenericArgKind::Const(_)
                         | GenericArgKind::Lifetime(_) => a,
                         GenericArgKind::Type(t) => {
-                            self.ty_kind_substitution(t, with, index, sub_index).into()
+                            self.ty_kind_substitution(t, with, def_id, index).into()
                         }
                     }
                 }).collect::<Vec<_>>();
@@ -882,7 +883,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                         GenericArgKind::Const(_)
                         | GenericArgKind::Lifetime(_) => a,
                         GenericArgKind::Type(t) => {
-                            self.ty_kind_substitution(t, with, index, sub_index).into()
+                            self.ty_kind_substitution(t, with, def_id, index).into()
                         }
                     }
                 }).collect::<Vec<_>>();
@@ -890,7 +891,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                 self.tcx.mk_ty(ty::TyKind::HKT(*did, *a, self.tcx.mk_substs(new_substs.into_iter())))
             }
             _ => {
-                todo!("here: {:#?} with {:#?}", ty.kind(), with.kind())
+                todo!("here: {:#?} with {:#?}, def_id: {:?}:{:?}", ty.kind(), with.kind(), def_id, index)
             }
         }
     }

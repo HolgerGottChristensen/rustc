@@ -73,7 +73,7 @@ pub enum TyKind<I: Interner> {
     /// by using something like `adt_def.all_fields().map(|field| field.ty(tcx, substs))`.
     Adt(I::AdtDef, I::SubstsRef),
 
-    Argument(I::ArgumentDef, I::ArgumentDef),
+    Argument(I::ArgumentDef),
 
     /// An unsized FFI type that is opaque to Rust. Written as `extern type T`.
     Foreign(I::DefId),
@@ -285,7 +285,7 @@ impl<I: Interner> Clone for TyKind<I> {
             Infer(t) => Infer(t.clone()),
             Error(e) => Error(e.clone()),
             HKT(did, p, s) => HKT(did.clone(), p.clone(), s.clone()),
-            Argument(s, t) => Argument(s.clone(), t.clone())
+            Argument(s) => Argument(s.clone())
         }
     }
 }
@@ -319,7 +319,7 @@ impl<I: Interner> PartialEq for TyKind<I> {
                 (Alias(a_i, a_p), Alias(b_i, b_p)) => a_i == b_i && a_p == b_p,
                 (Param(a_p), Param(b_p)) => a_p == b_p,
                 (HKT(a_did, a_p, a_s), HKT(b_did, b_p, b_s)) => a_did == b_did && a_p == b_p && a_s == b_s,
-                (Argument(a_s, a_t), Argument(b_s, b_t)) => a_s == b_s && a_t == b_t,
+                (Argument(a_s), Argument(b_s)) => a_s == b_s,
                 (Bound(a_d, a_b), Bound(b_d, b_b)) => a_d == b_d && a_b == b_b,
                 (Placeholder(a_p), Placeholder(b_p)) => a_p == b_p,
                 (Infer(a_t), Infer(b_t)) => a_t == b_t,
@@ -378,7 +378,7 @@ impl<I: Interner> Ord for TyKind<I> {
                 (Alias(a_i, a_p), Alias(b_i, b_p)) => a_i.cmp(b_i).then_with(|| a_p.cmp(b_p)),
                 (Param(a_p), Param(b_p)) => a_p.cmp(b_p),
                 (HKT(a_did, a_p, a_s), HKT(b_did, b_p, b_s)) => a_did.cmp(b_did).then_with(|| a_p.cmp(b_p).then_with(|| a_s.cmp(b_s))),
-                (Argument(a_p, a_t), Argument(b_p, b_t)) => a_p.cmp(b_p).then_with(|| a_t.cmp(b_t)),
+                (Argument(a_p), Argument(b_p)) => a_p.cmp(b_p),
                 (Bound(a_d, a_b), Bound(b_d, b_b)) => a_d.cmp(b_d).then_with(|| a_b.cmp(b_b)),
                 (Placeholder(a_p), Placeholder(b_p)) => a_p.cmp(b_p),
                 (Infer(a_t), Infer(b_t)) => a_t.cmp(b_t),
@@ -455,9 +455,8 @@ impl<I: Interner> hash::Hash for TyKind<I> {
                 p.hash(state);
                 s.hash(state)
             }
-            Argument(v, t) => {
-                v.hash(state);
-                t.hash(state)
+            Argument(v) => {
+                v.hash(state)
             }
             Bool | Char | Str | Never => (),
         }
@@ -494,7 +493,7 @@ impl<I: Interner> fmt::Debug for TyKind<I> {
             Placeholder(p) => f.debug_tuple_field1_finish("Placeholder", p),
             Infer(t) => f.debug_tuple_field1_finish("Infer", t),
             HKT(did, d, s) => f.debug_tuple_field3_finish("HKT", did, d, s),
-            Argument(v, t) => f.debug_tuple_field2_finish("Argument", v, t),
+            Argument(v) => f.debug_tuple_field1_finish("Argument", v),
             TyKind::Error(e) => f.debug_tuple_field1_finish("Error", e),
         }
     }
@@ -616,9 +615,8 @@ where
                 b.encode(e);
                 s.encode(e);
             }),
-            Argument(v, t) => e.emit_enum_variant(disc, |e| {
+            Argument(v) => e.emit_enum_variant(disc, |e| {
                 v.encode(e);
-                t.encode(e);
             })
         }
     }
@@ -680,7 +678,7 @@ where
             24 => Infer(Decodable::decode(d)),
             25 => Error(Decodable::decode(d)),
             26 => HKT(Decodable::decode(d), Decodable::decode(d), Decodable::decode(d)),
-            27 => Argument(Decodable::decode(d), Decodable::decode(d)),
+            27 => Argument(Decodable::decode(d)),
             _ => panic!(
                 "{}",
                 format!(
@@ -812,9 +810,8 @@ where
                 b.hash_stable(__hcx, __hasher);
                 s.hash_stable(__hcx, __hasher);
             }
-            Argument(v, t) => {
+            Argument(v) => {
                 v.hash_stable(__hcx, __hasher);
-                t.hash_stable(__hcx, __hasher);
             }
         }
     }

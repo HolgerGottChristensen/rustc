@@ -1,4 +1,4 @@
-// HKT test
+// HKT Test that we can call the same function with multiple different types, and they all print
 // check-pass
 
 use std::fmt::Debug;

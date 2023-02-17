@@ -1,3 +1,5 @@
+// HKT this is a regression test. It should pass
+// check-pass
 
 #[derive(Copy)]
 pub union MaybeUninit<T> {

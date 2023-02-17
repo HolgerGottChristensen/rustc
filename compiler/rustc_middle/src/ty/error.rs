@@ -273,7 +273,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Tuple(ref tys) if tys.is_empty() => format!("`{}`", self).into(),
 
             ty::Adt(def, _) => format!("{} `{}`", def.descr(), tcx.def_path_str(def.did())).into(),
-            ty::Argument(s, t) => format!("%{}:{}", s, t).into(),
+            ty::Argument(s) => format!("%{}", s).into(),
             ty::Foreign(def_id) => format!("extern type `{}`", tcx.def_path_str(def_id)).into(),
             ty::Array(t, n) => {
                 if t.is_simple_ty() {
@@ -555,7 +555,7 @@ impl<T> Trait<T> for X {
                         ));
                     }
                     (ty::HKT(_p, ..), _) | (_, ty::HKT(_p, ..)) => {
-                        todo!("hoch")
+                        // FIXMIG: What should be called here
                     }
                     (ty::Param(p), _) | (_, ty::Param(p)) => {
                         let generics = self.generics_of(body_owner_def_id);

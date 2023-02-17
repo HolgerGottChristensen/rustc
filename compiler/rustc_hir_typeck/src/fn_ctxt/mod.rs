@@ -18,7 +18,7 @@ use rustc_infer::infer::type_variable::{TypeVariableOrigin, TypeVariableOriginKi
 use rustc_middle::infer::unify_key::{ConstVariableOrigin, ConstVariableOriginKind};
 use rustc_middle::ty::subst::GenericArgKind;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, Const, Generics, Ty, TyCtxt};
+use rustc_middle::ty::{self, Const, Ty, TyCtxt};
 use rustc_session::Session;
 use rustc_span::symbol::Ident;
 use rustc_span::{self, Span};
@@ -113,7 +113,7 @@ pub struct FnCtxt<'a, 'tcx> {
 
     pub(super) fallback_has_occurred: Cell<bool>,
 
-    argument_env: Cell<Option<(u32, &'tcx ty::Generics)>>,
+    argument_env: Cell<Option<DefId>>,
 }
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
@@ -186,8 +186,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.tcx.sess.err_count() > self.err_count_on_creation
     }
 
-    pub fn with_argument_env<R>(&self, index: u32, generics: &'tcx Generics, f: impl FnOnce(&FnCtxt<'a, 'tcx>)->R) -> R {
-        self.argument_env.set(Some((index, generics)));
+    pub fn with_argument_env<R>(&self, def_id: DefId, f: impl FnOnce(&FnCtxt<'a, 'tcx>)->R) -> R {
+        self.argument_env.set(Some(def_id));
         let val = f(self);
         self.argument_env.set(None);
         val
@@ -324,7 +324,7 @@ impl<'a, 'tcx> AstConv<'tcx> for FnCtxt<'a, 'tcx> {
         self.write_ty(hir_id, ty)
     }
 
-    fn current_argument_env(&self) -> Option<(u32, &'tcx Generics)> {
+    fn current_argument_env(&self) -> Option<DefId> {
         self.argument_env.get()
     }
 }

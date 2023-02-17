@@ -4,7 +4,7 @@ use crate::infer::region_constraints::VerifyIfEq;
 use crate::infer::{GenericKind, VerifyBound};
 use rustc_data_structures::sso::SsoHashSet;
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::GenericArg;
+use rustc_middle::ty::{GenericArg};
 use rustc_middle::ty::{self, OutlivesPredicate, SubstsRef, Ty, TyCtxt};
 
 use smallvec::smallvec;
@@ -255,7 +255,7 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
         &self,
         param_ty: ty::ParamTy,
     ) -> Vec<ty::Binder<'tcx, ty::OutlivesPredicate<Ty<'tcx>, ty::Region<'tcx>>>> {
-        // TODO muki make copy with HKTTy
+        // FIXMIG: muki make copy with HKTTy
         let generic_ty = param_ty.to_ty(self.tcx);
         self.declared_generic_bounds_from_env_for_erased_ty(generic_ty)
     }

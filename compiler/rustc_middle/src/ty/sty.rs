@@ -1291,12 +1291,33 @@ pub type CanonicalPolyFnSig<'tcx> = Canonical<'tcx, Binder<'tcx, FnSig<'tcx>>>;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
 #[derive(HashStable)]
+pub struct ArgumentDef {
+    pub def_id: DefId,
+    pub index: u32,
+    pub name: Symbol,
+}
+
+impl PartialEq<u32> for ArgumentDef {
+    fn eq(&self, other: &u32) -> bool {
+        self.index == *other
+    }
+}
+
+impl PartialEq<DefId> for ArgumentDef {
+    fn eq(&self, other: &DefId) -> bool {
+        self.def_id == *other
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
+#[derive(HashStable)]
 pub enum ParamTy {
     Param {
         index: u32,
         name: Symbol,
     },
     HKT {
+        def_id: DefId,
         index: u32,
         name: Symbol,
     }
@@ -1307,8 +1328,8 @@ impl<'tcx> ParamTy {
         ParamTy::Param { index, name }
     }
 
-    pub fn new_hkt(index: u32, name: Symbol) -> ParamTy {
-        ParamTy::HKT { index, name }
+    pub fn new_hkt(def_id: DefId, index: u32, name: Symbol) -> ParamTy {
+        ParamTy::HKT { def_id, index, name }
     }
 
     pub fn for_def(def: &ty::GenericParamDef) -> ParamTy {
@@ -1319,7 +1340,7 @@ impl<'tcx> ParamTy {
                 ParamTy::new_param(def.index, def.name)
             }
             GenericParamDefKind::HKT => {
-                ParamTy::new_hkt(def.index, def.name)
+                ParamTy::new_hkt(def.def_id, def.index, def.name)
             }
         }
     }
@@ -1328,23 +1349,19 @@ impl<'tcx> ParamTy {
     pub fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
         match self {
             ParamTy::Param { index, name } => tcx.mk_ty_param(*index, *name),
-            ParamTy::HKT { .. } => panic!("Call to_hkt instead!"),
-        }
-    }
-
-    #[inline]
-    pub fn to_hkt(&self, def_id: DefId, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
-        match self {
-            ParamTy::Param { .. } => panic!("Call to_ty instead!"),
-            ParamTy::HKT { index, name } => {
+            ParamTy::HKT { def_id, index, name } => {
                 let generics: &ty::Generics = tcx.generics_of(def_id);
 
-                let generics = generics.params.iter().enumerate().map(|(inner_index, _)| {
-                    tcx.mk_ty(ty::Argument(*index, inner_index as u32)).into()
+                let generics = generics.params.iter().map(|param| {
+                    tcx.mk_ty(ty::Argument(ArgumentDef {
+                        def_id: *def_id,
+                        index: param.index,
+                        name: param.name,
+                    })).into()
                 }).collect::<Vec<_>>();
 
-                tcx.mk_hkt_param(def_id, *index, *name, tcx.intern_substs(&generics)).into()
-            }
+                tcx.mk_hkt_param(*def_id, *index, *name, tcx.intern_substs(&generics)).into()
+            },
         }
     }
 
@@ -1356,6 +1373,18 @@ impl<'tcx> ParamTy {
             }
             ParamTy::HKT { index, .. } => {
                 index
+            }
+        }
+    }
+
+    #[inline]
+    pub fn def_id(&self) -> DefId {
+        match *self {
+            ParamTy::Param { .. } => {
+                todo!("What to do here")
+            }
+            ParamTy::HKT { def_id, .. } => {
+                def_id
             }
         }
     }

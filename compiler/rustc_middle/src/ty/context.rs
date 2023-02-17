@@ -17,7 +17,7 @@ use crate::thir::Thir;
 use crate::traits;
 use crate::ty::query::{self, TyCtxtAt};
 use crate::ty::{
-    self, AdtDef, AdtDefData, AdtKind, Binder, Const, ConstData, DefIdTree, FloatTy, FloatVar,
+    self, ArgumentDef, AdtDef, AdtDefData, AdtKind, Binder, Const, ConstData, DefIdTree, FloatTy, FloatVar,
     FloatVid, GenericParamDefKind, ImplPolarity, InferTy, IntTy, IntVar, IntVid, List, ParamConst,
     ParamTy, PolyExistentialPredicate, PolyFnSig, Predicate, PredicateKind, Region, RegionKind,
     ReprOptions, TraitObjectVisitor, Ty, TyKind, TyVar, TyVid, TypeAndMut, TypeckResults, UintTy,
@@ -95,7 +95,7 @@ pub trait OnDiskCache<'tcx>: rustc_data_structures::sync::Sync {
 #[allow(rustc::usage_of_ty_tykind)]
 impl<'tcx> Interner for TyCtxt<'tcx> {
     type AdtDef = ty::AdtDef<'tcx>;
-    type ArgumentDef = u32;
+    type ArgumentDef = ArgumentDef;
     type SubstsRef = ty::SubstsRef<'tcx>;
     type DefId = DefId;
     type Ty = Ty<'tcx>;
@@ -2006,7 +2006,7 @@ impl<'tcx> TyCtxt<'tcx> {
 
     #[inline]
     pub fn mk_hkt_param(self, def_id: DefId, index: u32, name: Symbol, subst: SubstsRef<'tcx>) -> Ty<'tcx> {
-        self.mk_ty(HKT(def_id, ParamTy::HKT { index, name }, subst))
+        self.mk_ty(HKT(def_id, ParamTy::HKT { def_id, index, name }, subst))
     }
 
     pub fn mk_param_from_def(self, param: &ty::GenericParamDef) -> GenericArg<'tcx> {
@@ -2026,8 +2026,12 @@ impl<'tcx> TyCtxt<'tcx> {
             GenericParamDefKind::HKT => {
                 let generics: &Generics = self.generics_of(param.def_id);
 
-                let generics = generics.params.iter().enumerate().map(|(index, _)| {
-                    self.mk_ty(ty::Argument(param.index, index as u32)).into()
+                let generics = generics.params.iter().map(|inner_param| {
+                    self.mk_ty(ty::Argument(ArgumentDef {
+                        def_id: param.def_id,
+                        index: inner_param.index,
+                        name: inner_param.name,
+                    })).into()
                 }).collect::<Vec<_>>();
 
                 self.mk_hkt_param(param.def_id, param.index, param.name, self.intern_substs(&generics)).into()

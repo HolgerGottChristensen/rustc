@@ -5,5 +5,5 @@ fn test<I<%J>>(input: I<u32>) {
 }
 
 fn main() {
-    test::<Option<%J2>>(Some(42)); // ~ ERROR could not resolve `%j2`
+    test::<Option<%J2>>(Some(42)); //~ ERROR could not resolve `%j2`
 }

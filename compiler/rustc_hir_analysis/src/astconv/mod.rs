@@ -26,7 +26,7 @@ use rustc_hir::intravisit::{walk_generics, Visitor as _};
 use rustc_hir::{GenericArg, GenericArgs, OpaqueTyOrigin};
 use rustc_middle::middle::stability::AllowUnstable;
 use rustc_middle::ty::subst::{self, GenericArgKind, InternalSubsts, SubstsRef};
-use rustc_middle::ty::GenericParamDefKind;
+use rustc_middle::ty::{ArgumentDef, GenericParamDefKind};
 use rustc_middle::ty::{self, Const, DefIdTree, IsSuggestable, Ty, TyCtxt, TypeVisitable};
 use rustc_middle::ty::{DynKind, EarlyBinder};
 use rustc_session::lint::builtin::{AMBIGUOUS_ASSOCIATED_ITEMS, BARE_TRAIT_OBJECTS};
@@ -120,7 +120,7 @@ pub trait AstConv<'tcx> {
 
     fn record_ty(&self, hir_id: hir::HirId, ty: Ty<'tcx>, span: Span);
 
-    fn current_argument_env(&self) -> Option<(u32, &'tcx ty::Generics)>;
+    fn current_argument_env(&self) -> Option<DefId>;
 }
 
 #[derive(Debug)]
@@ -2738,10 +2738,16 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
 
         let result_ty = match ast_ty.kind {
             hir::TyKind::Argument(i) => {
-                if let Some((idx, env)) = self.current_argument_env() {
-                    for param in &env.params {
+                if let Some(did) = self.current_argument_env() {
+                    let generics: &ty::Generics = self.tcx().generics_of(did);
+
+                    for param in &generics.params {
                         if param.name == i.name {
-                            return tcx.mk_ty(ty::Argument(idx, param.index))
+                            return tcx.mk_ty(ty::Argument(ArgumentDef {
+                                def_id: did,
+                                index: param.index,
+                                name: param.name,
+                            }))
                         }
                     }
                     // FIXMIG: Give an error message that the %j is not found in the env.
