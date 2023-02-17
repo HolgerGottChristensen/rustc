@@ -17,7 +17,7 @@ use rustc_middle::ty::{
     query::Providers,
     subst::SubstsRef,
     visit::{TypeSuperVisitable, TypeVisitable, TypeVisitor},
-    Const, Ty, TyCtxt,
+    Const, Ty, TyCtxt, TypeParameter
 };
 use rustc_span::symbol::sym;
 use std::ops::ControlFlow;

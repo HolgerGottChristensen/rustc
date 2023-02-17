@@ -13,10 +13,7 @@ use rustc_infer::infer::{self, InferCtxt, TyCtxtInferExt};
 use rustc_middle::mir::ConstraintCategory;
 use rustc_middle::ty::query::Providers;
 use rustc_middle::ty::trait_def::TraitSpecializationKind;
-use rustc_middle::ty::{
-    self, AdtKind, DefIdTree, GenericParamDefKind, Ty, TyCtxt, TypeFoldable, TypeSuperVisitable,
-    TypeVisitable, TypeVisitor,
-};
+use rustc_middle::ty::{self, AdtKind, DefIdTree, GenericParamDefKind, Ty, TyCtxt, TypeFoldable, TypeParameter, TypeSuperVisitable, TypeVisitable, TypeVisitor};
 use rustc_middle::ty::{GenericArgKind, InternalSubsts};
 use rustc_session::parse::feature_err;
 use rustc_span::symbol::{sym, Ident, Symbol};
@@ -592,7 +589,7 @@ fn gather_gat_bounds<'tcx, T: TypeFoldable<'tcx>>(
                 // `Self` in the GAT.
                 let ty_param = gat_generics.param_at(*ty_idx, tcx);
                 let ty_param = tcx
-                    .mk_ty(ty::Param(ty::ParamTy::Param { index: ty_param.index, name: ty_param.name }));
+                    .mk_ty(ty::Param(ty::ParamTy::new(ty_param.index, ty_param.name)));
                 // Same for the region. In our example, 'a corresponds
                 // to the 'me parameter.
                 let region_param = gat_generics.param_at(*region_a_idx, tcx);

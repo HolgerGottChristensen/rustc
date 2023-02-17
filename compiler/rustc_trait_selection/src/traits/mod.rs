@@ -495,13 +495,13 @@ fn is_impossible_method(tcx: TyCtxt<'_>, (impl_def_id, trait_item_def_id): (DefI
         fn visit_ty(&mut self, t: Ty<'tcx>) -> ControlFlow<Self::BreakTy> {
             // If this is a parameter from the trait item's own generics, then bail
             if let ty::Param(param) = t.kind()
-                && let param_def_id = self.generics.type_param(param, self.tcx).def_id
+                && let param_def_id = self.generics.type_param(*param, self.tcx).def_id
                 && self.tcx.parent(param_def_id) == self.trait_item_def_id
             {
                 return ControlFlow::BREAK;
             }
             if let ty::HKT(_, param, ..) = t.kind()
-                && let param_def_id = self.generics.type_param(param, self.tcx).def_id
+                && let param_def_id = self.generics.type_param(*param, self.tcx).def_id
                 && self.tcx.parent(param_def_id) == self.trait_item_def_id
             {
                 return ControlFlow::BREAK;

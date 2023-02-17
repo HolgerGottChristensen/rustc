@@ -14,6 +14,7 @@ use rustc_hir::def_id::DefId;
 use rustc_hir::WherePredicate;
 use rustc_span::Span;
 use rustc_type_ir::sty::TyKind::*;
+use rustc_middle::ty::TypeParameter;
 
 impl<'tcx> IntoDiagnosticArg for Ty<'tcx> {
     fn into_diagnostic_arg(self) -> DiagnosticArgValue<'static> {
@@ -481,7 +482,7 @@ impl<'tcx> TypeVisitor<'tcx> for IsSuggestableVisitor<'tcx> {
                 // sufficient info to determine if it is synthetic, and we don't
                 // always have a convenient way of getting `ty::Generics` at the call
                 // sites we invoke `IsSuggestable::is_suggestable`.
-                if param.name().as_str().starts_with("impl ") {
+                if (*param).name().as_str().starts_with("impl ") {
                     return ControlFlow::Break(());
                 }
             }

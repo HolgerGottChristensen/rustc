@@ -68,10 +68,7 @@ use rustc_hir::lang_items::LangItem;
 use rustc_hir::Node;
 use rustc_middle::dep_graph::DepContext;
 use rustc_middle::ty::relate::{self, RelateResult, TypeRelation};
-use rustc_middle::ty::{
-    self, error::TypeError, List, Region, Ty, TyCtxt, TypeFoldable, TypeSuperVisitable,
-    TypeVisitable,
-};
+use rustc_middle::ty::{self, error::TypeError, List, Region, Ty, TyCtxt, TypeFoldable, TypeParameter, TypeSuperVisitable, TypeVisitable};
 use rustc_span::{sym, symbol::kw, BytePos, DesugaringKind, Pos, Span};
 use rustc_target::spec::abi;
 use std::ops::{ControlFlow, Deref};
@@ -2134,7 +2131,7 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
                 // Account for the case where `param` corresponds to `Self`,
                 // which doesn't have the expected type argument.
                 if !(generics.has_self && param.index() == 0) {
-                    let type_param = generics.type_param(param, self.tcx);
+                    let type_param = generics.type_param(*param, self.tcx);
                     type_param.def_id.as_local().map(|def_id| {
                         // Get the `hir::Param` to verify whether it already has any bounds.
                         // We do this to avoid suggesting code that ends up as `T: 'a'b`,
@@ -2155,7 +2152,8 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
                 } else {
                     None
                 }
-            }
+            },
+            GenericKind::HKT(_param) => todo!("hoch"),
             _ => None,
         };
 

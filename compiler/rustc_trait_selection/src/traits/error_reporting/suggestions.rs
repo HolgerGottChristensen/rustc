@@ -29,7 +29,7 @@ use rustc_infer::infer::{InferOk, LateBoundRegionConversionTime};
 use rustc_middle::hir::map;
 use rustc_middle::ty::error::TypeError::{self, Sorts};
 use rustc_middle::ty::relate::TypeRelation;
-use rustc_middle::ty::{self, suggest_arbitrary_trait_bound, suggest_constraining_type_param, AdtKind, DefIdTree, GeneratorDiagnosticData, GeneratorInteriorTypeCause, Infer, InferTy, InternalSubsts, IsSuggestable, ToPredicate, Ty, TyCtxt, TypeAndMut, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable, TypeckResults, GenericParamDefKind};
+use rustc_middle::ty::{self, suggest_arbitrary_trait_bound, suggest_constraining_type_param, AdtKind, DefIdTree, GeneratorDiagnosticData, GeneratorInteriorTypeCause, Infer, InferTy, InternalSubsts, IsSuggestable, ToPredicate, Ty, TyCtxt, TypeAndMut, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable, TypeckResults, GenericParamDefKind, TypeParameter};
 use rustc_span::symbol::{sym, Ident, Symbol};
 use rustc_span::{BytePos, DesugaringKind, ExpnKind, Span, DUMMY_SP};
 use rustc_target::spec::abi;
@@ -405,14 +405,15 @@ fn suggest_restriction<'tcx>(
         fn_sig.zip(projection).and_then(|(sig, p)| match p.self_ty().kind() {
             // Shenanigans to get the `Trait` from the `impl Trait`.
             ty::Param(param) => {
-                let param_def = generics.type_param(param, tcx);
+                let param_def = generics.type_param(*param, tcx);
                 if param_def.kind.is_synthetic() {
                     let bound_str =
                         param_def.name.as_str().strip_prefix("impl ")?.trim_start().to_string();
                     return Some((param_def, bound_str, sig));
                 }
                 None
-            }
+            },
+            ty::HKT(_param, ..) => todo!("hoch"),
             _ => None,
         })
     {
@@ -420,7 +421,7 @@ fn suggest_restriction<'tcx>(
         let trait_pred = trait_pred.fold_with(&mut ReplaceImplTraitFolder {
             tcx,
             param,
-            replace_ty: ty::ParamTy::new_param(generics.count() as u32, Symbol::intern(&type_param_name))
+            replace_ty: ty::ParamTy::new(generics.count() as u32, Symbol::intern(&type_param_name))
                 .to_ty(tcx),
         });
         // TODO: new_param or new_hkt
@@ -3766,8 +3767,8 @@ struct ReplaceImplTraitFolder<'tcx> {
 
 impl<'tcx> TypeFolder<'tcx> for ReplaceImplTraitFolder<'tcx> {
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
-        if let ty::Param(ty::ParamTy::Param { index, .. }) = t.kind() {
-            if self.param.index == *index {
+        if let ty::Param(p) = t.kind() {
+            if self.param.index == (*p).index() {
                 return self.replace_ty;
             }
         }

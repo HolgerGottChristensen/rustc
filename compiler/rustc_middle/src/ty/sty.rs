@@ -24,6 +24,8 @@ use rustc_target::spec::abi;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt;
+use std::fmt::{Debug};
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::ops::{ControlFlow, Deref, Range};
 use ty::util::IntTypeExt;
@@ -1309,103 +1311,144 @@ impl PartialEq<DefId> for ArgumentDef {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
-#[derive(HashStable)]
-pub enum ParamTy {
-    Param {
-        index: u32,
-        name: Symbol,
-    },
-    HKT {
-        def_id: DefId,
-        index: u32,
-        name: Symbol,
+pub trait TypeParameter<'tcx>: Clone + Copy + PartialEq + Eq + PartialOrd + Ord + Hash + Debug {
+    fn for_def(def: &ty::GenericParamDef) -> Self;
+    fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx>;
+    fn index(&self) -> u32;
+    fn name(&self) -> Symbol;
+    fn def_id(&self) -> DefId;
+    fn span_from_generics(&self, tcx: TyCtxt<'tcx>, item_with_generics: DefId) -> Span {
+        let generics = tcx.generics_of(item_with_generics);
+        let type_param = generics.type_param(*self, tcx);
+        tcx.def_span(type_param.def_id)
     }
 }
 
-impl<'tcx> ParamTy {
-    pub fn new_param(index: u32, name: Symbol) -> ParamTy {
-        ParamTy::Param { index, name }
+pub enum TypeParamResult {
+    Param(ParamTy),
+    HKT(HKTTy)
+}
+
+impl TypeParamResult {
+    pub fn name(&self) -> Symbol {
+        match self {
+            TypeParamResult::Param(p) => p.name,
+            TypeParamResult::HKT(h) => h.name
+        }
     }
 
-    pub fn new_hkt(def_id: DefId, index: u32, name: Symbol) -> ParamTy {
-        ParamTy::HKT { def_id, index, name }
+    pub fn index(&self) -> u32 {
+        match self {
+            TypeParamResult::Param(p) => p.index,
+            TypeParamResult::HKT(h) => h.index
+        }
     }
+}
 
-    pub fn for_def(def: &ty::GenericParamDef) -> ParamTy {
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
+#[derive(HashStable)]
+pub struct ParamTy {
+    index: u32,
+    name: Symbol,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
+#[derive(HashStable)]
+pub struct HKTTy {
+    def_id: DefId,
+    index: u32,
+    name: Symbol,
+}
+
+impl ParamTy {
+    pub fn new(index: u32, name: Symbol) -> ParamTy {
+        Self { index, name }
+    }
+}
+
+impl HKTTy {
+    pub fn new(def_id: DefId, index: u32, name: Symbol) -> HKTTy {
+        Self {def_id,  index, name }
+    }
+}
+
+
+impl<'tcx> TypeParameter<'tcx> for ParamTy {
+
+    fn for_def(def: &ty::GenericParamDef) -> ParamTy {
         match def.kind {
             GenericParamDefKind::Lifetime |
             GenericParamDefKind::Type { .. } |
             GenericParamDefKind::Const { .. } => {
-                ParamTy::new_param(def.index, def.name)
+                ParamTy::new(def.index, def.name)
             }
             GenericParamDefKind::HKT => {
-                ParamTy::new_hkt(def.def_id, def.index, def.name)
+                bug!("Cannot convert Lifetime, Type, or Const to a HKT");
             }
         }
     }
 
     #[inline]
-    pub fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
-        match self {
-            ParamTy::Param { index, name } => tcx.mk_ty_param(*index, *name),
-            ParamTy::HKT { def_id, index, name } => {
-                let generics: &ty::Generics = tcx.generics_of(def_id);
-
-                let generics = generics.params.iter().map(|param| {
-                    tcx.mk_ty(ty::Argument(ArgumentDef {
-                        def_id: *def_id,
-                        index: param.index,
-                        name: param.name,
-                    })).into()
-                }).collect::<Vec<_>>();
-
-                tcx.mk_hkt_param(*def_id, *index, *name, tcx.intern_substs(&generics)).into()
-            },
-        }
+    fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
+        tcx.mk_ty_param(self.index, self.name)
     }
 
     #[inline]
-    pub fn index(&self) -> u32 {
-        match *self {
-            ParamTy::Param { index, .. } => {
-                index
-            }
-            ParamTy::HKT { index, .. } => {
-                index
-            }
-        }
+    fn index(&self) -> u32 {
+        self.index
     }
 
     #[inline]
-    pub fn def_id(&self) -> DefId {
-        match *self {
-            ParamTy::Param { .. } => {
-                todo!("What to do here")
+    fn name(&self) -> Symbol {
+        self.name
+    }
+
+    #[inline]
+    fn def_id(&self) -> DefId { todo!("What to do here") }
+}
+
+impl<'tcx> TypeParameter<'tcx> for HKTTy {
+
+    fn for_def(def: &ty::GenericParamDef) -> HKTTy {
+        match def.kind {
+            GenericParamDefKind::Lifetime |
+            GenericParamDefKind::Type { .. } |
+            GenericParamDefKind::Const { .. } => {
+                bug!("Cannot convert HKT to Lifetime, Type, or Const");
             }
-            ParamTy::HKT { def_id, .. } => {
-                def_id
+            GenericParamDefKind::HKT => {
+                HKTTy::new(def.def_id, def.index, def.name)
             }
         }
     }
 
     #[inline]
-    pub fn name(&self) -> Symbol {
-        match *self {
-            ParamTy::Param { name, .. } => {
-                name
-            }
-            ParamTy::HKT { name, .. } => {
-                name
-            }
-        }
+    fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
+        let generics: &ty::Generics = tcx.generics_of(self.def_id);
+
+        let generics = generics.params.iter().map(|param| {
+            tcx.mk_ty(ty::Argument(ArgumentDef {
+                def_id: self.def_id,
+                index: param.index,
+                name: param.name,
+            })).into()
+        }).collect::<Vec<_>>();
+
+        tcx.mk_hkt_param(self.def_id, self.index, self.name, tcx.intern_substs(&generics)).into()
     }
 
-    pub fn span_from_generics(&self, tcx: TyCtxt<'tcx>, item_with_generics: DefId) -> Span {
-        let generics = tcx.generics_of(item_with_generics);
-        let type_param = generics.type_param(self, tcx);
-        tcx.def_span(type_param.def_id)
+    #[inline]
+    fn index(&self) -> u32 {
+        self.index
     }
+
+    #[inline]
+    fn name(&self) -> Symbol {
+        self.name
+    }
+
+    #[inline]
+    fn def_id(&self) -> DefId { self.def_id }
 }
 
 #[derive(Copy, Clone, Hash, TyEncodable, TyDecodable, Eq, PartialEq, Ord, PartialOrd)]

@@ -16,7 +16,7 @@ use rustc_infer::infer::{self, InferOk, TyCtxtInferExt};
 use rustc_middle::infer::unify_key::{ConstVariableOrigin, ConstVariableOriginKind};
 use rustc_middle::middle::stability;
 use rustc_middle::ty::fast_reject::{simplify_type, TreatParams};
-use rustc_middle::ty::AssocItem;
+use rustc_middle::ty::{AssocItem, TypeParamResult};
 use rustc_middle::ty::GenericParamDefKind;
 use rustc_middle::ty::ToPredicate;
 use rustc_middle::ty::{self, ParamEnvAnd, Ty, TyCtxt, TypeFoldable, TypeVisitable};
@@ -680,10 +680,10 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 }
             }
             ty::Param(ref p) => {
-                self.assemble_inherent_candidates_from_param(p.clone());
+                self.assemble_inherent_candidates_from_param(TypeParamResult::Param(p.clone()));
             }
             ty::HKT(_, ref p, ..) => {
-                self.assemble_inherent_candidates_from_param(p.clone());
+                self.assemble_inherent_candidates_from_param(TypeParamResult::HKT(p.clone()));
             }
             ty::Bool
             | ty::Char
@@ -812,19 +812,26 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         });
     }
 
-    fn assemble_inherent_candidates_from_param(&mut self, param_ty: ty::ParamTy) {
+    fn assemble_inherent_candidates_from_param(&mut self, param_ty: TypeParamResult) {
         // FIXME: do we want to commit to this behavior for param bounds?
-        debug!("assemble_inherent_candidates_from_param(param_ty={:?})", param_ty);
+        match param_ty {
+            TypeParamResult::Param(p) => {
+                debug!("assemble_inherent_candidates_from_param(param_ty={:?})", p);
+            }
+            TypeParamResult::HKT(h) => {
+                debug!("assemble_inherent_candidates_from_param(param_ty={:?})", h);
+            }
+        }
 
         let bounds = self.param_env.caller_bounds().iter().filter_map(|predicate| {
             let bound_predicate = predicate.kind();
             match bound_predicate.skip_binder() {
                 ty::PredicateKind::Clause(ty::Clause::Trait(trait_predicate)) => {
                     match *trait_predicate.trait_ref.self_ty().kind() {
-                        ty::Param(ref p) if p.clone() == param_ty => {
+                        ty::Param(ref p) if let TypeParamResult::Param(param) = param_ty && p.clone() == param => {
                             Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }
-                        ty::HKT(_, ref p, ..) if p.clone() == param_ty => {
+                        ty::HKT(_, ref p, ..) if let TypeParamResult::HKT(param) = param_ty && p.clone() == param => {
                             // TODO(hoch)
                             Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }

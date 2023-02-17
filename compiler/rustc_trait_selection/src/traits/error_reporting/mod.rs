@@ -38,7 +38,7 @@ use rustc_middle::ty::fold::{TypeFolder, TypeSuperFoldable};
 use rustc_middle::ty::print::{with_forced_trimmed_paths, FmtPrinter, Print};
 use rustc_middle::ty::{
     self, SubtypePredicate, ToPolyTraitRef, ToPredicate, TraitRef, Ty, TyCtxt, TypeFoldable,
-    TypeVisitable,
+    TypeVisitable, TypeParameter
 };
 use rustc_session::config::TraitSolver;
 use rustc_session::Limit;
@@ -2585,20 +2585,20 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
             }
 
             fn fold_ty(&mut self, ty: Ty<'tcx>) -> Ty<'tcx> {
-                if let ty::Param(ty::ParamTy::Param { name, .. }) = *ty.kind() {
+                if let ty::Param(p) = *ty.kind() {
                     let infcx = self.infcx;
                     *self.var_map.entry(ty).or_insert_with(|| {
                         infcx.next_ty_var(TypeVariableOrigin {
-                            kind: TypeVariableOriginKind::TypeParameterDefinition(name, None),
+                            kind: TypeVariableOriginKind::TypeParameterDefinition(p.name(), None),
                             span: DUMMY_SP,
                         })
                     })
-                } else if let ty::HKT(_, ty::ParamTy::HKT { name, .. }, ..) = *ty.kind() {
+                } else if let ty::HKT(_, p, ..) = *ty.kind() {
                     // TODO(hoch)
                     let infcx = self.infcx;
                     *self.var_map.entry(ty).or_insert_with(|| {
                         infcx.next_ty_var(TypeVariableOrigin {
-                            kind: TypeVariableOriginKind::TypeParameterDefinition(name, None),
+                            kind: TypeVariableOriginKind::TypeParameterDefinition(p.name(), None),
                             span: DUMMY_SP,
                         })
                     })

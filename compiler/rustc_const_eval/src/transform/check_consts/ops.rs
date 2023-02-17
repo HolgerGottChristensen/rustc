@@ -13,7 +13,7 @@ use rustc_middle::mir;
 use rustc_middle::ty::print::with_no_trimmed_paths;
 use rustc_middle::ty::subst::{GenericArgKind, SubstsRef};
 use rustc_middle::ty::{
-    suggest_constraining_type_param, Adt, Closure, DefIdTree, FnDef, FnPtr, Param, Ty, HKT,
+    suggest_constraining_type_param, Adt, Closure, DefIdTree, FnDef, FnPtr, Param, Ty, HKT, TypeParameter
 };
 use rustc_middle::ty::{Binder, TraitRef};
 use rustc_session::parse::feature_err;

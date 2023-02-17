@@ -7,7 +7,7 @@ use crate::mir::{Field, ProjectionKind};
 use crate::ty::fold::{FallibleTypeFolder, TypeFoldable, TypeSuperFoldable};
 use crate::ty::print::{with_no_trimmed_paths, FmtPrinter, Printer};
 use crate::ty::visit::{TypeSuperVisitable, TypeVisitable, TypeVisitor};
-use crate::ty::{self, InferConst, Lift, ParamTy, Term, TermKind, Ty, TyCtxt};
+use crate::ty::{self, InferConst, Lift, Term, TermKind, Ty, TyCtxt};
 use rustc_data_structures::functor::IdFunctor;
 use rustc_hir::def::Namespace;
 use rustc_index::vec::{Idx, IndexVec};
@@ -17,6 +17,7 @@ use std::mem::ManuallyDrop;
 use std::ops::ControlFlow;
 use std::rc::Rc;
 use std::sync::Arc;
+use rustc_middle::ty::{HKTTy, ParamTy, TypeParameter};
 
 impl fmt::Debug for ty::TraitDef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -112,16 +113,23 @@ impl<'tcx> fmt::Debug for Ty<'tcx> {
     }
 }
 
-impl fmt::Debug for ty::ParamTy {
+impl fmt::Debug for ParamTy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ParamTy::Param { .. } => {
-                write!(f, "{}/#{}", self.name(), self.index())
-            }
-            ParamTy::HKT { .. } => {
-                write!(f, "{}/{}", self.name(), self.index())
-            }
-        }
+        f.debug_struct("ParamTy")
+            .field("name", &self.name())
+            .field("index", &self.index())
+            .finish()
+        //TODO: hoch, is this implemented correctly in the correct place?
+    }
+}
+
+impl fmt::Debug for HKTTy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HKTTy")
+            .field("name", &self.name())
+            .field("index", &self.index())
+            .finish()
+        //TODO: hoch, is this implemented correctly in the correct place?
     }
 }
 
@@ -248,6 +256,7 @@ TrivialTypeTraversalAndLiftImpls! {
     crate::ty::IntVarValue,
     crate::ty::ParamConst,
     crate::ty::ParamTy,
+    crate::ty::HKTTy,
     crate::ty::ArgumentDef,
     crate::ty::adjustment::PointerCast,
     crate::ty::RegionVid,

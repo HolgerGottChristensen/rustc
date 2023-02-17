@@ -11,6 +11,7 @@ use rustc_hir as ast;
 use rustc_hir::def_id::DefId;
 use rustc_span::DUMMY_SP;
 use rustc_target::spec::abi;
+use rustc_middle::ty::TypeParameter;
 use std::iter;
 
 pub type RelateResult<'tcx, T> = Result<T, TypeError<'tcx>>;

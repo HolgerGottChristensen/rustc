@@ -9,7 +9,7 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::intravisit::{self, Visitor};
 use rustc_middle::ty::subst::InternalSubsts;
-use rustc_middle::ty::{ArgumentDef, GenericParamDefKind, ParamEnv, ToPredicate};
+use rustc_middle::ty::{ArgumentDef, GenericParamDefKind, ParamEnv, ToPredicate, TypeParameter};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::symbol::{sym, Ident};
 use rustc_span::{Span, DUMMY_SP};
@@ -208,7 +208,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             GenericParamKind::Lifetime { .. } => (),
             GenericParamKind::Type { .. } => {
                 let name = param.name.ident().name;
-                let param_ty = ty::ParamTy::new_param(index, name).to_ty(tcx);
+                let param_ty = ty::ParamTy::new(index, name).to_ty(tcx);
                 index += 1;
 
                 let mut bounds = Bounds::default();
@@ -230,8 +230,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             }
             GenericParamKind::HKT(..) => {
                 let name = param.name.ident().name;
-                let param_ty = ty::ParamTy::new_hkt(param.def_id.to_def_id(), index, name).to_ty(tcx);
-
+                let param_ty = ty::HKTTy::new(param.def_id.to_def_id(), index, name).to_ty(tcx);
 
                 let mut bounds = Bounds::default();
                 // Params are implicitly sized unless a `?Sized` bound is found

@@ -428,11 +428,11 @@ impl<'tcx> TyCtxt<'tcx> {
                     }
                     (ty::Param(expected), ty::Param(found)) => {
                         let generics = self.generics_of(body_owner_def_id);
-                        let e_span = self.def_span(generics.type_param(expected, self).def_id);
+                        let e_span = self.def_span(generics.type_param(*expected, self).def_id);
                         if !sp.contains(e_span) {
                             diag.span_label(e_span, "expected type parameter");
                         }
-                        let f_span = self.def_span(generics.type_param(found, self).def_id);
+                        let f_span = self.def_span(generics.type_param(*found, self).def_id);
                         if !sp.contains(f_span) {
                             diag.span_label(f_span, "found type parameter");
                         }
@@ -454,14 +454,14 @@ impl<'tcx> TyCtxt<'tcx> {
                         if self.def_kind(proj.def_id) != DefKind::ImplTraitPlaceholder =>
                     {
                         let generics = self.generics_of(body_owner_def_id);
-                        let p_span = self.def_span(generics.type_param(p, self).def_id);
+                        let p_span = self.def_span(generics.type_param(*p, self).def_id);
                         if !sp.contains(p_span) {
                             diag.span_label(p_span, "this type parameter");
                         }
                         let hir = self.hir();
                         let mut note = true;
                         if let Some(generics) = generics
-                            .type_param(p, self)
+                            .type_param(*p, self)
                             .def_id
                             .as_local()
                             .map(|id| hir.local_def_id_to_hir_id(id))
@@ -504,7 +504,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     (ty::Param(p), ty::Dynamic(..) | ty::Alias(ty::Opaque, ..)) |
                     (ty::Dynamic(..) | ty::Alias(ty::Opaque, ..), ty::Param(p)) => {
                         let generics = self.generics_of(body_owner_def_id);
-                        let p_span = self.def_span(generics.type_param(p, self).def_id);
+                        let p_span = self.def_span(generics.type_param(*p, self).def_id);
                         if !sp.contains(p_span) {
                             diag.span_label(p_span, "this type parameter");
                         }
@@ -544,7 +544,7 @@ impl<T> Trait<T> for X {
                     }
                     (ty::Param(p), ty::Closure(..) | ty::Generator(..)) => {
                         let generics = self.generics_of(body_owner_def_id);
-                        let p_span = self.def_span(generics.type_param(p, self).def_id);
+                        let p_span = self.def_span(generics.type_param(*p, self).def_id);
                         if !sp.contains(p_span) {
                             diag.span_label(p_span, "this type parameter");
                         }
@@ -559,7 +559,7 @@ impl<T> Trait<T> for X {
                     }
                     (ty::Param(p), _) | (_, ty::Param(p)) => {
                         let generics = self.generics_of(body_owner_def_id);
-                        let p_span = self.def_span(generics.type_param(p, self).def_id);
+                        let p_span = self.def_span(generics.type_param(*p, self).def_id);
                         if !sp.contains(p_span) {
                             diag.span_label(p_span, "this type parameter");
                         }
@@ -646,7 +646,7 @@ impl<T> Trait<T> for X {
                 // This will also work for `impl Trait`.
                 let def_id = if let ty::Param(param_ty) = proj_ty.self_ty().kind() {
                     let generics = self.generics_of(body_owner_def_id);
-                    generics.type_param(param_ty, self).def_id
+                    generics.type_param(*param_ty, self).def_id
                 } else if let ty::HKT(..) = proj_ty.self_ty().kind() {
                     //let generics = self.generics_of(body_owner_def_id);
                     //generics.type_param(param_ty, self).def_id

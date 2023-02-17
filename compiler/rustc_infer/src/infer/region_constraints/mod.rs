@@ -16,7 +16,7 @@ use rustc_hir::def_id::DefId;
 use rustc_index::vec::IndexVec;
 use rustc_middle::infer::unify_key::{RegionVidKey, UnifiedRegion};
 use rustc_middle::ty::subst::SubstsRef;
-use rustc_middle::ty::ReStatic;
+use rustc_middle::ty::{ReStatic, TypeParameter};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_middle::ty::{ReLateBound, ReVar};
 use rustc_middle::ty::{Region, RegionVid};
@@ -169,8 +169,7 @@ pub struct Verify<'tcx> {
 #[derive(Clone, PartialEq, Eq, Hash, TypeFoldable, TypeVisitable)]
 pub enum GenericKind<'tcx> {
     Param(ty::ParamTy),
-    // TODO muki replace ParamTy
-    HKT(ty::ParamTy),
+    HKT(ty::HKTTy),
     Projection(ty::AliasTy<'tcx>),
     Opaque(DefId, SubstsRef<'tcx>),
 }
