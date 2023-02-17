@@ -825,7 +825,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
         self.shift_vars_through_binders(ty)
     }
 
-    fn hkt_for_param(&self, p: ty::ParamTy, substs: SubstsRef<'tcx>, source_ty: Ty<'tcx>) -> Ty<'tcx> {
+    fn hkt_for_param(&self, p: impl TypeParameter<'tcx>, substs: SubstsRef<'tcx>, source_ty: Ty<'tcx>) -> Ty<'tcx> {
 
         // Look up the type in the substitutions. It really should be in there.
         let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());

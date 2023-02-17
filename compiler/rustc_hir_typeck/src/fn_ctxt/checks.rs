@@ -26,7 +26,7 @@ use rustc_infer::infer::InferOk;
 use rustc_infer::infer::TypeTrace;
 use rustc_middle::ty::adjustment::AllowTwoPhase;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, DefIdTree, IsSuggestable, SubstsRef, Ty, TyKind, TypeParameter, TypeParamResult, TypeSuperVisitable, TypeVisitor};
+use rustc_middle::ty::{self, DefIdTree, IsSuggestable, Ty, TypeParameter, TypeParamResult, TypeSuperVisitable, TypeVisitor};
 use rustc_session::Session;
 use rustc_span::symbol::{kw, Ident};
 use rustc_span::{self, sym, Span};

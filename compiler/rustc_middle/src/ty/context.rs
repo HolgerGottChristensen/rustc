@@ -75,7 +75,7 @@ use std::iter;
 use std::mem;
 use std::ops::{Bound, Deref};
 use std::sync::Arc;
-use rustc_middle::ty::{HKTTy, TypeParameter, Generics};
+use rustc_middle::ty::{HKTTy, Generics};
 
 pub trait OnDiskCache<'tcx>: rustc_data_structures::sync::Sync {
     /// Creates a new `OnDiskCache` instance from the serialized data in `data`.

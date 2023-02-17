@@ -24,7 +24,7 @@ use rustc_target::spec::abi;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::ops::{ControlFlow, Deref, Range};
@@ -1312,11 +1312,11 @@ impl PartialEq<DefId> for ArgumentDef {
 }
 
 pub trait TypeParameter<'tcx>: Clone + Copy + PartialEq + Eq + PartialOrd + Ord + Hash + Debug {
-    fn new(index: u32, name: Symbol) -> Self;
     fn for_def(def: &ty::GenericParamDef) -> Self;
     fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx>;
     fn index(&self) -> u32;
     fn name(&self) -> Symbol;
+    fn def_id(&self) -> DefId;
     fn span_from_generics(&self, tcx: TyCtxt<'tcx>, item_with_generics: DefId) -> Span {
         let generics = tcx.generics_of(item_with_generics);
         let type_param = generics.type_param(*self, tcx);
@@ -1360,30 +1360,20 @@ pub struct HKTTy {
     name: Symbol,
 }
 
-impl Debug for ParamTy {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ParamTy")
-            .field("name", &self.name)
-            .field("index", &self.index)
-            .finish()
-        //TODO: hoch, is this implemented correctly in the correct place?
-    }
-}
-
-impl Debug for HKTTy {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("HKTTy")
-            .field("name", &self.name)
-            .field("index", &self.index)
-            .finish()
-        //TODO: hoch, is this implemented correctly in the correct place?
-    }
-}
-
-impl<'tcx> TypeParameter<'tcx> for ParamTy {
-    fn new(index: u32, name: Symbol) -> ParamTy {
+impl ParamTy {
+    pub fn new(index: u32, name: Symbol) -> ParamTy {
         Self { index, name }
     }
+}
+
+impl HKTTy {
+    pub fn new(def_id: DefId, index: u32, name: Symbol) -> HKTTy {
+        Self {def_id,  index, name }
+    }
+}
+
+
+impl<'tcx> TypeParameter<'tcx> for ParamTy {
 
     fn for_def(def: &ty::GenericParamDef) -> ParamTy {
         match def.kind {
@@ -1409,27 +1399,15 @@ impl<'tcx> TypeParameter<'tcx> for ParamTy {
     }
 
     #[inline]
-    pub fn def_id(&self) -> DefId {
-        match *self {
-            ParamTy::Param { .. } => {
-                todo!("What to do here")
-            }
-            ParamTy::HKT { def_id, .. } => {
-                def_id
-            }
-        }
-    }
-
-    #[inline]
     fn name(&self) -> Symbol {
         self.name
     }
+
+    #[inline]
+    fn def_id(&self) -> DefId { todo!("What to do here") }
 }
 
 impl<'tcx> TypeParameter<'tcx> for HKTTy {
-    fn new(def_id: DefId, index: u32, name: Symbol) -> HKTTy {
-        Self {def_id,  index, name }
-    }
 
     fn for_def(def: &ty::GenericParamDef) -> HKTTy {
         match def.kind {
@@ -1446,7 +1424,17 @@ impl<'tcx> TypeParameter<'tcx> for HKTTy {
 
     #[inline]
     fn to_ty(&self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
-        tcx.mk_hkt_param(self.index, self.name, tcx.intern_substs(&[]))
+        let generics: &ty::Generics = tcx.generics_of(self.def_id);
+
+        let generics = generics.params.iter().map(|param| {
+            tcx.mk_ty(ty::Argument(ArgumentDef {
+                def_id: self.def_id,
+                index: param.index,
+                name: param.name,
+            })).into()
+        }).collect::<Vec<_>>();
+
+        tcx.mk_hkt_param(self.def_id, self.index, self.name, tcx.intern_substs(&generics)).into()
     }
 
     #[inline]
@@ -1458,6 +1446,9 @@ impl<'tcx> TypeParameter<'tcx> for HKTTy {
     fn name(&self) -> Symbol {
         self.name
     }
+
+    #[inline]
+    fn def_id(&self) -> DefId { self.def_id }
 }
 
 #[derive(Copy, Clone, Hash, TyEncodable, TyDecodable, Eq, PartialEq, Ord, PartialOrd)]

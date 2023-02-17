@@ -17,6 +17,7 @@ use std::mem::ManuallyDrop;
 use std::ops::ControlFlow;
 use std::rc::Rc;
 use std::sync::Arc;
+use rustc_middle::ty::{HKTTy, ParamTy, TypeParameter};
 
 impl fmt::Debug for ty::TraitDef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -109,6 +110,26 @@ impl<'tcx> fmt::Debug for Ty<'tcx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         with_no_trimmed_paths!(fmt::Display::fmt(self, f))
         //self.kind().fmt(f)
+    }
+}
+
+impl fmt::Debug for ParamTy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ParamTy")
+            .field("name", &self.name())
+            .field("index", &self.index())
+            .finish()
+        //TODO: hoch, is this implemented correctly in the correct place?
+    }
+}
+
+impl fmt::Debug for HKTTy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HKTTy")
+            .field("name", &self.name())
+            .field("index", &self.index())
+            .finish()
+        //TODO: hoch, is this implemented correctly in the correct place?
     }
 }
 
