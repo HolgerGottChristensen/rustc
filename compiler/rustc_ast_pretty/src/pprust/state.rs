@@ -1672,6 +1672,11 @@ impl<'a> State<'a> {
                     s.word("<");
                     s.print_hkt_kind(nested);
                     s.word(">");
+
+                    if !param.bounds.is_empty() {
+                        s.word_nbsp(":");
+                        s.print_type_bounds(&param.bounds);
+                    }
                 }
             }
         });

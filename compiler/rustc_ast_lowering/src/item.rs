@@ -1255,7 +1255,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
     /// Return the pair of the lowered `generics` as `hir::Generics` and the evaluation of `f` with
     /// the carried impl trait definitions and bounds.
-    #[instrument(level = "debug", skip(self, f))]
+    #[instrument(level = "info", skip(self, f, generics, parent_node_id, itctx))]
     pub(crate) fn lower_generics<T>(
         &mut self,
         generics: &Generics,
@@ -1263,6 +1263,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
         itctx: &ImplTraitContext,
         f: impl FnOnce(&mut Self) -> T,
     ) -> (&'hir hir::Generics<'hir>, T) {
+        info!("generics = {:#?}", generics);
+        info!("parent_node_id = {:#?}", parent_node_id);
+        info!("itctx = {:#?}", itctx);
+
         debug_assert!(self.impl_trait_defs.is_empty());
         debug_assert!(self.impl_trait_bounds.is_empty());
 
@@ -1356,6 +1360,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
             span,
         });
 
+        info!("ret = {:#?}", lowered_generics);
         (lowered_generics, res)
     }
 
@@ -1426,18 +1431,36 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     in_where_clause: false,
                 }))
             }
-            GenericParamKind::HKT(..) => {
+            GenericParamKind::HKT(generics) => {
                 // TODO(hoch)
                 let def_id = self.local_def_id(id).to_def_id();
                 let hir_id = self.next_id();
 
                 let res = Res::Def(DefKind::HKTParam, def_id);
+
+                let mut segment = hir::PathSegment::new(ident, hir_id, res);
+
+                let args = generics.params.iter().map(|param| {
+                    hir::GenericArg::Type(
+                        self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(param.ident), span: self.lower_span(param.ident.span), hir_id: self.next_id()})
+                    )
+                }).collect::<Vec<_>>();
+
+                let generic_args = self.arena.alloc(hir::GenericArgs {
+                    args: self.arena.alloc_from_iter(args),
+                    bindings: &[], // FIXMIG: what kind of bindings should be created here?
+                    parenthesized: false,
+                    span_ext: Default::default(),
+                });
+
+                segment.args = Some(generic_args);
+
                 let ty_path = self.arena.alloc(hir::Path {
                     span: param_span,
                     res,
                     segments: self
                         .arena
-                        .alloc_from_iter([hir::PathSegment::new(ident, hir_id, res)]),
+                        .alloc_from_iter([segment]),
                 });
                 let ty_id = self.next_id();
                 let bounded_ty =

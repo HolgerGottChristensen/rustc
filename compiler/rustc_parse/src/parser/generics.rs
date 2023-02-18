@@ -243,7 +243,7 @@ impl<'a> Parser<'a> {
 
     /// Parses a (possibly empty) list of lifetime and type parameters, possibly including
     /// a trailing comma and erroneous trailing attributes.
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     pub(super) fn parse_generic_params(&mut self) -> PResult<'a, Vec<GenericParam>> {
         let mut params = Vec::new();
         let mut done = false;
@@ -349,7 +349,7 @@ impl<'a> Parser<'a> {
         }
 
         use rustc_ast_pretty::pprust::PrintState;
-        debug!("{}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
+        info!("Parsed: {}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
 
         Ok(params)
     }

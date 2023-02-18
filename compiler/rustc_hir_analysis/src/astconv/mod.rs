@@ -2451,7 +2451,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     }
 
     /// Check a type `Path` and convert it to a `Ty`.
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     pub fn res_to_ty(
         &self,
         opt_self_ty: Option<Ty<'tcx>>,
@@ -2460,7 +2460,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     ) -> Ty<'tcx> {
         let tcx = self.tcx();
 
-        debug!(
+        info!(
             "res_to_ty(res={:#?}, opt_self_ty={:#?}, path_segments={:#?})",
             path.res, opt_self_ty, path.segments
         );
@@ -2545,7 +2545,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
 
                 //self.normalize_ty(span, self.tcx().at(span).bound_type_of(did).subst(self.tcx(), substs))
 
-                debug!("{:#?}, {:#?}, {:#?}, {:#?}", def_id, item_def_id, generics, index);
+                info!("{:#?}, {:#?}, {:#?}, {:#?}", def_id, item_def_id, generics, index);
 
                 //tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
                 tcx.mk_hkt_param(def_id.to_def_id(), index, tcx.hir().ty_param_name(def_id), substs)
