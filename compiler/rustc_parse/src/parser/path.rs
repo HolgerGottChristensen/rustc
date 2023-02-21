@@ -2,8 +2,8 @@ use super::ty::{AllowPlus, RecoverQPath, RecoverReturnSign};
 use super::{Parser, Restrictions, TokenType};
 use crate::maybe_whole;
 use rustc_ast::ptr::P;
-use rustc_ast::token::{self, Delimiter, Percent, Token, TokenKind};
-use rustc_ast::{self as ast, AngleBracketedArg, AngleBracketedArgs, AnonConst, AssocConstraint, AssocConstraintKind, BlockCheckMode, GenericArg, GenericArgs, Generics, HKTVar, ParenthesizedArgs, Path, PathSegment, QSelf};
+use rustc_ast::token::{self, Delimiter, Token, TokenKind};
+use rustc_ast::{self as ast, AngleBracketedArg, AngleBracketedArgs, AnonConst, AssocConstraint, AssocConstraintKind, BlockCheckMode, GenericArg, GenericArgs, Generics, ParenthesizedArgs, Path, PathSegment, QSelf};
 use rustc_errors::{pluralize, Applicability, PResult};
 use rustc_span::source_map::{BytePos, Span};
 use rustc_span::symbol::{kw, sym, Ident};
@@ -633,9 +633,6 @@ impl<'a> Parser<'a> {
                 };
                 return Err(err);
             }
-            Some(GenericArg::HKTVar(_)) => {
-                todo!("hoch")
-            }
         };
         Ok(AssocConstraintKind::Equality { term })
     }
@@ -691,10 +688,6 @@ impl<'a> Parser<'a> {
         } else if self.check_const_arg() {
             // Parse const argument.
             GenericArg::Const(self.parse_const_arg()?)
-
-        } else if self.eat(&TokenKind::BinOp(Percent)) {
-
-            GenericArg::HKTVar(HKTVar { id: ast::DUMMY_NODE_ID, ident: self.parse_ident()? })
 
         } else if self.check_type() {
             // Parse type argument.

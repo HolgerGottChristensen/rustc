@@ -857,8 +857,13 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             | ty::TyKind::Uint(_)
             | ty::TyKind::Error(_)
             | ty::TyKind::Argument(_)
+            | ty::TyKind::Infer(_)
             | ty::TyKind::Float(_) => {
                 ty
+            }
+            ty::TyKind::Ref(region, inner, mutability) => {
+                let new_inner = self.ty_kind_substitution(*inner, with, def_id, index);
+                self.tcx.mk_ty(ty::TyKind::Ref(*region, new_inner, *mutability))
             }
             ty::TyKind::Adt(a, substs) => {
                 let substs: &SubstsRef<'_> = substs;

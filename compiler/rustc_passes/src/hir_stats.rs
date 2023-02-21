@@ -578,6 +578,7 @@ impl<'v> ast_visit::Visitor<'v> for StatCollector<'v> {
         record_variants!(
             (self, t, t.kind, Id::None, ast, Ty, TyKind),
             [
+                Argument,
                 Slice,
                 Array,
                 Ptr,

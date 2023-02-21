@@ -464,6 +464,7 @@ impl Token {
             Not                         | // never
             BinOp(Star)                 | // raw pointer
             BinOp(And)                  | // reference
+            BinOp(Percent)              | // HKT argument
             AndAnd                      | // double reference
             Question                    | // maybe bound in trait object
             Lifetime(..)                | // lifetime bound in trait object

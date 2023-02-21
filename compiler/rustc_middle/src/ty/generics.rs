@@ -37,8 +37,7 @@ impl GenericParamDefKind {
     pub fn is_ty_or_const(&self) -> bool {
         match self {
             GenericParamDefKind::Lifetime => false,
-            GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => true,
-            GenericParamDefKind::HKT => todo!("hoch") // FIXMIG: what to do here?
+            GenericParamDefKind::HKT | GenericParamDefKind::Type { .. } | GenericParamDefKind::Const { .. } => true, // FIXMIG: is this correct?
         }
     }
 

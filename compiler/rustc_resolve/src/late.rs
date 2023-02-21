@@ -1017,18 +1017,8 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
             }
             GenericArg::Lifetime(lt) => self.visit_lifetime(lt, visit::LifetimeCtxt::GenericArg),
             GenericArg::Const(ct) => self.visit_anon_const(ct),
-            GenericArg::HKTVar(v) => {
-                self.visit_hkt_var(v)
-            }
         }
         self.diagnostic_metadata.currently_processing_generics = prev;
-    }
-
-    fn visit_hkt_var(&mut self, _: &'ast HKTVar) {
-        // We dont resolve the name here, since we dont have any reference to what it should refer to
-
-        // We would also argue that checking and validating %j should happen when we type check the generics
-        // as for example is done when checking the number of generic parameters given to a function call
     }
 
     fn visit_assoc_constraint(&mut self, constraint: &'ast AssocConstraint) {

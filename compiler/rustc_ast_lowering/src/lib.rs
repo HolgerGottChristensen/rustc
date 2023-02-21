@@ -1176,10 +1176,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             ast::GenericArg::Const(ct) => GenericArg::Const(ConstArg {
                 value: self.lower_anon_const(&ct),
                 span: self.lower_span(ct.value.span),
-            }),
-            ast::GenericArg::HKTVar(v) => GenericArg::Type(
-                self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(v.ident, None), span: self.lower_span(v.ident.span), hir_id: self.lower_node_id(v.id) })
-            )
+            })
         }
     }
 
@@ -1237,6 +1234,9 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
     fn lower_ty_direct(&mut self, t: &Ty, itctx: &ImplTraitContext) -> hir::Ty<'hir> {
         let kind = match &t.kind {
+            TyKind::Argument(ident) => {
+                hir::TyKind::Argument(*ident, None)
+            }
             TyKind::Infer => hir::TyKind::Infer,
             TyKind::Err => hir::TyKind::Err,
             TyKind::Slice(ty) => hir::TyKind::Slice(self.lower_ty(ty, itctx)),

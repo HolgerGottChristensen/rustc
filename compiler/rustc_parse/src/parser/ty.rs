@@ -261,6 +261,8 @@ impl<'a> Parser<'a> {
         } else if self.eat(&token::Not) {
             // Never type `!`
             TyKind::Never
+        } else if self.eat(&token::BinOp(token::Percent)) {
+            TyKind::Argument(self.parse_ident()?)
         } else if self.eat(&token::BinOp(token::Star)) {
             self.parse_ty_ptr()?
         } else if self.eat(&token::OpenDelim(Delimiter::Bracket)) {
