@@ -403,7 +403,7 @@ pub fn super_relate_tys<'tcx, R: TypeRelation<'tcx>>(
     b: Ty<'tcx>,
 ) -> RelateResult<'tcx, Ty<'tcx>> {
     let tcx = relation.tcx();
-    debug!("super_relate_tys: a={:?} b={:?}", a, b);
+    info!("super_relate_tys: a={:?} b={:?}", a, b);
     match (a.kind(), b.kind()) {
         (&ty::Infer(_), _) | (_, &ty::Infer(_)) => {
             // The caller should handle these cases!
@@ -422,6 +422,7 @@ pub fn super_relate_tys<'tcx, R: TypeRelation<'tcx>>(
         | (&ty::Int(_), _)
         | (&ty::Uint(_), _)
         | (&ty::Float(_), _)
+        | (&ty::Argument(..), _)
         | (&ty::Str, _) if a == b => {
             Ok(a)
         }

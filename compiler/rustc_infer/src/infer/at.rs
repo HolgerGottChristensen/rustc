@@ -258,7 +258,7 @@ impl<'a, 'tcx> Trace<'a, 'tcx> {
 
     /// Makes `a == b`; the expectation is set by the call to
     /// `trace()`.
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     pub fn eq<T>(self, a: T, b: T) -> InferResult<'tcx, ()>
     where
         T: Relate<'tcx>,

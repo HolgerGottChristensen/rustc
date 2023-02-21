@@ -74,13 +74,13 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
         self.relate(a, b)
     }
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     fn tys(&mut self, a: Ty<'tcx>, b: Ty<'tcx>) -> RelateResult<'tcx, Ty<'tcx>> {
         if a == b {
             return Ok(a);
         }
 
-        trace!(a = ?a.kind(), b = ?b.kind());
+        info!(a = ?a.kind(), b = ?b.kind());
 
         let infcx = self.fields.infcx;
 
@@ -97,6 +97,7 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
             }
 
             (_, &ty::Infer(TyVar(b_id))) => {
+                info!("(_, &ty::Infer(TyVar(b_id)))");
                 self.fields.instantiate(a, RelationDir::EqTo, b_id, self.a_is_expected)?;
             }
 

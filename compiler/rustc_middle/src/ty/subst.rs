@@ -861,6 +861,10 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             | ty::TyKind::Float(_) => {
                 ty
             }
+            ty::TyKind::Slice(inner) => {
+                let new_inner = self.ty_kind_substitution(*inner, with, def_id, index);
+                self.tcx.mk_ty(ty::TyKind::Slice(new_inner))
+            }
             ty::TyKind::Ref(region, inner, mutability) => {
                 let new_inner = self.ty_kind_substitution(*inner, with, def_id, index);
                 self.tcx.mk_ty(ty::TyKind::Ref(*region, new_inner, *mutability))

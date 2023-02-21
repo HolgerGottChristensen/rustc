@@ -64,6 +64,7 @@ pub enum RelationDir {
 }
 
 impl<'tcx> InferCtxt<'tcx> {
+    #[instrument(skip(self, relation, a, b), level = "info")]
     pub fn super_combine_tys<R>(
         &self,
         relation: &mut R,
@@ -73,6 +74,7 @@ impl<'tcx> InferCtxt<'tcx> {
     where
         R: TypeRelation<'tcx>,
     {
+        info!("super_combine_tys: {:#?}, {:#?}", a.kind(), b.kind());
         let a_is_expected = relation.a_is_expected();
 
         match (a.kind(), b.kind()) {
@@ -317,7 +319,7 @@ impl<'infcx, 'tcx> CombineFields<'infcx, 'tcx> {
     /// will first instantiate `b_vid` with a *generalized* version
     /// of `a_ty`. Generalization introduces other inference
     /// variables wherever subtyping could occur.
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     pub fn instantiate(
         &mut self,
         a_ty: Ty<'tcx>,
@@ -342,7 +344,7 @@ impl<'infcx, 'tcx> CombineFields<'infcx, 'tcx> {
         // variables. (Down below, we will relate `a_ty <: b_ty`,
         // adding constraints like `'x: '?2` and `?1 <: ?3`.)
         let Generalization { ty: b_ty, needs_wf } = self.generalize(a_ty, b_vid, dir)?;
-        debug!(?b_ty);
+        info!(?b_ty);
         self.infcx.inner.borrow_mut().type_variables().instantiate(b_vid, b_ty);
 
         if needs_wf {
@@ -383,7 +385,7 @@ impl<'infcx, 'tcx> CombineFields<'infcx, 'tcx> {
     /// Preconditions:
     ///
     /// - `for_vid` is a "root vid"
-    #[instrument(skip(self), level = "trace", ret)]
+    #[instrument(skip(self), level = "info", ret)]
     fn generalize(
         &self,
         ty: Ty<'tcx>,
@@ -608,7 +610,7 @@ impl<'tcx> TypeRelation<'tcx> for Generalizer<'_, 'tcx> {
         if let Some(&result) = self.cache.get(&t) {
             return Ok(result);
         }
-        debug!("generalize222: t={:?}", t);
+        info!("generalize: t={:?}", t);
 
         // Check to see whether the type we are generalizing references
         // any other type variable related to `vid` via

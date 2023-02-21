@@ -173,17 +173,60 @@ struct TraitObligationStack<'prev, 'tcx> {
     dfn: usize,
 }
 
-struct SelectionCandidateSet<'tcx> {
-    // A list of candidates that definitely apply to the current
-    // obligation (meaning: types unify).
-    vec: Vec<SelectionCandidate<'tcx>>,
+use encapsulate::SelectionCandidateSet;
+mod encapsulate {
+    use rustc_middle::traits::select::SelectionCandidate;
 
-    // If `true`, then there were candidates that might or might
-    // not have applied, but we couldn't tell. This occurs when some
-    // of the input types are type variables, in which case there are
-    // various "builtin" rules that might or might not trigger.
-    ambiguous: bool,
+    pub(super) struct SelectionCandidateSet<'tcx> {
+        // A list of candidates that definitely apply to the current
+        // obligation (meaning: types unify).
+        vec: Vec<SelectionCandidate<'tcx>>,
+
+        // If `true`, then there were candidates that might or might
+        // not have applied, but we couldn't tell. This occurs when some
+        // of the input types are type variables, in which case there are
+        // various "builtin" rules that might or might not trigger.
+        pub(crate) ambiguous: bool,
+    }
+
+    impl<'tcx> SelectionCandidateSet<'tcx> {
+
+        pub(super) fn new(vec: Vec<SelectionCandidate<'tcx>>, ambiguous: bool) -> SelectionCandidateSet<'tcx> {
+            SelectionCandidateSet { vec, ambiguous }
+        }
+
+        pub(super) fn candidates(&self) -> &Vec<SelectionCandidate<'tcx>> {
+            &self.vec
+        }
+
+        pub(super) fn into_candidates(self) -> Vec<SelectionCandidate<'tcx>> {
+            self.vec
+        }
+
+        #[inline]
+        pub(super) fn extend<I: IntoIterator<Item = SelectionCandidate<'tcx>>>(&mut self, iter: I) {
+            self.vec.extend(iter);
+        }
+
+        #[inline]
+        #[instrument(skip(self, candidate), level = "info")]
+        pub(super) fn push(&mut self, candidate: SelectionCandidate<'tcx>) {
+            info!("Add candidate: {:#?}", candidate);
+            self.vec.push(candidate);
+        }
+
+        #[inline]
+        pub(super) fn len(&self) -> usize {
+            self.vec.len()
+        }
+
+        #[inline]
+        pub(super) fn is_empty(&self) -> bool {
+            self.vec.is_empty()
+        }
+    }
 }
+
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 struct EvaluatedCandidate<'tcx> {
@@ -365,7 +408,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 if let Ok(candidate_set) = self.assemble_candidates(stack) {
                     let mut no_candidates_apply = true;
 
-                    for c in candidate_set.vec.iter() {
+                    for c in candidate_set.candidates().iter() {
                         if self.evaluate_candidate(stack, &c)?.may_apply() {
                             no_candidates_apply = false;
                             break;
@@ -405,13 +448,13 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         let candidate_set = self.assemble_candidates(stack)?;
 
         if candidate_set.ambiguous {
-            debug!("candidate set contains ambig");
+            info!("candidate set contains ambig");
             return Ok(None);
         }
 
-        let candidates = candidate_set.vec;
+        let candidates = candidate_set.into_candidates();
 
-        debug!(?stack, ?candidates, "assembled {} candidates", candidates.len());
+        info!(?stack, ?candidates, "assembled {} candidates", candidates.len());
 
         // At this point, we know that each of the entries in the
         // candidate set is *individually* applicable. Now we have to
@@ -2402,7 +2445,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
     }
 
-    #[instrument(level = "debug", skip(self), ret)]
+    #[instrument(level = "info", skip(self), ret)]
     fn match_impl(
         &mut self,
         impl_def_id: DefId,
@@ -2417,7 +2460,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         let impl_trait_ref = impl_trait_ref.subst(self.tcx(), impl_substs);
 
-        debug!(?impl_trait_ref);
+        info!(?impl_trait_ref);
 
         let Normalized { value: impl_trait_ref, obligations: mut nested_obligations } =
             ensure_sufficient_stack(|| {
@@ -2430,7 +2473,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 )
             });
 
-        debug!(?impl_trait_ref, ?placeholder_obligation_trait_ref);
+        info!(?impl_trait_ref, ?placeholder_obligation_trait_ref);
 
         let cause = ObligationCause::new(
             obligation.cause.span,
@@ -2443,13 +2486,13 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             .at(&cause, obligation.param_env)
             .define_opaque_types(false)
             .eq(placeholder_obligation_trait_ref, impl_trait_ref)
-            .map_err(|e| debug!("match_impl: failed eq_trait_refs due to `{e}`"))?;
+            .map_err(|e| info!("match_impl: failed eq_trait_refs due to `{e}`"))?;
         nested_obligations.extend(obligations);
 
         if !self.is_intercrate()
             && self.tcx().impl_polarity(impl_def_id) == ty::ImplPolarity::Reservation
         {
-            debug!("reservation impls only apply in intercrate mode");
+            info!("reservation impls only apply in intercrate mode");
             return Err(());
         }
 
