@@ -298,7 +298,7 @@ impl<'a> State<'a> {
         self.maybe_print_comment(ty.span.lo());
         self.ibox(0);
         match ty.kind {
-            hir::TyKind::Argument(i) => {
+            hir::TyKind::Argument(i, _) => {
                 self.word("%");
                 self.print_ident(i)
             }

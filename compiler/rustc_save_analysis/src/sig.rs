@@ -151,7 +151,7 @@ impl<'hir> Sig for hir::Ty<'hir> {
     fn make(&self, offset: usize, _parent_id: Option<hir::HirId>, scx: &SaveContext<'_>) -> Result {
         let id = Some(self.hir_id);
         match self.kind {
-            hir::TyKind::Argument(_) => {
+            hir::TyKind::Argument(_, _) => {
                 todo!("hoch")
             }
             hir::TyKind::Slice(ref ty) => {

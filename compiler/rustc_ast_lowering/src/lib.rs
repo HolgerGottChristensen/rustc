@@ -1178,7 +1178,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 span: self.lower_span(ct.value.span),
             }),
             ast::GenericArg::HKTVar(v) => GenericArg::Type(
-                self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(v.ident), span: self.lower_span(v.ident.span), hir_id: self.lower_node_id(v.id) })
+                self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(v.ident, None), span: self.lower_span(v.ident.span), hir_id: self.lower_node_id(v.id) })
             )
         }
     }

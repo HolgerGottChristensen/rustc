@@ -510,6 +510,9 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                             tcx.const_error(ty).into()
                         }
                     }
+                    (GenericParamDefKind::HKT, GenericArg::Type(ty)) => {
+                        self.astconv.ast_ty_to_ty(ty).into()
+                    }
                     _ => unreachable!(),
                 }
             }
@@ -584,6 +587,10 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 }
             }
         }
+
+        info!("def_id = {:#?}", def_id);
+        info!("generic_args = {:#?}", generic_args);
+        info!("infer_args = {:#?}", infer_args);
 
         let mut substs_ctx = SubstsForAstPathCtxt {
             astconv: self,
@@ -2737,33 +2744,38 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         let tcx = self.tcx();
 
         let result_ty = match ast_ty.kind {
-            hir::TyKind::Argument(i) => {
-                if let Some(did) = self.current_argument_env() {
-                    let generics: &ty::Generics = self.tcx().generics_of(did);
-
-                    for param in &generics.params {
-                        if param.name == i.name {
-                            return tcx.mk_ty(ty::Argument(ArgumentDef {
-                                def_id: did,
-                                index: param.index,
-                                name: param.name,
-                            }))
-                        }
-                    }
-
-                    let possibilities = generics.params.iter().map(|param| {
-                        format!("`%{}`", param.name)
-                    }).collect::<Vec<_>>().join(", ");
-
-                    // FIXMIG: Give a proper error code
-                    struct_span_err!(tcx.sess, i.span, E9999, "hkt argument `%{}` could not be found in the definition", i.name)
-                        .span_note(tcx.def_span(did), &format!("expected one of the parameters {} inside the definition", possibilities))
-                        .emit();
-
-                    tcx.ty_error()
+            hir::TyKind::Argument(i, def_id) => {
+                let did = if let Some(did) = def_id {
+                    did.to_def_id()
+                } else if let Some(did) = self.current_argument_env() {
+                    did
                 } else {
                     todo!("hoch") // FIXMIG: Give a proper error message
+                };
+
+                let generics: &ty::Generics = self.tcx().generics_of(did);
+
+                for param in &generics.params {
+                    if param.name == i.name {
+                        return tcx.mk_ty(ty::Argument(ArgumentDef {
+                            def_id: did,
+                            index: param.index,
+                            name: param.name,
+                        }))
+                    }
                 }
+
+                let possibilities = generics.params.iter().map(|param| {
+                    format!("`%{}`", param.name)
+                }).collect::<Vec<_>>().join(", ");
+
+                // FIXMIG: Give a proper error code
+                struct_span_err!(tcx.sess, i.span, E9999, "hkt argument `%{}` could not be found in the definition", i.name)
+                    .span_note(tcx.def_span(did), &format!("expected one of the parameters {} inside the definition", possibilities))
+                    .emit();
+
+                tcx.ty_error()
+
             },
             hir::TyKind::Slice(ref ty) => {
                 tcx.mk_slice(self.ast_ty_to_ty(ty))

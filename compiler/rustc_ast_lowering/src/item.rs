@@ -1433,16 +1433,17 @@ impl<'hir> LoweringContext<'_, 'hir> {
             }
             GenericParamKind::HKT(generics) => {
                 // TODO(hoch)
-                let def_id = self.local_def_id(id).to_def_id();
+                let def_id = self.local_def_id(id);
                 let hir_id = self.next_id();
 
-                let res = Res::Def(DefKind::HKTParam, def_id);
+
+                let res = Res::Def(DefKind::HKTParam, def_id.to_def_id());
 
                 let mut segment = hir::PathSegment::new(ident, hir_id, res);
 
                 let args = generics.params.iter().map(|param| {
                     hir::GenericArg::Type(
-                        self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(param.ident), span: self.lower_span(param.ident.span), hir_id: self.next_id()})
+                        self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(param.ident, Some(def_id)), span: self.lower_span(param.ident.span), hir_id: self.next_id()})
                     )
                 }).collect::<Vec<_>>();
 
