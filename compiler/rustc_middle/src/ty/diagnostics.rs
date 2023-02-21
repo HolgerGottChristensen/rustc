@@ -469,11 +469,11 @@ impl<'tcx> TypeVisitor<'tcx> for IsSuggestableVisitor<'tcx> {
                 }
             }
 
-            HKT(_param, ..) => {
-                todo!("hoch") // FIXMIG: what to do here?
-                /*if param.name().as_str().starts_with("impl ") {
+            HKT(_, param, ..) => {
+                // FIXMIG: Is this correct?
+                if param.name().as_str().starts_with("impl ") {
                     return ControlFlow::Break(());
-                }*/
+                }
             }
             Param(param) => {
                 // FIXME: It would be nice to make this not use string manipulation,
