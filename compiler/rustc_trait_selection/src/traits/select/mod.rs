@@ -2155,9 +2155,6 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         use self::BuiltinImplConditions::{Ambiguous, None, Where};
 
         match *self_ty.kind() {
-
-            ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
-
             ty::Infer(ty::IntVar(_))
             | ty::Infer(ty::FloatVar(_))
             | ty::FnDef(..)
@@ -2237,7 +2234,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }
             }
 
-            ty::Adt(..) | ty::Alias(..) | ty::Param(..) | ty::HKT(..) => {
+            ty::Argument(..) | ty::Adt(..) | ty::Alias(..) | ty::Param(..) | ty::HKT(..) => {
                 // FIXMIG: what to do here?
                 // Fallback to whatever user-defined impls exist in this case.
                 None

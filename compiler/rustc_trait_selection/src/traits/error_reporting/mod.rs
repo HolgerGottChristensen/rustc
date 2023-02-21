@@ -1837,8 +1837,8 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                 ty::Generator(..) => Some(16),
                 ty::Foreign(..) => Some(17),
                 ty::GeneratorWitness(..) => Some(18),
+                ty::Argument(..) => Some(19), // FIXMIG: is this correct?
                 ty::Placeholder(..) | ty::Bound(..) | ty::Infer(..) | ty::Error(_) => None,
-                ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
             }
         }
 
