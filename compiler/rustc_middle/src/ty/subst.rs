@@ -786,11 +786,13 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
         }
     }
 
+    #[instrument(level="info", skip(self))]
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
         if !t.needs_subst() {
             return t;
         }
-
+        //info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
+        //info!("ty is: {:#?}", t);
         match *t.kind() {
             ty::Param(p) => self.ty_for_param(p, t),
             ty::HKT(_, p, substs) =>
@@ -810,24 +812,29 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
+    #[instrument(level="info", skip(self))]
     fn ty_for_param(&self, p: ty::ParamTy, source_ty: Ty<'tcx>) -> Ty<'tcx> {
         // Look up the type in the substitutions. It really should be in there.
         let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
-        //println!("Replace: {:?} with {:?}", source_ty.kind(), opt_ty);
+        //info!("opt_ty: {:#?}", opt_ty);
+
+        info!("Replace: {:?} with {:?}", source_ty.kind(), opt_ty);
 
         let ty = match opt_ty {
             Some(GenericArgKind::Type(ty)) => ty,
             Some(kind) => self.type_param_expected(p, source_ty, kind),
             None => self.type_param_out_of_range(p, source_ty),
         };
-
+        //info!("ty_kind: {:#?}", ty.kind());
         self.shift_vars_through_binders(ty)
     }
 
+    #[instrument(level="info", skip(self))]
     fn hkt_for_param(&self, p: ty::ParamTy, substs: SubstsRef<'tcx>, source_ty: Ty<'tcx>) -> Ty<'tcx> {
 
         // Look up the type in the substitutions. It really should be in there.
         let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
+        info!("Replace: {:?} with {:?}", source_ty.kind(), opt_ty);
         let ty = match opt_ty {
             Some(GenericArgKind::Type(ty)) => {
                 let mut current = ty;
@@ -846,7 +853,10 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
     // FIXMIG: Make this function a type folder, because that is basically what it should do.
     #[allow(rustc::usage_of_ty_tykind)]
+    //#[instrument(level="info", skip(self))]
     fn ty_kind_substitution(&self, ty: Ty<'tcx>, with: Ty<'tcx>, def_id: DefId, index: u32) -> Ty<'tcx> {
+        //info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
+        //info!("hej");
         match ty.kind() {
             ty::TyKind::Argument(a) if *a == def_id && *a == index => {
                 with
@@ -889,6 +899,10 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                 }).collect::<Vec<_>>();
 
                 self.tcx.mk_ty(ty::TyKind::HKT(*did, *a, self.tcx.mk_substs(new_substs.into_iter())))
+            }
+            ty::TyKind::Infer(..) => {
+                // FIXMIG: do this right
+                ty
             }
             _ => {
                 todo!("here: {:#?} with {:#?}, def_id: {:?}:{:?}", ty.kind(), with.kind(), def_id, index)
