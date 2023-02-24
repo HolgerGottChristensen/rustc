@@ -81,7 +81,7 @@ pub fn determine_parameters_to_be_inferred<'a, 'tcx>(
     let crate_items = tcx.hir_crate_items(());
 
     for def_id in crate_items.definitions() {
-        debug!("add_inferreds for item {:?}", def_id);
+        info!("add_inferreds for item {:?}", def_id);
 
         let def_kind = tcx.def_kind(def_id);
 
@@ -89,14 +89,29 @@ pub fn determine_parameters_to_be_inferred<'a, 'tcx>(
             DefKind::Struct | DefKind::Union | DefKind::Enum => {
                 terms_cx.add_inferreds_for_item(def_id);
 
-                let adt = tcx.adt_def(def_id);
+                let adt: ty::AdtDef<'_> = tcx.adt_def(def_id);
                 for variant in adt.variants() {
                     if let Some(ctor_def_id) = variant.ctor_def_id() {
                         terms_cx.add_inferreds_for_item(ctor_def_id.expect_local());
                     }
                 }
             }
-            DefKind::Fn | DefKind::AssocFn => terms_cx.add_inferreds_for_item(def_id),
+            DefKind::Fn | DefKind::AssocFn => {
+                terms_cx.add_inferreds_for_item(def_id);
+            }
+            DefKind::HKTParam => {
+                todo!("hoch")
+                /*terms_cx.add_inferreds_for_item(def_id);
+                let generics: &Generics = tcx.generics_of(def_id);
+                for param in &generics.params {
+                    match param.kind {
+                        GenericParamDefKind::HKT => {
+                            terms_cx.add_inferreds_for_item(param.def_id.expect_local());
+                        }
+                        _ => (),
+                    }
+                }*/
+            },
             _ => {}
         }
     }

@@ -378,7 +378,6 @@ impl<'tcx> GenericPredicates<'tcx> {
         substs: SubstsRef<'tcx>,
     ) {
         if let Some(def_id) = self.parent {
-            info!("We have a parent: {:?}", def_id);
             tcx.predicates_of(def_id).instantiate_into(tcx, instantiated, substs);
         }
         instantiated

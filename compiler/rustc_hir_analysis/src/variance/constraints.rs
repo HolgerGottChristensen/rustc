@@ -78,6 +78,10 @@ pub fn add_constraints_from_crate<'a, 'tcx>(
                 }
             }
             DefKind::Fn | DefKind::AssocFn => constraint_cx.build_constraints_for_item(def_id),
+            DefKind::HKTParam => {
+                todo!("hoch")
+                //constraint_cx.build_constraints_for_item(def_id)
+            },
             _ => {}
         }
     }
@@ -202,7 +206,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
         ty: Ty<'tcx>,
         variance: VarianceTermPtr<'a>,
     ) {
-        debug!("add_constraints_from_ty(ty={:?}, variance={:?})", ty, variance);
+        info!("add_constraints_from_ty(ty={:?}, variance={:?})", ty, variance);
 
         match *ty.kind() {
             ty::Bool
@@ -282,8 +286,9 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
                 }
             }
 
-            ty::HKT(..) => {
-                todo!("hoch") // FIXMIG: What to do here?
+            ty::HKT(did, _, substs) => {
+                // FIXMIG: Is this correct?
+                self.add_constraints_from_substs(current, did, substs, variance);
             }
             ty::Param(ref data) => {
                 self.add_constraint(current, data.index(), variance);
@@ -317,7 +322,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
         substs: SubstsRef<'tcx>,
         variance: VarianceTermPtr<'a>,
     ) {
-        debug!(
+        info!(
             "add_constraints_from_substs(def_id={:?}, substs={:?}, variance={:?})",
             def_id, substs, variance
         );

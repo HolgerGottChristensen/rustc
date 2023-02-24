@@ -587,6 +587,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         error: &SelectionError<'tcx>,
     ) {
         info!("Error when selecting in env: {:#?}", obligation.param_env);
+        info!("Stacktrace: \n{}", std::backtrace::Backtrace::capture());
         let tcx = self.tcx;
         let mut span = obligation.cause.span;
         // FIXME: statically guarantee this by tainting after the diagnostic is emitted
@@ -1573,7 +1574,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         false
     }
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     fn report_fulfillment_error(
         &self,
         error: &FulfillmentError<'tcx>,

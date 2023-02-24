@@ -56,76 +56,77 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         if obligation.polarity() == ty::ImplPolarity::Negative {
             self.assemble_candidates_for_trait_alias(obligation, &mut candidates);
             self.assemble_candidates_from_impls(obligation, &mut candidates);
+            return Ok(candidates);
+        }
+
+        self.assemble_candidates_for_trait_alias(obligation, &mut candidates);
+
+        // Other bounds. Consider both in-scope bounds from fn decl
+        // and applicable impls. There is a certain set of precedence rules here.
+        let def_id = obligation.predicate.def_id();
+        let lang_items = self.tcx().lang_items();
+
+        if lang_items.copy_trait() == Some(def_id) {
+            debug!(obligation_self_ty = ?obligation.predicate.skip_binder().self_ty());
+
+            // User-defined copy impls are permitted, but only for
+            // structs and enums.
+            self.assemble_candidates_from_impls(obligation, &mut candidates);
+
+            // For other types, we'll use the builtin rules.
+            let copy_conditions = self.copy_clone_conditions(obligation);
+            self.assemble_builtin_bound_candidates(copy_conditions, &mut candidates);
+        } else if lang_items.discriminant_kind_trait() == Some(def_id) {
+            // `DiscriminantKind` is automatically implemented for every type.
+            candidates.push(BuiltinCandidate { has_nested: false });
+        } else if lang_items.pointee_trait() == Some(def_id) {
+            // `Pointee` is automatically implemented for every type.
+            candidates.push(BuiltinCandidate { has_nested: false });
+        } else if lang_items.sized_trait() == Some(def_id) {
+            debug!("Sized condition hit");
+            // Sized is never implementable by end-users, it is
+            // always automatically computed.
+            let sized_conditions = self.sized_conditions(obligation);
+            self.assemble_builtin_bound_candidates(sized_conditions, &mut candidates);
+        } else if lang_items.unsize_trait() == Some(def_id) {
+            self.assemble_candidates_for_unsizing(obligation, &mut candidates);
+        } else if lang_items.destruct_trait() == Some(def_id) {
+            self.assemble_const_destruct_candidates(obligation, &mut candidates);
+        } else if lang_items.transmute_trait() == Some(def_id) {
+            // User-defined transmutability impls are permitted.
+            self.assemble_candidates_from_impls(obligation, &mut candidates);
+            self.assemble_candidates_for_transmutability(obligation, &mut candidates);
+        } else if lang_items.tuple_trait() == Some(def_id) {
+            self.assemble_candidate_for_tuple(obligation, &mut candidates);
+        } else if lang_items.pointer_sized() == Some(def_id) {
+            self.assemble_candidate_for_ptr_sized(obligation, &mut candidates);
         } else {
-            self.assemble_candidates_for_trait_alias(obligation, &mut candidates);
-
-            // Other bounds. Consider both in-scope bounds from fn decl
-            // and applicable impls. There is a certain set of precedence rules here.
-            let def_id = obligation.predicate.def_id();
-            let lang_items = self.tcx().lang_items();
-
-            if lang_items.copy_trait() == Some(def_id) {
-                debug!(obligation_self_ty = ?obligation.predicate.skip_binder().self_ty());
-
-                // User-defined copy impls are permitted, but only for
-                // structs and enums.
-                self.assemble_candidates_from_impls(obligation, &mut candidates);
-
-                // For other types, we'll use the builtin rules.
-                let copy_conditions = self.copy_clone_conditions(obligation);
-                self.assemble_builtin_bound_candidates(copy_conditions, &mut candidates);
-            } else if lang_items.discriminant_kind_trait() == Some(def_id) {
-                // `DiscriminantKind` is automatically implemented for every type.
-                candidates.push(BuiltinCandidate { has_nested: false });
-            } else if lang_items.pointee_trait() == Some(def_id) {
-                // `Pointee` is automatically implemented for every type.
-                candidates.push(BuiltinCandidate { has_nested: false });
-            } else if lang_items.sized_trait() == Some(def_id) {
-                debug!("Sized condition hit");
-                // Sized is never implementable by end-users, it is
-                // always automatically computed.
-                let sized_conditions = self.sized_conditions(obligation);
-                self.assemble_builtin_bound_candidates(sized_conditions, &mut candidates);
-            } else if lang_items.unsize_trait() == Some(def_id) {
-                self.assemble_candidates_for_unsizing(obligation, &mut candidates);
-            } else if lang_items.destruct_trait() == Some(def_id) {
-                self.assemble_const_destruct_candidates(obligation, &mut candidates);
-            } else if lang_items.transmute_trait() == Some(def_id) {
-                // User-defined transmutability impls are permitted.
-                self.assemble_candidates_from_impls(obligation, &mut candidates);
-                self.assemble_candidates_for_transmutability(obligation, &mut candidates);
-            } else if lang_items.tuple_trait() == Some(def_id) {
-                self.assemble_candidate_for_tuple(obligation, &mut candidates);
-            } else if lang_items.pointer_sized() == Some(def_id) {
-                self.assemble_candidate_for_ptr_sized(obligation, &mut candidates);
-            } else {
-                if lang_items.clone_trait() == Some(def_id) {
-                    // Same builtin conditions as `Copy`, i.e., every type which has builtin support
-                    // for `Copy` also has builtin support for `Clone`, and tuples/arrays of `Clone`
-                    // types have builtin support for `Clone`.
-                    let clone_conditions = self.copy_clone_conditions(obligation);
-                    self.assemble_builtin_bound_candidates(clone_conditions, &mut candidates);
-                }
-
-                if lang_items.gen_trait() == Some(def_id) {
-                    self.assemble_generator_candidates(obligation, &mut candidates);
-                } else if lang_items.future_trait() == Some(def_id) {
-                    self.assemble_future_candidates(obligation, &mut candidates);
-                }
-
-                self.assemble_closure_candidates(obligation, &mut candidates);
-                self.assemble_fn_pointer_candidates(obligation, &mut candidates);
-                self.assemble_candidates_from_impls(obligation, &mut candidates);
-                self.assemble_candidates_from_object_ty(obligation, &mut candidates);
+            if lang_items.clone_trait() == Some(def_id) {
+                // Same builtin conditions as `Copy`, i.e., every type which has builtin support
+                // for `Copy` also has builtin support for `Clone`, and tuples/arrays of `Clone`
+                // types have builtin support for `Clone`.
+                let clone_conditions = self.copy_clone_conditions(obligation);
+                self.assemble_builtin_bound_candidates(clone_conditions, &mut candidates);
             }
 
-            self.assemble_candidates_from_projected_tys(obligation, &mut candidates);
-            self.assemble_candidates_from_caller_bounds(stack, &mut candidates)?;
-            // Auto implementations have lower priority, so we only
-            // consider triggering a default if there is no other impl that can apply.
-            if candidates.is_empty() {
-                self.assemble_candidates_from_auto_impls(obligation, &mut candidates);
+            if lang_items.gen_trait() == Some(def_id) {
+                self.assemble_generator_candidates(obligation, &mut candidates);
+            } else if lang_items.future_trait() == Some(def_id) {
+                self.assemble_future_candidates(obligation, &mut candidates);
             }
+
+            self.assemble_closure_candidates(obligation, &mut candidates);
+            self.assemble_fn_pointer_candidates(obligation, &mut candidates);
+            self.assemble_candidates_from_impls(obligation, &mut candidates);
+            self.assemble_candidates_from_object_ty(obligation, &mut candidates);
+        }
+
+        self.assemble_candidates_from_projected_tys(obligation, &mut candidates);
+        self.assemble_candidates_from_caller_bounds(stack, &mut candidates)?;
+        // Auto implementations have lower priority, so we only
+        // consider triggering a default if there is no other impl that can apply.
+        if candidates.is_empty() {
+            self.assemble_candidates_from_auto_impls(obligation, &mut candidates);
         }
         info!("candidate list size: {}", candidates.len());
         Ok(candidates)
@@ -328,14 +329,20 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     }
 
     /// Searches for impls that might apply to `obligation`.
+    #[instrument(skip_all)]
     fn assemble_candidates_from_impls(
         &mut self,
         obligation: &TraitObligation<'tcx>,
         candidates: &mut SelectionCandidateSet<'tcx>,
     ) {
+        // The def_id of the trait_ref within the obligation
         let def_id = obligation.predicate.def_id();
+
         let self_ty = obligation.predicate.skip_binder().trait_ref.self_ty();
-        info!("assemble_candidates_from_impls: {:#?}, {:#?}, {:#?}", def_id, self_ty, obligation);
+        info!("def_id: {:#?}", def_id);
+        info!("self_ty: {:#?}", self_ty);
+        info!("obligation: {:#?}", obligation.predicate.skip_binder());
+        //info!("assemble_candidates_from_impls: {:#?}, {:#?}, {:#?}", def_id, self_ty, obligation);
 
         // Essentially any user-written impl will match with an error type,
         // so creating `ImplCandidates` isn't useful. However, we might
@@ -351,7 +358,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
 
         self.tcx().for_each_relevant_impl(def_id, self_ty, |impl_def_id| {
-            info!("Relevant_impl_def_id: {:?}", impl_def_id);
+            info!("relevant_impl_def_id: {:?}", impl_def_id);
             // Before we create the substitutions and everything, first
             // consider a "quick reject". This avoids creating more types
             // and so forth that we need to.

@@ -244,7 +244,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
         if obligation.predicate.has_non_region_infer() {
             debug!("Has non region infer");
             obligation.predicate = self.selcx.infcx.resolve_vars_if_possible(obligation.predicate);
-            debug!(?obligation, "post-resolve-vars-if-possible");
+            info!("post-resolve: {:#?}", obligation);
         }
 
 

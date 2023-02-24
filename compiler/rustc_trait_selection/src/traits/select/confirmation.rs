@@ -42,7 +42,7 @@ use std::iter;
 use std::ops::ControlFlow;
 
 impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     pub(super) fn confirm_candidate(
         &mut self,
         obligation: &TraitObligation<'tcx>,
@@ -372,12 +372,12 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         obligation: &TraitObligation<'tcx>,
         impl_def_id: DefId,
     ) -> ImplSourceUserDefinedData<'tcx, PredicateObligation<'tcx>> {
-        debug!(?obligation, ?impl_def_id, "confirm_impl_candidate");
+        info!(?obligation, ?impl_def_id, "confirm_impl_candidate");
 
         // First, create the substitutions by matching the impl again,
         // this time not in a probe.
         let substs = self.rematch_impl(impl_def_id, obligation);
-        debug!(?substs, "impl substs");
+        info!(?substs, "impl substs");
         ensure_sufficient_stack(|| {
             self.vtable_impl(
                 impl_def_id,
@@ -399,7 +399,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         param_env: ty::ParamEnv<'tcx>,
         parent_trait_pred: ty::Binder<'tcx, ty::TraitPredicate<'tcx>>,
     ) -> ImplSourceUserDefinedData<'tcx, PredicateObligation<'tcx>> {
-        debug!(?impl_def_id, ?substs, ?recursion_depth, "vtable_impl");
+        info!(?impl_def_id, ?substs, ?recursion_depth, "vtable_impl");
 
         let mut impl_obligations = self.impl_or_trait_obligations(
             cause,
@@ -410,7 +410,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             parent_trait_pred,
         );
 
-        debug!(?impl_obligations, "vtable_impl");
+        info!(?impl_obligations, "vtable_impl");
 
         // Because of RFC447, the impl-trait-ref and obligations
         // are sufficient to determine the impl substs, without

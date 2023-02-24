@@ -168,7 +168,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// * `call_expr`:             the complete method call: (`foo.bar::<T1,...Tn>(...)`)
     /// * `self_expr`:             the self expression (`foo`)
     /// * `args`:                  the expressions of the arguments (`a, b + 1, ...`)
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self, self_ty, segment, span, call_expr, self_expr, args), ret)]
     pub fn lookup_method(
         &self,
         self_ty: Ty<'tcx>,
@@ -178,8 +178,19 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self_expr: &'tcx hir::Expr<'tcx>,
         args: &'tcx [hir::Expr<'tcx>],
     ) -> Result<MethodCallee<'tcx>, MethodError<'tcx>> {
-        let pick =
-            self.lookup_probe(segment.ident, self_ty, call_expr, ProbeScope::TraitsInScope)?;
+        info!("self_ty = {:#?}", self_ty);
+        info!("segment = {:#?}", segment);
+        //info!("span = {:#?}", span);
+        //info!("call_expr = {:#?}", call_expr);
+        //info!("self_expr = {:#?}", self_expr);
+        //info!("args = {:#?}", args);
+
+        let pick = self.lookup_probe(
+            segment.ident,
+            self_ty,
+            call_expr,
+            ProbeScope::TraitsInScope
+        )?;
 
         self.lint_dot_call_from_2018(self_ty, segment, span, call_expr, self_expr, &pick, args);
 
@@ -193,7 +204,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.tcx.check_stability(pick.item.def_id, Some(call_expr.hir_id), span, None);
 
         let result = self.confirm_method(span, self_expr, call_expr, self_ty, &pick, segment);
-        debug!("result = {:?}", result);
+        debug!("confirm_result = {:?}", result);
 
         if let Some(span) = result.illegal_sized_bound {
             let mut needs_mut = false;
@@ -242,7 +253,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         Ok(result.callee)
     }
 
-    #[instrument(level = "debug", skip(self, call_expr))]
+    #[instrument(level = "info", skip(self, call_expr, self_ty), ret)]
     pub fn lookup_probe(
         &self,
         method_name: Ident,

@@ -229,7 +229,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                 index += 1;
             }
             GenericParamKind::HKT(..) => {
-                let name = param.name.ident().name;
+                /*let name = param.name.ident().name;
                 let param_ty = ty::ParamTy::new_hkt(param.def_id.to_def_id(), index, name).to_ty(tcx);
 
 
@@ -245,7 +245,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                 debug!("bounds = {:#?}", bounds);
                 predicates.extend(bounds.predicates(tcx, param_ty));
 
-                debug!("predicatesa = {:#?}", predicates);
+                debug!("predicatesa = {:#?}", predicates);*/
                 index += 1;
             }
         }

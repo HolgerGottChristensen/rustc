@@ -151,11 +151,11 @@ fn check_well_formed(tcx: TyCtxt<'_>, def_id: hir::OwnerId) {
 /// We do this check as a pre-pass before checking fn bodies because if these constraints are
 /// not included it frequently leads to confusing errors in fn bodies. So it's better to check
 /// the types first.
-#[instrument(skip(tcx), level = "debug")]
+#[instrument(skip(tcx), level = "info")]
 fn check_item<'tcx>(tcx: TyCtxt<'tcx>, item: &'tcx hir::Item<'tcx>) {
     let def_id = item.owner_id.def_id;
 
-    debug!(
+    info!(
         ?item.owner_id,
         item.name = ? tcx.def_path_str(def_id.to_def_id())
     );

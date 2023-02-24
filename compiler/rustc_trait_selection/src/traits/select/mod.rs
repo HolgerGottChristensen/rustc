@@ -454,7 +454,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         let candidates = candidate_set.into_candidates();
 
-        info!(?stack, ?candidates, "assembled {} candidates", candidates.len());
+        info!("assembled {} candidates, stack={:#?}, candidates={:#?}", candidates.len(), stack, candidates);
 
         // At this point, we know that each of the entries in the
         // candidate set is *individually* applicable. Now we have to
@@ -501,7 +501,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             .flat_map(Result::transpose)
             .collect::<Result<Vec<_>, _>>()?;
 
-        debug!(?stack, ?candidates, "winnowed to {} candidates", candidates.len());
+        info!("winnowed to {} candidates, stack={:#?}, candidates={:#?}", candidates.len(), stack, candidates);
 
         let needs_infer = stack.obligation.predicate.has_non_region_infer();
 
@@ -624,7 +624,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     /// Evaluates the predicates in `predicates` recursively. Note that
     /// this applies projections in the predicates, and therefore
     /// is run within an inference probe.
-    #[instrument(skip(self, stack), level = "debug")]
+    #[instrument(skip(self, stack), level = "info")]
     fn evaluate_predicates_recursively<'o, I>(
         &mut self,
         stack: TraitObligationStackList<'o, 'tcx>,
@@ -1231,7 +1231,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     /// obligations are met. Returns whether `candidate` remains viable after this further
     /// scrutiny.
     #[instrument(
-        level = "debug",
+        level = "info",
         skip(self, stack),
         fields(depth = stack.obligation.recursion_depth),
         ret
@@ -1459,7 +1459,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     }
 
     /// filter_reservation_impls filter reservation impl for any goal as ambiguous
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     fn filter_reservation_impls(
         &mut self,
         candidate: SelectionCandidate<'tcx>,
@@ -1493,7 +1493,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     }
 
     fn is_knowable<'o>(&mut self, stack: &TraitObligationStack<'o, 'tcx>) -> Result<(), Conflict> {
-        debug!("is_knowable(intercrate={:?})", self.is_intercrate());
+        info!("is_knowable(intercrate={:?})", self.is_intercrate());
 
         if !self.is_intercrate() || stack.obligation.polarity() == ty::ImplPolarity::Negative {
             return Ok(());
@@ -2129,12 +2129,29 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }))
             }
 
+            ty::HKT(def_id, _, substs) => {
+                // We want to extract the sized conditions that are needed to determine
+                // if the HKT is sized. We know that it should be Sized if all the
+                // parameters defined on it is sized. So we construct the requirements
+                // as are done for ADTs.
+                let sized_criteria: ty::EarlyBinder<&'tcx [Ty<'tcx>]> = ty::EarlyBinder(self.tcx().hkt_sized_constraint(def_id));
+
+                info!("SUBSTS: {:#?}", substs);
+                Where(obligation.predicate.rebind({
+                    sized_criteria
+                        .0
+                        .iter()
+                        .map(|ty| sized_criteria.rebind(*ty).subst(self.tcx(), substs))
+                        .collect()
+                }))
+            }
+
             ty::Argument(..) => {
                 // FIXMIG: hoch
                 debug!("Hit hERE");
                 None
             },
-            ty::Alias(..) | ty::Param(_) | ty::HKT(..) => None,
+            ty::Alias(..) | ty::Param(_) => None,
             ty::Infer(ty::TyVar(_)) => Ambiguous,
 
             ty::Placeholder(..)
@@ -2442,15 +2459,16 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
     }
 
-    #[instrument(level = "info", skip(self), ret)]
+    #[instrument(level = "info", skip(self, impl_trait_ref, obligation), ret)]
     fn match_impl(
         &mut self,
         impl_def_id: DefId,
         impl_trait_ref: EarlyBinder<ty::TraitRef<'tcx>>,
         obligation: &TraitObligation<'tcx>,
     ) -> Result<Normalized<'tcx, SubstsRef<'tcx>>, ()> {
-        let placeholder_obligation =
-            self.infcx.replace_bound_vars_with_placeholders(obligation.predicate);
+        info!("impl_trait_ref={:?}", impl_trait_ref.skip_binder());
+        info!("obligation={:#?}", obligation.predicate.skip_binder().trait_ref);
+        let placeholder_obligation = self.infcx.replace_bound_vars_with_placeholders(obligation.predicate);
         let placeholder_obligation_trait_ref = placeholder_obligation.trait_ref;
 
         let impl_substs = self.infcx.fresh_substs_for_item(obligation.cause.span, impl_def_id);

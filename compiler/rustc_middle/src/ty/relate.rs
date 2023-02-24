@@ -58,7 +58,7 @@ pub trait TypeRelation<'tcx>: Sized {
         a_subst: SubstsRef<'tcx>,
         b_subst: SubstsRef<'tcx>,
     ) -> RelateResult<'tcx, SubstsRef<'tcx>> {
-        debug!(
+        info!(
             "relate_item_substs(item_def_id={:?}, a_subst={:?}, b_subst={:?})",
             item_def_id, a_subst, b_subst
         );
@@ -403,7 +403,7 @@ pub fn super_relate_tys<'tcx, R: TypeRelation<'tcx>>(
     b: Ty<'tcx>,
 ) -> RelateResult<'tcx, Ty<'tcx>> {
     let tcx = relation.tcx();
-    info!("super_relate_tys: a={:?} b={:?}", a, b);
+    debug!("super_relate_tys: a={:?} b={:?}", a, b);
     match (a.kind(), b.kind()) {
         (&ty::Infer(_), _) | (_, &ty::Infer(_)) => {
             // The caller should handle these cases!
@@ -422,14 +422,32 @@ pub fn super_relate_tys<'tcx, R: TypeRelation<'tcx>>(
         | (&ty::Int(_), _)
         | (&ty::Uint(_), _)
         | (&ty::Float(_), _)
-        | (&ty::Argument(..), _)
         | (&ty::Str, _) if a == b => {
             Ok(a)
         }
 
+        (&ty::Argument(..), &ty::Argument(..)) if a == b => {
+            Ok(a)
+        }
+        (&ty::Argument(..), &ty::Argument(..)) if a != b => {
+            Err(TypeError::Sorts(expected_found(relation, a, b)))
+        }
+
+        /*(&ty::Argument(..), _) => {
+            Ok(b)
+        }
+        (_, &ty::Argument(..)) => {
+            Ok(a)
+        }*/
+
         (ty::Param(a_p), ty::Param(b_p)) if a_p.index() == b_p.index() => Ok(a),
 
-        (ty::HKT(_, a_p, ..), ty::HKT(_, b_p, ..)) if a_p.index() == b_p.index() => Ok(a), // FIXMIG(hoch): Handle substs like adt
+        (ty::HKT(a_did, a_p, a_substs), ty::HKT(_, b_p, b_substs)) if a_p.index() == b_p.index() => {
+            info!("Trying to relate HKTs. a: {:#?}, b: {:#?}", a.kind(), b.kind());
+            // FIXMIG(hoch): Handle substs like adt
+            let substs = relation.relate_item_substs(*a_did, a_substs, b_substs)?;
+            Ok(tcx.mk_hkt_param(*a_did, a_p.index(), a_p.name(), substs))
+        },
 
         (ty::Placeholder(p1), ty::Placeholder(p2)) if p1 == p2 => Ok(a),
 

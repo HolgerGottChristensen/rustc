@@ -64,7 +64,7 @@ pub enum RelationDir {
 }
 
 impl<'tcx> InferCtxt<'tcx> {
-    #[instrument(skip(self, relation, a, b), level = "info")]
+    #[instrument(skip(self, relation, a, b), level = "debug", ret)]
     pub fn super_combine_tys<R>(
         &self,
         relation: &mut R,
@@ -74,7 +74,8 @@ impl<'tcx> InferCtxt<'tcx> {
     where
         R: TypeRelation<'tcx>,
     {
-        info!("super_combine_tys: {:#?}, {:#?}", a.kind(), b.kind());
+        debug!("super_combine_tys: {:#?}, {:#?}, Tag: {}", a.kind(), b.kind(), relation.tag());
+        //info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
         let a_is_expected = relation.a_is_expected();
 
         match (a.kind(), b.kind()) {
@@ -319,7 +320,7 @@ impl<'infcx, 'tcx> CombineFields<'infcx, 'tcx> {
     /// will first instantiate `b_vid` with a *generalized* version
     /// of `a_ty`. Generalization introduces other inference
     /// variables wherever subtyping could occur.
-    #[instrument(skip(self), level = "info")]
+    #[instrument(skip(self), level = "debug")]
     pub fn instantiate(
         &mut self,
         a_ty: Ty<'tcx>,
@@ -344,7 +345,7 @@ impl<'infcx, 'tcx> CombineFields<'infcx, 'tcx> {
         // variables. (Down below, we will relate `a_ty <: b_ty`,
         // adding constraints like `'x: '?2` and `?1 <: ?3`.)
         let Generalization { ty: b_ty, needs_wf } = self.generalize(a_ty, b_vid, dir)?;
-        info!(?b_ty);
+        debug!(?b_ty);
         self.infcx.inner.borrow_mut().type_variables().instantiate(b_vid, b_ty);
 
         if needs_wf {
@@ -385,7 +386,7 @@ impl<'infcx, 'tcx> CombineFields<'infcx, 'tcx> {
     /// Preconditions:
     ///
     /// - `for_vid` is a "root vid"
-    #[instrument(skip(self), level = "info", ret)]
+    #[instrument(skip(self), level = "debug", ret)]
     fn generalize(
         &self,
         ty: Ty<'tcx>,
@@ -610,7 +611,7 @@ impl<'tcx> TypeRelation<'tcx> for Generalizer<'_, 'tcx> {
         if let Some(&result) = self.cache.get(&t) {
             return Ok(result);
         }
-        info!("generalize: t={:?}", t);
+        debug!("generalize: t={:?}", t);
 
         // Check to see whether the type we are generalizing references
         // any other type variable related to `vid` via
