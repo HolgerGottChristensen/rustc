@@ -203,7 +203,7 @@ pub enum GenericArg {
     Type(P<Ty>),
     /// `1` in `Foo<1>`
     Const(AnonConst),
-    /// %j in Foo<%j>
+    /// %J in Foo<%J>
     HKTVar(HKTVar)
 }
 

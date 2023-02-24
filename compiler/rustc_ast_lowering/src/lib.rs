@@ -2197,7 +2197,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 )
             }
             GenericParamKind::HKT(kinds) => {
-                // TODO(hoch)
+                // FIXMIG (hoch)
 
                 let itctx = ImplTraitContext::Disallowed(ImplTraitPosition::Type);
 
