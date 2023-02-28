@@ -541,7 +541,7 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> Ty<'_> {
 
                 let substs = InternalSubsts::identity_for_item(tcx, def_id.to_def_id());
                 let ty = tcx.mk_hkt_param(def_id.to_def_id(), index, param.name.ident().name, substs);
-                todo!("{:#?}", ty)
+                ty
             }
             x => bug!("unexpected non-type Node::GenericParam: {:?}", x),
         },

@@ -31,6 +31,7 @@ pub fn provide(providers: &mut Providers) {
     *providers = Providers { variances_of, crate_variances, ..*providers };
 }
 
+#[instrument(skip_all)]
 fn crate_variances(tcx: TyCtxt<'_>, (): ()) -> CrateVariancesMap<'_> {
     let arena = DroplessArena::default();
     let terms_cx = terms::determine_parameters_to_be_inferred(tcx, &arena);
@@ -53,7 +54,7 @@ fn variances_of(tcx: TyCtxt<'_>, item_def_id: DefId) -> &[ty::Variance] {
         | DefKind::Variant
         | DefKind::Ctor(..) => {}
         DefKind::HKTParam => {
-            todo!("hoch")
+            info!("Get variances of: {:?}", item_def_id);
         }
         DefKind::OpaqueTy | DefKind::ImplTraitPlaceholder => {
             return variance_of_opaque(tcx, item_def_id.expect_local());

@@ -1,0 +1,16 @@
+error[E0277]: the trait bound `%J: Clone` is not satisfied
+  --> $DIR/hkt_clone_method_call.rs:15:12
+   |
+LL |     test::<Option<%J>>(Some(41));
+   |            ^^^^^^^^^^ the trait `Clone` is not implemented for `%J`
+   |
+   = note: required for `Option<%J>` to implement `Clone`
+note: required by a bound in `test`
+  --> $DIR/hkt_clone_method_call.rs:6:16
+   |
+LL | fn test<I<%J>: Clone>(input: I<u32>) -> I<u32> {
+   |                ^^^^^ required by this bound in `test`
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0277`.

@@ -45,6 +45,7 @@ pub struct CurrentItem {
     inferred_start: InferredIndex,
 }
 
+
 pub fn add_constraints_from_crate<'a, 'tcx>(
     terms_cx: TermsContext<'a, 'tcx>,
 ) -> ConstraintContext<'a, 'tcx> {
@@ -200,13 +201,14 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
     /// Adds constraints appropriate for an instance of `ty` appearing
     /// in a context with the generics defined in `generics` and
     /// ambient variance `variance`
+    #[instrument(skip(self, current), level = "info")]
     fn add_constraints_from_ty(
         &mut self,
         current: &CurrentItem,
         ty: Ty<'tcx>,
         variance: VarianceTermPtr<'a>,
     ) {
-        info!("add_constraints_from_ty(ty={:?}, variance={:?})", ty, variance);
+        //info!("add_constraints_from_ty(ty={:?}, variance={:?})", ty, variance);
 
         match *ty.kind() {
             ty::Bool
@@ -256,6 +258,10 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
             ty::Adt(def, substs) => {
                 self.add_constraints_from_substs(current, def.did(), substs, variance);
             }
+            ty::HKT(did, _, substs) => {
+                // FIXMIG: Is this correct?
+                self.add_constraints_from_substs(current, did, substs, variance);
+            }
 
             ty::Alias(_, ref data) => {
                 self.add_constraints_from_invariant_substs(current, data.substs, variance);
@@ -286,10 +292,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
                 }
             }
 
-            ty::HKT(did, _, substs) => {
-                // FIXMIG: Is this correct?
-                self.add_constraints_from_substs(current, did, substs, variance);
-            }
+
             ty::Param(ref data) => {
                 self.add_constraint(current, data.index(), variance);
             }
@@ -315,6 +318,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
 
     /// Adds constraints appropriate for a nominal type (enum, struct,
     /// object, etc) appearing in a context with ambient variance `variance`
+    #[instrument(skip(self, current), level = "info")]
     fn add_constraints_from_substs(
         &mut self,
         current: &CurrentItem,
@@ -322,10 +326,10 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
         substs: SubstsRef<'tcx>,
         variance: VarianceTermPtr<'a>,
     ) {
-        info!(
+        /*info!(
             "add_constraints_from_substs(def_id={:?}, substs={:?}, variance={:?})",
             def_id, substs, variance
-        );
+        );*/
 
         // We don't record `inferred_starts` entries for empty generics.
         if substs.is_empty() {

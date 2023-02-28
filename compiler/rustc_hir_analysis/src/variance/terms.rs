@@ -12,7 +12,7 @@
 use rustc_arena::DroplessArena;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{LocalDefId, LocalDefIdMap};
-use rustc_middle::ty::{self, TyCtxt};
+use rustc_middle::ty::{self, GenericParamDefKind, TyCtxt};
 use std::fmt;
 
 use self::VarianceTerm::*;
@@ -81,7 +81,7 @@ pub fn determine_parameters_to_be_inferred<'a, 'tcx>(
     let crate_items = tcx.hir_crate_items(());
 
     for def_id in crate_items.definitions() {
-        info!("add_inferreds for item {:?}", def_id);
+
 
         let def_kind = tcx.def_kind(def_id);
 
@@ -137,7 +137,9 @@ fn lang_items(tcx: TyCtxt<'_>) -> Vec<(LocalDefId, Vec<ty::Variance>)> {
 impl<'a, 'tcx> TermsContext<'a, 'tcx> {
     fn add_inferreds_for_item(&mut self, def_id: LocalDefId) {
         let tcx = self.tcx;
-        let count = tcx.generics_of(def_id).count();
+        let generics: &ty::Generics = tcx.generics_of(def_id);
+        let count = generics.count();
+        info!("add_inferreds for item {:?}: generic count = {}", def_id, count);
 
         if count == 0 {
             return;
@@ -156,5 +158,14 @@ impl<'a, 'tcx> TermsContext<'a, 'tcx> {
         self.inferred_terms.extend(
             (start..(start + count)).map(|i| &*arena.alloc(InferredTerm(InferredIndex(i)))),
         );
+
+        for param in &generics.params {
+            match param.kind {
+                GenericParamDefKind::HKT => {
+                    self.add_inferreds_for_item(param.def_id.expect_local())
+                }
+                _ => {}
+            }
+        }
     }
 }
