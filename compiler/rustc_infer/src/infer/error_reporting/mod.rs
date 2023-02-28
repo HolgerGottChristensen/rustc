@@ -68,10 +68,7 @@ use rustc_hir::lang_items::LangItem;
 use rustc_hir::Node;
 use rustc_middle::dep_graph::DepContext;
 use rustc_middle::ty::relate::{self, RelateResult, TypeRelation};
-use rustc_middle::ty::{
-    self, error::TypeError, List, Region, Ty, TyCtxt, TypeFoldable, TypeSuperVisitable,
-    TypeVisitable,
-};
+use rustc_middle::ty::{self, error::TypeError, HKTSubstType, List, Region, Ty, TyCtxt, TypeFoldable, TypeSuperVisitable, TypeVisitable};
 use rustc_span::{sym, symbol::kw, BytePos, DesugaringKind, Pos, Span};
 use rustc_target::spec::abi;
 use std::ops::{ControlFlow, Deref};
@@ -1340,8 +1337,8 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
             }
 
             (ty::FnDef(did1, substs1), ty::FnDef(did2, substs2)) => {
-                let sig1 = self.tcx.bound_fn_sig(*did1).subst(self.tcx, substs1);
-                let sig2 = self.tcx.bound_fn_sig(*did2).subst(self.tcx, substs2);
+                let sig1 = self.tcx.bound_fn_sig(*did1).subst(self.tcx, substs1, HKTSubstType::SubstHKTParamWithType);
+                let sig2 = self.tcx.bound_fn_sig(*did2).subst(self.tcx, substs2, HKTSubstType::SubstHKTParamWithType);
                 let mut values = self.cmp_fn_sig(&sig1, &sig2);
                 let path1 = format!(" {{{}}}", self.tcx.def_path_str_with_substs(*did1, substs1));
                 let path2 = format!(" {{{}}}", self.tcx.def_path_str_with_substs(*did2, substs2));
@@ -1352,7 +1349,7 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
             }
 
             (ty::FnDef(did1, substs1), ty::FnPtr(sig2)) => {
-                let sig1 = self.tcx.bound_fn_sig(*did1).subst(self.tcx, substs1);
+                let sig1 = self.tcx.bound_fn_sig(*did1).subst(self.tcx, substs1, HKTSubstType::SubstHKTParamWithType);
                 let mut values = self.cmp_fn_sig(&sig1, sig2);
                 values.0.push_highlighted(format!(
                     " {{{}}}",
@@ -1362,7 +1359,7 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
             }
 
             (ty::FnPtr(sig1), ty::FnDef(did2, substs2)) => {
-                let sig2 = self.tcx.bound_fn_sig(*did2).subst(self.tcx, substs2);
+                let sig2 = self.tcx.bound_fn_sig(*did2).subst(self.tcx, substs2, HKTSubstType::SubstHKTParamWithType);
                 let mut values = self.cmp_fn_sig(sig1, &sig2);
                 values.1.push_normal(format!(
                     " {{{}}}",

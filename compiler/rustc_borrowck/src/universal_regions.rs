@@ -22,9 +22,7 @@ use rustc_hir::{BodyOwnerKind, HirId};
 use rustc_index::vec::{Idx, IndexVec};
 use rustc_infer::infer::{InferCtxt, NllRegionVariableOrigin};
 use rustc_middle::ty::fold::TypeFoldable;
-use rustc_middle::ty::{
-    self, DefIdTree, InlineConstSubsts, InlineConstSubstsParts, RegionVid, Ty, TyCtxt,
-};
+use rustc_middle::ty::{self, DefIdTree, HKTSubstType, InlineConstSubsts, InlineConstSubstsParts, RegionVid, Ty, TyCtxt};
 use rustc_middle::ty::{InternalSubsts, SubstsRef};
 use std::iter;
 
@@ -485,7 +483,7 @@ impl<'cx, 'tcx> UniversalRegionsBuilder<'cx, 'tcx> {
                     .infcx
                     .tcx
                     .bound_type_of(va_list_did)
-                    .subst(self.infcx.tcx, &[region.into()]);
+                    .subst(self.infcx.tcx, &[region.into()], HKTSubstType::SubstHKTParamWithType);
 
                 unnormalized_input_tys = self.infcx.tcx.mk_type_list(
                     unnormalized_input_tys.iter().copied().chain(iter::once(va_list_ty)),

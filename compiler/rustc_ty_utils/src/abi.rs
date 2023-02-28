@@ -3,7 +3,7 @@ use rustc_hir::lang_items::LangItem;
 use rustc_middle::ty::layout::{
     fn_can_unwind, FnAbiError, HasParamEnv, HasTyCtxt, LayoutCx, LayoutOf, TyAndLayout,
 };
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::ty::{self, HKTSubstType, Ty, TyCtxt};
 use rustc_session::config::OptLevel;
 use rustc_span::def_id::DefId;
 use rustc_target::abi::call::{
@@ -45,7 +45,7 @@ fn fn_sig_for_fn_abi<'tcx>(
                     .map_bound(|fn_sig| {
                         tcx.normalize_erasing_regions(tcx.param_env(def_id), fn_sig)
                     })
-                    .subst(tcx, substs),
+                    .subst(tcx, substs, HKTSubstType::SubstHKTParamWithType),
                 _ => unreachable!(),
             };
 

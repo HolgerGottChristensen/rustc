@@ -126,7 +126,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
     // Preserving the order of insertion is important here so as not to break UI tests.
     let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
-    info!("Node: {:#?}", node);
+    //info!("Node: {:#?}", node);
     let ast_generics = match node {
         Node::TraitItem(item) => item.generics,
 
@@ -196,9 +196,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         + has_own_self as u32
         + super::early_bound_lifetimes_from_generics(tcx, ast_generics).count() as u32;
 
-    info!("predicatesss = {:#?}", predicates);
-    info!("ast_generics = {:#?}", ast_generics);
-    info!("generics = {:#?}", generics);
+    //info!("predicatesss = {:#?}", predicates);
+    //info!("ast_generics = {:#?}", ast_generics);
+    //info!("generics = {:#?}", generics);
 
     // Collect the predicates that were written inline by the user on each
     // type parameter (e.g., `<T: Foo>`).

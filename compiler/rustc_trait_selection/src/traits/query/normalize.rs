@@ -13,7 +13,7 @@ use rustc_data_structures::stack::ensure_sufficient_stack;
 use rustc_infer::traits::Normalized;
 use rustc_middle::ty::fold::{FallibleTypeFolder, TypeFoldable, TypeSuperFoldable};
 use rustc_middle::ty::visit::{TypeSuperVisitable, TypeVisitable};
-use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitor};
+use rustc_middle::ty::{self, HKTSubstType, Ty, TyCtxt, TypeVisitor};
 use rustc_span::DUMMY_SP;
 
 use std::ops::ControlFlow;
@@ -225,7 +225,7 @@ impl<'cx, 'tcx> FallibleTypeFolder<'tcx> for QueryNormalizer<'cx, 'tcx> {
                         }
 
                         let generic_ty = self.tcx().bound_type_of(def_id);
-                        let concrete_ty = generic_ty.subst(self.tcx(), substs);
+                        let concrete_ty = generic_ty.subst(self.tcx(), substs, HKTSubstType::SubstHKTParamWithType);
                         self.anon_depth += 1;
                         if concrete_ty == ty {
                             bug!(

@@ -1,5 +1,5 @@
 use crate::ty;
-use crate::ty::{EarlyBinder, SubstsRef};
+use crate::ty::{EarlyBinder, HKTSubstType, SubstsRef};
 use rustc_ast as ast;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::def_id::DefId;
@@ -110,7 +110,7 @@ impl GenericParamDef {
             ty::GenericParamDefKind::Lifetime => tcx.lifetimes.re_static.into(),
             ty::GenericParamDefKind::Type { .. } => tcx.ty_error().into(),
             ty::GenericParamDefKind::Const { .. } => {
-                tcx.const_error(tcx.bound_type_of(self.def_id).subst(tcx, preceding_substs)).into()
+                tcx.const_error(tcx.bound_type_of(self.def_id).subst(tcx, preceding_substs, HKTSubstType::SubstHKTParamWithType)).into()
             }
             GenericParamDefKind::HKT => {
                 todo!("hoch") // FIXMIG: what to do here?
@@ -317,7 +317,7 @@ impl<'tcx> Generics {
             .rev()
             .take_while(|param| {
                 param.default_value(tcx).map_or(false, |default| {
-                    default.subst(tcx, substs) == substs[param.index as usize]
+                    default.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType) == substs[param.index as usize]
                 })
             })
             .count();
@@ -364,7 +364,7 @@ impl<'tcx> GenericPredicates<'tcx> {
             predicates: self
                 .predicates
                 .iter()
-                .map(|(p, _)| EarlyBinder(*p).subst(tcx, substs))
+                .map(|(p, _)| EarlyBinder(*p).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType))
                 .collect(),
             spans: self.predicates.iter().map(|(_, sp)| *sp).collect(),
         }
@@ -382,7 +382,7 @@ impl<'tcx> GenericPredicates<'tcx> {
         }
         instantiated
             .predicates
-            .extend(self.predicates.iter().map(|(p, _)| EarlyBinder(*p).subst(tcx, substs)));
+            .extend(self.predicates.iter().map(|(p, _)| EarlyBinder(*p).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType)));
 
         instantiated.spans.extend(self.predicates.iter().map(|(_, sp)| *sp));
     }

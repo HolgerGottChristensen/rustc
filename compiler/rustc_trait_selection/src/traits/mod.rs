@@ -31,7 +31,7 @@ use rustc_hir as hir;
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::fold::TypeFoldable;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, DefIdTree, ToPredicate, Ty, TyCtxt, TypeSuperVisitable};
+use rustc_middle::ty::{self, DefIdTree, HKTSubstType, ToPredicate, Ty, TyCtxt, TypeSuperVisitable};
 use rustc_middle::ty::{InternalSubsts, SubstsRef};
 use rustc_span::Span;
 
@@ -541,7 +541,7 @@ fn is_impossible_method(tcx: TyCtxt<'_>, (impl_def_id, trait_item_def_id): (DefI
                 tcx,
                 ObligationCause::dummy_with_span(*span),
                 param_env,
-                ty::EarlyBinder(*pred).subst(tcx, impl_trait_ref.substs),
+                ty::EarlyBinder(*pred).subst(tcx, impl_trait_ref.substs, HKTSubstType::SubstHKTParamWithType),
             ))
         } else {
             None

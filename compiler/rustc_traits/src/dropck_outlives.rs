@@ -3,7 +3,7 @@ use rustc_hir::def_id::DefId;
 use rustc_infer::infer::canonical::{Canonical, QueryResponse};
 use rustc_infer::infer::TyCtxtInferExt;
 use rustc_middle::ty::query::Providers;
-use rustc_middle::ty::InternalSubsts;
+use rustc_middle::ty::{HKTSubstType, InternalSubsts};
 use rustc_middle::ty::{self, EarlyBinder, ParamEnvAnd, Ty, TyCtxt};
 use rustc_span::source_map::{Span, DUMMY_SP};
 use rustc_trait_selection::infer::InferCtxtBuilderExt;
@@ -254,13 +254,13 @@ fn dtorck_constraint_for_ty<'tcx>(
             // there, but that needs some way to handle cycles.
             constraints
                 .dtorck_types
-                .extend(dtorck_types.iter().map(|t| EarlyBinder(*t).subst(tcx, substs)));
+                .extend(dtorck_types.iter().map(|t| EarlyBinder(*t).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType)));
             constraints
                 .outlives
-                .extend(outlives.iter().map(|t| EarlyBinder(*t).subst(tcx, substs)));
+                .extend(outlives.iter().map(|t| EarlyBinder(*t).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType)));
             constraints
                 .overflows
-                .extend(overflows.iter().map(|t| EarlyBinder(*t).subst(tcx, substs)));
+                .extend(overflows.iter().map(|t| EarlyBinder(*t).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType)));
         }
 
         // Objects must be alive in order for their destructor

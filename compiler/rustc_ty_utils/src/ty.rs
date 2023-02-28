@@ -1,7 +1,7 @@
 use rustc_data_structures::fx::FxIndexSet;
 use rustc_hir as hir;
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, Binder, GenericParamDefKind, Generics, ParamTy, Predicate, PredicateKind, ToPredicate, Ty, TyCtxt};
+use rustc_middle::ty::{self, Binder, GenericParamDefKind, Generics, HKTSubstType, ParamTy, Predicate, PredicateKind, ToPredicate, Ty, TyCtxt};
 use rustc_session::config::TraitSolver;
 use rustc_trait_selection::traits;
 
@@ -33,7 +33,7 @@ fn sized_constraint_for_ty<'tcx>(
             adt_tys
                 .0
                 .iter()
-                .map(|ty| adt_tys.rebind(*ty).subst(tcx, substs))
+                .map(|ty| adt_tys.rebind(*ty).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType))
                 .flat_map(|ty| sized_constraint_for_ty(tcx, adtdef, ty))
                 .collect()
         }

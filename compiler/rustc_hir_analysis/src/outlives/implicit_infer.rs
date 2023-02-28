@@ -1,7 +1,7 @@
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, DefIdTree, Ty, TyCtxt};
+use rustc_middle::ty::{self, DefIdTree, HKTSubstType, Ty, TyCtxt};
 use rustc_middle::ty::{GenericArg, GenericArgKind};
 use rustc_span::Span;
 
@@ -143,7 +143,7 @@ fn insert_required_predicates_to_be_wf<'tcx>(
                         // get `T: 'a` (or `predicate`):
                         let predicate = unsubstituted_predicates
                             .rebind(*unsubstituted_predicate)
-                            .subst(tcx, substs);
+                            .subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
                         insert_outlives_predicate(
                             tcx,
                             predicate.0,
@@ -293,7 +293,7 @@ fn check_explicit_predicates<'tcx>(
             continue;
         }
 
-        let predicate = explicit_predicates.rebind(*outlives_predicate).subst(tcx, substs);
+        let predicate = explicit_predicates.rebind(*outlives_predicate).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
         debug!("predicate = {:?}", &predicate);
         insert_outlives_predicate(tcx, predicate.0, predicate.1, span, required_predicates);
     }

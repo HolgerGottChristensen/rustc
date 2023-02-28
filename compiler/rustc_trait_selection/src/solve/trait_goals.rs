@@ -9,7 +9,7 @@ use rustc_infer::infer::InferOk;
 use rustc_infer::traits::query::NoSolution;
 use rustc_infer::traits::ObligationCause;
 use rustc_middle::ty::fast_reject::{DeepRejectCtxt, TreatParams};
-use rustc_middle::ty::TraitPredicate;
+use rustc_middle::ty::{HKTSubstType, TraitPredicate};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::DUMMY_SP;
 
@@ -81,7 +81,7 @@ impl<'tcx> assembly::GoalKind<'tcx> for TraitPredicate<'tcx> {
 
         acx.infcx.probe(|_| {
             let impl_substs = acx.infcx.fresh_substs_for_item(DUMMY_SP, impl_def_id);
-            let impl_trait_ref = impl_trait_ref.subst(acx.cx.tcx, impl_substs);
+            let impl_trait_ref = impl_trait_ref.subst(acx.cx.tcx, impl_substs, HKTSubstType::SubstHKTParamWithType);
 
             let Ok(InferOk { obligations, .. }) = acx
                 .infcx

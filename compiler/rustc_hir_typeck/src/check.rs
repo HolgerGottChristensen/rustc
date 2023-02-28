@@ -9,7 +9,7 @@ use rustc_hir::lang_items::LangItem;
 use rustc_hir_analysis::check::fn_maybe_err;
 use rustc_infer::infer::type_variable::{TypeVariableOrigin, TypeVariableOriginKind};
 use rustc_infer::infer::RegionVariableOrigin;
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::ty::{self, HKTSubstType, Ty, TyCtxt};
 use rustc_span::def_id::LocalDefId;
 use rustc_trait_selection::traits;
 use std::cell::RefCell;
@@ -80,7 +80,7 @@ pub(super) fn check_fn<'a, 'tcx>(
         let va_list_did = tcx.require_lang_item(LangItem::VaList, Some(span));
         let region = fcx.next_region_var(RegionVariableOrigin::MiscVariable(span));
 
-        Some(tcx.bound_type_of(va_list_did).subst(tcx, &[region.into()]))
+        Some(tcx.bound_type_of(va_list_did).subst(tcx, &[region.into()], HKTSubstType::SubstHKTParamWithType))
     } else {
         None
     };

@@ -6,9 +6,7 @@ use rustc_middle::mir::{GeneratorLayout, GeneratorSavedLocal};
 use rustc_middle::ty::layout::{
     IntegerExt, LayoutCx, LayoutError, LayoutOf, TyAndLayout, MAX_SIMD_LANES,
 };
-use rustc_middle::ty::{
-    self, subst::SubstsRef, AdtDef, EarlyBinder, ReprOptions, Ty, TyCtxt, TypeVisitable,
-};
+use rustc_middle::ty::{self, subst::SubstsRef, AdtDef, EarlyBinder, ReprOptions, Ty, TyCtxt, TypeVisitable, HKTSubstType};
 use rustc_session::{DataTypeKind, FieldInfo, SizeKind, VariantInfo};
 use rustc_span::symbol::Symbol;
 use rustc_span::DUMMY_SP;
@@ -619,7 +617,7 @@ fn generator_layout<'tcx>(
 ) -> Result<Layout<'tcx>, LayoutError<'tcx>> {
     use SavedLocalEligibility::*;
     let tcx = cx.tcx;
-    let subst_field = |ty: Ty<'tcx>| EarlyBinder(ty).subst(tcx, substs);
+    let subst_field = |ty: Ty<'tcx>| EarlyBinder(ty).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
 
     let Some(info) = tcx.generator_layout(def_id) else {
         return Err(LayoutError::Unknown(ty));

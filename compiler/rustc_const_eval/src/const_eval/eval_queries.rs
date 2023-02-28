@@ -10,7 +10,7 @@ use rustc_middle::mir::pretty::display_allocation;
 use rustc_middle::traits::Reveal;
 use rustc_middle::ty::layout::LayoutOf;
 use rustc_middle::ty::print::with_no_trimmed_paths;
-use rustc_middle::ty::{self, TyCtxt};
+use rustc_middle::ty::{self, HKTSubstType, TyCtxt};
 use rustc_span::source_map::Span;
 use rustc_target::abi::{self, Abi};
 
@@ -48,7 +48,7 @@ fn eval_body_using_ecx<'mir, 'tcx>(
         "Unexpected DefKind: {:?}",
         ecx.tcx.def_kind(cid.instance.def_id())
     );
-    let layout = ecx.layout_of(body.bound_return_ty().subst(tcx, cid.instance.substs))?;
+    let layout = ecx.layout_of(body.bound_return_ty().subst(tcx, cid.instance.substs, HKTSubstType::SubstHKTParamWithType))?;
     assert!(layout.is_sized());
     let ret = ecx.allocate(layout, MemoryKind::Stack)?;
 

@@ -29,7 +29,7 @@ use rustc_infer::infer::{InferOk, LateBoundRegionConversionTime};
 use rustc_middle::hir::map;
 use rustc_middle::ty::error::TypeError::{self, Sorts};
 use rustc_middle::ty::relate::TypeRelation;
-use rustc_middle::ty::{self, suggest_arbitrary_trait_bound, suggest_constraining_type_param, AdtKind, DefIdTree, GeneratorDiagnosticData, GeneratorInteriorTypeCause, Infer, InferTy, InternalSubsts, IsSuggestable, ToPredicate, Ty, TyCtxt, TypeAndMut, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable, TypeckResults, GenericParamDefKind};
+use rustc_middle::ty::{self, suggest_arbitrary_trait_bound, suggest_constraining_type_param, AdtKind, DefIdTree, GeneratorDiagnosticData, GeneratorInteriorTypeCause, Infer, InferTy, InternalSubsts, IsSuggestable, ToPredicate, Ty, TyCtxt, TypeAndMut, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable, TypeckResults, GenericParamDefKind, HKTSubstType};
 use rustc_span::symbol::{sym, Ident, Symbol};
 use rustc_span::{BytePos, DesugaringKind, ExpnKind, Span, DUMMY_SP};
 use rustc_target::spec::abi;
@@ -893,7 +893,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                 ))
             }
             ty::Alias(ty::Opaque, ty::AliasTy { def_id, substs, .. }) => {
-                self.tcx.bound_item_bounds(def_id).subst(self.tcx, substs).iter().find_map(|pred| {
+                self.tcx.bound_item_bounds(def_id).subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType).iter().find_map(|pred| {
                     if let ty::PredicateKind::Clause(ty::Clause::Projection(proj)) = pred.kind().skip_binder()
                     && Some(proj.projection_ty.def_id) == self.tcx.lang_items().fn_once_output()
                     // args tuple will always be substs[1]

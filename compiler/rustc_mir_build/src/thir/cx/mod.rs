@@ -15,7 +15,7 @@ use rustc_hir::HirId;
 use rustc_hir::Node;
 use rustc_middle::middle::region;
 use rustc_middle::thir::*;
-use rustc_middle::ty::{self, RvalueScopes, TyCtxt};
+use rustc_middle::ty::{self, HKTSubstType, RvalueScopes, TyCtxt};
 use rustc_span::Span;
 
 #[instrument(skip(tcx), level = "info")]
@@ -186,7 +186,7 @@ impl<'tcx> Cx<'tcx> {
 
                 self.tcx
                     .bound_type_of(va_list_did)
-                    .subst(self.tcx, &[self.tcx.lifetimes.re_erased.into()])
+                    .subst(self.tcx, &[self.tcx.lifetimes.re_erased.into()], HKTSubstType::SubstHKTParamWithType)
             } else {
                 fn_sig.inputs()[index]
             };

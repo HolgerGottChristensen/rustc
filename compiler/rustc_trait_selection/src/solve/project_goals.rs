@@ -10,7 +10,7 @@ use rustc_infer::traits::query::NoSolution;
 use rustc_infer::traits::specialization_graph::LeafDef;
 use rustc_infer::traits::{ObligationCause, Reveal};
 use rustc_middle::ty::fast_reject::{DeepRejectCtxt, TreatParams};
-use rustc_middle::ty::ProjectionPredicate;
+use rustc_middle::ty::{HKTSubstType, ProjectionPredicate};
 use rustc_middle::ty::TypeVisitable;
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::DUMMY_SP;
@@ -120,7 +120,7 @@ impl<'tcx> assembly::GoalKind<'tcx> for ProjectionPredicate<'tcx> {
 
         acx.infcx.probe(|_| {
             let impl_substs = acx.infcx.fresh_substs_for_item(DUMMY_SP, impl_def_id);
-            let impl_trait_ref = impl_trait_ref.subst(tcx, impl_substs);
+            let impl_trait_ref = impl_trait_ref.subst(tcx, impl_substs, HKTSubstType::SubstHKTParamWithType);
 
             let Ok(InferOk { obligations, .. }) = acx
                 .infcx
@@ -192,7 +192,7 @@ impl<'tcx> assembly::GoalKind<'tcx> for ProjectionPredicate<'tcx> {
                 .infcx
                 .at(&ObligationCause::dummy(), goal.param_env)
                 .define_opaque_types(false)
-                .eq(goal.predicate.term,  term.subst(tcx, substs))
+                .eq(goal.predicate.term,  term.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType))
                 .map_err(|e| debug!("failed to equate trait refs: {e:?}"))
             else {
                 return

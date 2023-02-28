@@ -44,7 +44,7 @@ use rustc_middle::ty::abstract_const::NotConstEvaluatable;
 use rustc_middle::ty::fast_reject::{DeepRejectCtxt, TreatParams};
 use rustc_middle::ty::fold::BottomUpFolder;
 use rustc_middle::ty::relate::TypeRelation;
-use rustc_middle::ty::{GenericArgKind, SubstsRef};
+use rustc_middle::ty::{GenericArgKind, HKTSubstType, SubstsRef, TraitRef};
 use rustc_middle::ty::{self, EarlyBinder, PolyProjectionPredicate, ToPolyTraitRef, ToPredicate};
 use rustc_middle::ty::{Ty, TyCtxt, TypeFoldable, TypeVisitable};
 use rustc_span::symbol::sym;
@@ -1667,7 +1667,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 );
             }
         };
-        let bounds = tcx.bound_item_bounds(def_id).subst(tcx, substs);
+        let bounds = tcx.bound_item_bounds(def_id).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
 
         // The bounds returned by `item_bounds` may contain duplicates after
         // normalization, so try to deduplicate when possible to avoid
@@ -1862,6 +1862,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         // This is a fix for #53123 and prevents winnowing from accidentally extending the
         // lifetime of a variable.
         match (&other.candidate, &victim.candidate) {
+            (_, HKTCandidate(..)) | (HKTCandidate(..), _) => {
+                todo!("hoch");
+            }
             (_, AutoImplCandidate) | (AutoImplCandidate, _) => {
                 bug!(
                     "default implementations shouldn't be recorded \
@@ -2124,7 +2127,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                     sized_crit
                         .0
                         .iter()
-                        .map(|ty| sized_crit.rebind(*ty).subst(self.tcx(), substs))
+                        .map(|ty| sized_crit.rebind(*ty).subst(self.tcx(), substs, HKTSubstType::SubstHKTParamWithType))
                         .collect()
                 }))
             }
@@ -2141,7 +2144,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                     sized_criteria
                         .0
                         .iter()
-                        .map(|ty| sized_criteria.rebind(*ty).subst(self.tcx(), substs))
+                        .map(|ty| sized_criteria.rebind(*ty).subst(self.tcx(), substs, HKTSubstType::SubstHKTParamWithType))
                         .collect()
                 }))
             }
@@ -2354,7 +2357,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 // We can resolve the `impl Trait` to its concrete type,
                 // which enforces a DAG between the functions requiring
                 // the auto trait bounds in question.
-                t.rebind(vec![self.tcx().bound_type_of(def_id).subst(self.tcx(), substs)])
+                t.rebind(vec![self.tcx().bound_type_of(def_id).subst(self.tcx(), substs, HKTSubstType::SubstHKTParamWithType)])
             }
         }
     }
@@ -2473,7 +2476,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         let impl_substs = self.infcx.fresh_substs_for_item(obligation.cause.span, impl_def_id);
 
-        let impl_trait_ref = impl_trait_ref.subst(self.tcx(), impl_substs);
+        let impl_trait_ref = impl_trait_ref.subst(self.tcx(), impl_substs, HKTSubstType::SubstHKTParamWithType);
 
         info!(?impl_trait_ref);
 
@@ -2510,6 +2513,99 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             info!("reservation impls only apply in intercrate mode");
             return Err(());
         }
+
+        Ok(Normalized { value: impl_substs, obligations: nested_obligations })
+    }
+
+    fn rematch_hkt(
+        &mut self,
+        impl_def_id: DefId,
+        impl_trait_ref: EarlyBinder<TraitRef<'tcx>>,
+        obligation: &TraitObligation<'tcx>,
+    ) -> Normalized<'tcx, SubstsRef<'tcx>> {
+        match self.match_hkt(impl_def_id, impl_trait_ref, obligation) {
+            Ok(substs) => substs,
+            Err(()) => {
+                todo!("hoch")
+                /*// FIXME: A rematch may fail when a candidate cache hit occurs
+                // on thefreshened form of the trait predicate, but the match
+                // fails for some reason that is not captured in the freshened
+                // cache key. For example, equating an impl trait ref against
+                // the placeholder trait ref may fail due the Generalizer relation
+                // raising a CyclicalTy error due to a sub_root_var relation
+                // for a variable being generalized...
+                self.infcx.tcx.sess.delay_span_bug(
+                    obligation.cause.span,
+                    &format!(
+                        "Impl {:?} was matchable against {:?} but now is not",
+                        impl_def_id, obligation
+                    ),
+                );
+                let value = self.infcx.fresh_substs_for_item(obligation.cause.span, impl_def_id);
+                let err = self.tcx().ty_error();
+                let value = value.fold_with(&mut BottomUpFolder {
+                    tcx: self.tcx(),
+                    ty_op: |_| err,
+                    lt_op: |l| l,
+                    ct_op: |c| c,
+                });
+                Normalized { value, obligations: vec![] }*/
+            }
+        }
+    }
+
+    #[instrument(level = "info", skip(self, my_did, relevant_hkt_bound, obligation), ret)]
+    fn match_hkt(
+        &mut self,
+        my_did: DefId,
+        relevant_hkt_bound: EarlyBinder<ty::TraitRef<'tcx>>,
+        obligation: &TraitObligation<'tcx>,
+    ) -> Result<Normalized<'tcx, SubstsRef<'tcx>>, ()> {
+        info!("impl_trait_ref={:?}", relevant_hkt_bound.skip_binder());
+        info!("obligation={:#?}", obligation.predicate.skip_binder().trait_ref);
+        let placeholder_obligation = self.infcx.replace_bound_vars_with_placeholders(obligation.predicate);
+        let placeholder_obligation_trait_ref = placeholder_obligation.trait_ref;
+
+        let impl_substs = self.infcx.fresh_substs_for_item(obligation.cause.span, my_did); // FIXMIG: what defid?
+        info!("impl_substs = {:#?}", impl_substs);
+        let impl_trait_ref = relevant_hkt_bound.subst(self.tcx(), impl_substs, HKTSubstType::SubstArgumentWithinHKTParam);
+
+        info!(?impl_trait_ref);
+
+        let Normalized { value: impl_trait_ref, obligations: mut nested_obligations } =
+            ensure_sufficient_stack(|| {
+                project::normalize_with_depth(
+                    self,
+                    obligation.param_env,
+                    obligation.cause.clone(),
+                    obligation.recursion_depth + 1,
+                    impl_trait_ref,
+                )
+            });
+
+        info!(?impl_trait_ref, ?placeholder_obligation_trait_ref);
+
+        let cause = ObligationCause::new(
+            obligation.cause.span,
+            obligation.cause.body_id,
+            ObligationCauseCode::MatchImpl(obligation.cause.clone(), my_did),
+        );
+
+        let InferOk { obligations, .. } = self
+            .infcx
+            .at(&cause, obligation.param_env)
+            .define_opaque_types(false)
+            .eq(placeholder_obligation_trait_ref, impl_trait_ref)
+            .map_err(|e| info!("match_impl: failed eq_trait_refs due to `{e}`"))?;
+
+        nested_obligations.extend(obligations);
+
+        /*if !self.is_intercrate()
+            && self.tcx().impl_polarity(impl_def_id) == ty::ImplPolarity::Reservation
+        {
+            info!("reservation impls only apply in intercrate mode");
+            return;
+        }*/
 
         Ok(Normalized { value: impl_substs, obligations: nested_obligations })
     }
@@ -2667,7 +2763,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 param_env,
                 cause.clone(),
                 recursion_depth,
-                predicates.rebind(*predicate).subst(tcx, substs),
+                predicates.rebind(*predicate).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType),
                 &mut obligations,
             );
             obligations.push(Obligation { cause, recursion_depth, param_env, predicate });

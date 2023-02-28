@@ -624,7 +624,7 @@ where
     type Item = I::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(EarlyBinder(self.it.next()?).subst(self.tcx, self.substs))
+        Some(EarlyBinder(self.it.next()?).subst(self.tcx, self.substs, HKTSubstType::SubstHKTParamWithType))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -638,7 +638,7 @@ where
     I::Item: TypeFoldable<'tcx>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        Some(EarlyBinder(self.it.next_back()?).subst(self.tcx, self.substs))
+        Some(EarlyBinder(self.it.next_back()?).subst(self.tcx, self.substs, HKTSubstType::SubstHKTParamWithType))
     }
 }
 
@@ -670,7 +670,7 @@ where
     type Item = <I::Item as Deref>::Target;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(EarlyBinder(*self.it.next()?).subst(self.tcx, self.substs))
+        Some(EarlyBinder(*self.it.next()?).subst(self.tcx, self.substs, HKTSubstType::SubstHKTParamWithType))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -685,7 +685,7 @@ where
     <I::Item as Deref>::Target: Copy + TypeFoldable<'tcx>,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
-        Some(EarlyBinder(*self.it.next_back()?).subst(self.tcx, self.substs))
+        Some(EarlyBinder(*self.it.next_back()?).subst(self.tcx, self.substs, HKTSubstType::SubstHKTParamWithType))
     }
 }
 
@@ -711,9 +711,17 @@ impl<T: Iterator> Iterator for EarlyBinderIter<T> {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum HKTSubstType {
+    /// Substitute `I<u32>` `[Option<%J>]` to `Option<u32>`
+    SubstHKTParamWithType,
+    /// Substitute `I<%J>` `[u32]` to I<u32>
+    SubstArgumentWithinHKTParam,
+}
+
 impl<'tcx, T: TypeFoldable<'tcx>> ty::EarlyBinder<T> {
-    pub fn subst(self, tcx: TyCtxt<'tcx>, substs: &[GenericArg<'tcx>]) -> T {
-        let mut folder = SubstFolder { tcx, substs, binders_passed: 0 };
+    pub fn subst(self, tcx: TyCtxt<'tcx>, substs: &[GenericArg<'tcx>], hkt_subst_type: HKTSubstType) -> T {
+        let mut folder = SubstFolder { tcx, substs, binders_passed: 0, hkt_subst_type };
         self.0.fold_with(&mut folder)
     }
 }
@@ -727,6 +735,9 @@ struct SubstFolder<'a, 'tcx> {
 
     /// Number of region binders we have passed through while doing the substitution
     binders_passed: u32,
+
+    #[allow(unused)]
+    hkt_subst_type: HKTSubstType,
 }
 
 impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
@@ -787,15 +798,18 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
     }
 
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
-        if !t.needs_subst() {
+        if !t.needs_subst() && !matches!(t.kind(), ty::HKT(..)) {
+            info!("just return: {}", t);
             return t;
         }
 
         match *t.kind() {
             ty::Param(p) => self.ty_for_param(p, t),
-            ty::HKT(_, p, substs) =>
+            ty::HKT(_, p, substs) if self.hkt_subst_type == HKTSubstType::SubstHKTParamWithType =>
                 self.hkt_for_param(p, substs, t)
                     .super_fold_with(self),
+            ty::Argument(arg_def) if self.hkt_subst_type == HKTSubstType::SubstArgumentWithinHKTParam =>
+                self.ty_for_argument(arg_def, t),
             _ => t.super_fold_with(self),
         }
     }
@@ -813,7 +827,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
     fn ty_for_param(&self, p: ty::ParamTy, source_ty: Ty<'tcx>) -> Ty<'tcx> {
         // Look up the type in the substitutions. It really should be in there.
         let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
-        //println!("Replace: {:?} with {:?}", source_ty.kind(), opt_ty);
+        //info!("Replace: {:?} with {:?}", source_ty.kind(), opt_ty);
 
         let ty = match opt_ty {
             Some(GenericArgKind::Type(ty)) => ty,
@@ -824,8 +838,22 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
         self.shift_vars_through_binders(ty)
     }
 
-    fn hkt_for_param(&self, p: ty::ParamTy, substs: SubstsRef<'tcx>, source_ty: Ty<'tcx>) -> Ty<'tcx> {
+    fn ty_for_argument(&self, p: ty::ArgumentDef, source_ty: Ty<'tcx>) -> Ty<'tcx> {
+        // Look up the type in the substitutions. It really should be in there.
+        let opt_ty = self.substs.get(p.index as usize).map(|k| k.unpack());
+        info!("Replace: {:?} with {:?}", source_ty.kind(), opt_ty);
 
+        let ty = match opt_ty {
+            Some(GenericArgKind::Type(ty)) => ty,
+            Some(_kind) => todo!("hoch"),
+            None => todo!("hoch"),
+        };
+
+        self.shift_vars_through_binders(ty)
+    }
+
+    #[allow(dead_code)]
+    fn hkt_for_param(&self, p: ty::ParamTy, substs: SubstsRef<'tcx>, source_ty: Ty<'tcx>) -> Ty<'tcx> {
         // Look up the type in the substitutions. It really should be in there.
         let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
         let ty = match opt_ty {

@@ -25,6 +25,10 @@ impl<'tcx, N: fmt::Debug> fmt::Debug for traits::ImplSource<'tcx, N> {
                 write!(f, "ImplSourceParamData({:?}, {:?})", n, ct)
             }
 
+            super::ImplSource::HKT(ref n) => {
+                write!(f, "ImplSourceHKTData({:?})", n)
+            }
+
             super::ImplSource::Builtin(ref d) => write!(f, "{:?}", d),
 
             super::ImplSource::TraitAlias(ref d) => write!(f, "{:?}", d),

@@ -30,7 +30,7 @@ use rustc_middle::ty::relate::RelateResult;
 use rustc_middle::ty::subst::{GenericArg, GenericArgKind, InternalSubsts, SubstsRef};
 use rustc_middle::ty::visit::TypeVisitable;
 pub use rustc_middle::ty::IntVarValue;
-use rustc_middle::ty::{self, GenericParamDefKind, InferConst, Ty, TyCtxt};
+use rustc_middle::ty::{self, GenericParamDefKind, HKTSubstType, InferConst, Ty, TyCtxt};
 use rustc_middle::ty::{ConstVid, FloatVid, IntVid, TyVid};
 use rustc_span::symbol::Symbol;
 use rustc_span::Span;
@@ -1617,7 +1617,7 @@ impl<'tcx> InferCtxt<'tcx> {
         let tcx = self.tcx;
         if substs.has_non_region_infer() {
             if let Some(ct) = tcx.bound_abstract_const(unevaluated.def)? {
-                let ct = tcx.expand_abstract_consts(ct.subst(tcx, substs));
+                let ct = tcx.expand_abstract_consts(ct.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType));
                 if let Err(e) = ct.error_reported() {
                     return Err(ErrorHandled::Reported(e));
                 } else if ct.has_non_region_infer() || ct.has_non_region_param() {

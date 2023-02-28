@@ -1,8 +1,5 @@
 //! A subset of a mir body used for const evaluatability checking.
-use crate::ty::{
-    self, Const, EarlyBinder, Ty, TyCtxt, TypeFoldable, TypeFolder, TypeSuperFoldable,
-    TypeVisitable,
-};
+use crate::ty::{self, Const, EarlyBinder, HKTSubstType, Ty, TyCtxt, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable};
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir::def_id::DefId;
 
@@ -70,7 +67,7 @@ impl<'tcx> TyCtxt<'tcx> {
                         Err(e) => self.tcx.const_error_with_guaranteed(c.ty(), e),
                         Ok(Some(bac)) => {
                             let substs = self.tcx.erase_regions(uv.substs);
-                            bac.subst(self.tcx, substs)
+                            bac.subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType)
                         }
                         Ok(None) => c,
                     },

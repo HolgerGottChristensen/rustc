@@ -7,7 +7,7 @@ use rustc_arena::DroplessArena;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_middle::ty::query::Providers;
-use rustc_middle::ty::{self, CrateVariancesMap, SubstsRef, Ty, TyCtxt};
+use rustc_middle::ty::{self, CrateVariancesMap, HKTSubstType, SubstsRef, Ty, TyCtxt};
 use rustc_middle::ty::{DefIdTree, TypeSuperVisitable, TypeVisitable};
 use std::ops::ControlFlow;
 
@@ -156,7 +156,7 @@ fn variance_of_opaque(tcx: TyCtxt<'_>, item_def_id: LocalDefId) -> &[ty::Varianc
         OpaqueTypeLifetimeCollector { tcx, root_def_id: item_def_id.to_def_id(), variances };
     let id_substs = ty::InternalSubsts::identity_for_item(tcx, item_def_id.to_def_id());
     for pred in tcx.bound_explicit_item_bounds(item_def_id.to_def_id()).transpose_iter() {
-        let pred = pred.map_bound(|(pred, _)| *pred).subst(tcx, id_substs);
+        let pred = pred.map_bound(|(pred, _)| *pred).subst(tcx, id_substs, HKTSubstType::SubstHKTParamWithType);
         debug!(?pred);
 
         // We only ignore opaque type substs if the opaque type is the outermost type.

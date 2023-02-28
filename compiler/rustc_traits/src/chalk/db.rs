@@ -7,7 +7,7 @@
 //! `crate::chalk::lowering` (to lower rustc types into Chalk types).
 
 use rustc_middle::traits::ChalkRustInterner as RustInterner;
-use rustc_middle::ty::{self, AssocKind, EarlyBinder, GenericParamDefKind, Ty, TyCtxt, TypeFoldable, TypeSuperFoldable};
+use rustc_middle::ty::{self, AssocKind, EarlyBinder, GenericParamDefKind, HKTSubstType, Ty, TyCtxt, TypeFoldable, TypeSuperFoldable};
 use rustc_middle::ty::{InternalSubsts, SubstsRef};
 use rustc_target::abi::{Integer, IntegerType};
 
@@ -41,7 +41,7 @@ impl<'tcx> RustIrDatabase<'tcx> {
         let predicates = self.interner.tcx.predicates_defined_on(def_id).predicates;
         predicates
             .iter()
-            .map(|(wc, _)| EarlyBinder(*wc).subst(self.interner.tcx, bound_vars))
+            .map(|(wc, _)| EarlyBinder(*wc).subst(self.interner.tcx, bound_vars, HKTSubstType::SubstHKTParamWithType))
             .filter_map(|wc| LowerInto::<
                     Option<chalk_ir::QuantifiedWhereClause<RustInterner<'tcx>>>
                     >::lower_into(wc, self.interner)).collect()
@@ -55,7 +55,7 @@ impl<'tcx> RustIrDatabase<'tcx> {
         bounds
             .0
             .iter()
-            .map(|(bound, _)| bounds.rebind(*bound).subst(self.interner.tcx, &bound_vars))
+            .map(|(bound, _)| bounds.rebind(*bound).subst(self.interner.tcx, &bound_vars, HKTSubstType::SubstHKTParamWithType))
             .filter_map(|bound| LowerInto::<Option<_>>::lower_into(bound, self.interner))
             .collect()
     }
@@ -274,17 +274,17 @@ impl<'tcx> chalk_solve::RustIrDatabase<RustInterner<'tcx>> for RustIrDatabase<'t
         let (inputs_and_output, iobinders, _) = crate::chalk::lowering::collect_bound_vars(
             self.interner,
             self.interner.tcx,
-            sig.map_bound(|s| s.inputs_and_output()).subst(self.interner.tcx, bound_vars),
+            sig.map_bound(|s| s.inputs_and_output()).subst(self.interner.tcx, bound_vars, HKTSubstType::SubstHKTParamWithType),
         );
 
         let argument_types = inputs_and_output[..inputs_and_output.len() - 1]
             .iter()
-            .map(|t| sig.rebind(*t).subst(self.interner.tcx, &bound_vars).lower_into(self.interner))
+            .map(|t| sig.rebind(*t).subst(self.interner.tcx, &bound_vars, HKTSubstType::SubstHKTParamWithType).lower_into(self.interner))
             .collect();
 
         let return_type = sig
             .rebind(inputs_and_output[inputs_and_output.len() - 1])
-            .subst(self.interner.tcx, &bound_vars)
+            .subst(self.interner.tcx, &bound_vars, HKTSubstType::SubstHKTParamWithType)
             .lower_into(self.interner);
 
         let bound = chalk_solve::rust_ir::FnDefDatumBound {
@@ -310,7 +310,7 @@ impl<'tcx> chalk_solve::RustIrDatabase<RustInterner<'tcx>> for RustIrDatabase<'t
         let binders = binders_for(self.interner, bound_vars);
 
         let trait_ref = self.interner.tcx.bound_impl_trait_ref(def_id).expect("not an impl");
-        let trait_ref = trait_ref.subst(self.interner.tcx, bound_vars);
+        let trait_ref = trait_ref.subst(self.interner.tcx, bound_vars, HKTSubstType::SubstHKTParamWithType);
 
         let where_clauses = self.where_clauses_for(def_id, bound_vars);
 
@@ -355,7 +355,7 @@ impl<'tcx> chalk_solve::RustIrDatabase<RustInterner<'tcx>> for RustIrDatabase<'t
             let bound_vars = bound_vars_for_item(self.interner.tcx, *impl_def_id);
 
             let self_ty = trait_ref.map_bound(|t| t.self_ty());
-            let self_ty = self_ty.subst(self.interner.tcx, bound_vars);
+            let self_ty = self_ty.subst(self.interner.tcx, bound_vars, HKTSubstType::SubstHKTParamWithType);
             let lowered_ty = self_ty.lower_into(self.interner);
 
             parameters[0].assert_ty_ref(self.interner).could_match(
@@ -470,7 +470,7 @@ impl<'tcx> chalk_solve::RustIrDatabase<RustInterner<'tcx>> for RustIrDatabase<'t
             .interner
             .tcx
             .bound_type_of(def_id)
-            .subst(self.interner.tcx, bound_vars)
+            .subst(self.interner.tcx, bound_vars, HKTSubstType::SubstHKTParamWithType)
             .lower_into(self.interner);
 
         Arc::new(chalk_solve::rust_ir::AssociatedTyValue {
@@ -513,7 +513,7 @@ impl<'tcx> chalk_solve::RustIrDatabase<RustInterner<'tcx>> for RustIrDatabase<'t
                 .0
                 .iter()
                 .map(|(bound, _)| {
-                    explicit_item_bounds.rebind(*bound).subst(self.interner.tcx, &bound_vars)
+                    explicit_item_bounds.rebind(*bound).subst(self.interner.tcx, &bound_vars, HKTSubstType::SubstHKTParamWithType)
                 })
                 .map(|bound| {
                     bound.fold_with(&mut ReplaceOpaqueTyFolder {

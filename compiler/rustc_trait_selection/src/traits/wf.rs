@@ -102,7 +102,7 @@ pub fn trait_obligations<'tcx>(
     wf.normalize(infcx)
 }
 
-#[instrument(skip(infcx), ret, level = "info")]
+#[instrument(skip(infcx), level = "info")]
 pub fn predicate_obligations<'tcx>(
     infcx: &InferCtxt<'tcx>,
     param_env: ty::ParamEnv<'tcx>,
@@ -162,7 +162,9 @@ pub fn predicate_obligations<'tcx>(
         }
     }
 
-    wf.normalize(infcx)
+    let ret = wf.normalize(infcx);
+    info!("return: {:#?}", ret);
+    ret
 }
 
 struct WfPredicates<'tcx> {

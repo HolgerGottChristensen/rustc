@@ -16,7 +16,7 @@ use rustc_infer::infer::{self, InferOk, TyCtxtInferExt};
 use rustc_middle::infer::unify_key::{ConstVariableOrigin, ConstVariableOriginKind};
 use rustc_middle::middle::stability;
 use rustc_middle::ty::fast_reject::{simplify_type, TreatParams};
-use rustc_middle::ty::{AssocItem};
+use rustc_middle::ty::{AssocItem, HKTSubstType};
 use rustc_middle::ty::GenericParamDefKind;
 use rustc_middle::ty::ToPredicate;
 use rustc_middle::ty::{self, ParamEnvAnd, Ty, TyCtxt, TypeFoldable, TypeVisitable};
@@ -737,7 +737,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             }
 
             let (impl_ty, impl_substs) = self.impl_ty_and_substs(impl_def_id);
-            let impl_ty = impl_ty.subst(self.tcx, impl_substs);
+            let impl_ty = impl_ty.subst(self.tcx, impl_substs, HKTSubstType::SubstHKTParamWithType);
 
             debug!("impl_ty: {:?}", impl_ty);
 
@@ -1003,7 +1003,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 let fty = self.tcx.bound_fn_sig(method.def_id);
                 self.probe(|_| {
                     let substs = self.fresh_substs_for_item(self.span, method.def_id);
-                    let fty = fty.subst(self.tcx, substs);
+                    let fty = fty.subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType);
                     let fty =
                         self.replace_bound_vars_with_fresh_vars(self.span, infer::FnCall, fty);
 
@@ -1920,7 +1920,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         assert_eq!(substs.len(), generics.parent_count as usize);
 
         let xform_fn_sig = if generics.params.is_empty() {
-            fn_sig.subst(self.tcx, substs)
+            fn_sig.subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType)
         } else {
             let substs = InternalSubsts::for_item(self.tcx, method, |param, _| {
                 let i = param.index as usize;
@@ -1941,7 +1941,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     }
                 }
             });
-            fn_sig.subst(self.tcx, substs)
+            fn_sig.subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType)
         };
 
         self.erase_late_bound_regions(xform_fn_sig)

@@ -32,7 +32,7 @@ use rustc_infer::traits::ImplSourceBuiltinData;
 use rustc_middle::traits::select::OverflowError;
 use rustc_middle::ty::fold::{TypeFoldable, TypeFolder, TypeSuperFoldable};
 use rustc_middle::ty::visit::{MaxUniverse, TypeVisitable};
-use rustc_middle::ty::DefIdTree;
+use rustc_middle::ty::{DefIdTree, HKTSubstType};
 use rustc_middle::ty::{self, Term, ToPredicate, Ty, TyCtxt};
 use rustc_span::symbol::sym;
 
@@ -515,7 +515,7 @@ impl<'a, 'b, 'tcx> TypeFolder<'tcx> for AssocTypeNormalizer<'a, 'b, 'tcx> {
 
                         let substs = substs.fold_with(self);
                         let generic_ty = self.tcx().bound_type_of(def_id);
-                        let concrete_ty = generic_ty.subst(self.tcx(), substs);
+                        let concrete_ty = generic_ty.subst(self.tcx(), substs, HKTSubstType::SubstHKTParamWithType);
                         self.depth += 1;
                         let folded_ty = self.fold_ty(concrete_ty);
                         self.depth -= 1;
@@ -1375,7 +1375,7 @@ fn assemble_candidates_from_trait_def<'cx, 'tcx>(
     // Check whether the self-type is itself a projection.
     // If so, extract what we know from the trait and try to come up with a good answer.
     let bounds = match *obligation.predicate.self_ty().kind() {
-        ty::Alias(_, ref data) => tcx.bound_item_bounds(data.def_id).subst(tcx, data.substs),
+        ty::Alias(_, ref data) => tcx.bound_item_bounds(data.def_id).subst(tcx, data.substs, HKTSubstType::SubstHKTParamWithType),
         ty::Infer(ty::TyVar(_)) => {
             // If the self-type is an inference variable, then it MAY wind up
             // being a projected type, so induce an ambiguity.
@@ -1732,6 +1732,9 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                 // in `assemble_candidates_from_param_env`.
                 false
             }
+            super::ImplSource::HKT(_) => {
+                todo!("hoch")
+            }
             super::ImplSource::Object(_) => {
                 // Handled by the `Object` projection candidate. See
                 // `assemble_candidates_from_object_ty` for an explanation of
@@ -1821,6 +1824,7 @@ fn confirm_select_candidate<'cx, 'tcx>(
         super::ImplSource::Object(_)
         | super::ImplSource::AutoImpl(..)
         | super::ImplSource::Param(..)
+        | super::ImplSource::HKT(..)
         | super::ImplSource::TraitUpcasting(_)
         | super::ImplSource::TraitAlias(..)
         | super::ImplSource::ConstDestruct(_) => {
@@ -2161,7 +2165,7 @@ fn confirm_impl_candidate<'cx, 'tcx>(
         Progress { term: err.into(), obligations: nested }
     } else {
         assoc_ty_own_obligations(selcx, obligation, &mut nested);
-        Progress { term: term.subst(tcx, substs), obligations: nested }
+        Progress { term: term.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType), obligations: nested }
     }
 }
 
@@ -2294,7 +2298,7 @@ fn confirm_impl_trait_in_trait_candidate<'tcx>(
             .map_bound(|tys| {
                 tys.map_or_else(|_| tcx.ty_error(), |tys| tys[&obligation.predicate.def_id])
             })
-            .subst(tcx, impl_fn_substs),
+            .subst(tcx, impl_fn_substs, HKTSubstType::SubstHKTParamWithType),
         &mut obligations,
     );
 

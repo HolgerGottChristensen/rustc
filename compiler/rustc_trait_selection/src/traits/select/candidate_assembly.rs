@@ -118,6 +118,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             self.assemble_closure_candidates(obligation, &mut candidates);
             self.assemble_fn_pointer_candidates(obligation, &mut candidates);
             self.assemble_candidates_from_impls(obligation, &mut candidates);
+            self.assemble_candidates_from_hkts(obligation, &mut candidates);
             self.assemble_candidates_from_object_ty(obligation, &mut candidates);
         }
 
@@ -163,7 +164,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     /// supplied to find out whether it is listed among them.
     ///
     /// Never affects the inference environment.
-    #[instrument(level = "debug", skip(self, stack, candidates))]
+    #[instrument(level = "info", skip(self, stack, candidates))]
     fn assemble_candidates_from_caller_bounds<'o>(
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
@@ -171,12 +172,14 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     ) -> Result<(), SelectionError<'tcx>> {
         debug!(?stack.obligation);
 
+        // We filter away all bounds that are for HKTs. We handle them separately
         let all_bounds = stack
             .obligation
             .param_env
             .caller_bounds()
             .iter()
-            .filter_map(|o| o.to_opt_poly_trait_pred());
+            .filter_map(|o| o.to_opt_poly_trait_pred())
+            .filter(|p| !matches!(p.self_ty().skip_binder().kind(), ty::HKT(..)));
 
         // Micro-optimization: filter out predicates relating to different traits.
         let matching_bounds =
@@ -184,8 +187,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         // Keep only those bounds which may apply, and propagate overflow if it occurs.
         for bound in matching_bounds {
-            // FIXME(oli-obk): it is suspicious that we are dropping the constness and
-            // polarity here.
+            // FIXME(oli-obk): it is suspicious that we are dropping the constness and polarity here.
             let wc = self.where_clause_may_apply(stack, bound.map_bound(|t| t.trait_ref))?;
             if wc.may_apply() {
                 candidates.push(ParamCandidate(bound));
@@ -325,6 +327,50 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 }
             }
             _ => {}
+        }
+    }
+
+    /// Searches for impls that might apply to `obligation`.
+    #[allow(dead_code)]
+    #[instrument(skip_all)]
+    fn assemble_candidates_from_hkts(
+        &mut self,
+        obligation: &TraitObligation<'tcx>,
+        candidates: &mut SelectionCandidateSet<'tcx>,
+    ) {
+        let def_id = obligation.predicate.def_id();
+
+        let self_ty = obligation.predicate.skip_binder().trait_ref.self_ty();
+        info!("def_id: {:#?}", def_id);
+        info!("self_ty: {:#?}", self_ty);
+        info!("obligation: {:#?}", obligation.predicate.skip_binder());
+
+        if obligation.predicate.references_error() {
+            return;
+        }
+
+        let relevant_hkt_bounds = obligation
+            .param_env
+            .caller_bounds()
+            .iter()
+            .filter_map(|o| o.to_opt_poly_trait_pred())
+            .filter_map(|p| {
+                if let ty::HKT(my_did, ..) = p.self_ty().skip_binder().kind() {
+                    Some((*my_did, p))
+                } else {
+                    None
+                }
+            })
+            .filter(|(_, p)| p.def_id() == obligation.predicate.def_id())
+            .map(|(d, a)| (d, ty::EarlyBinder(a.skip_binder().trait_ref)))
+            .collect::<Vec<_>>();
+
+        for (my_did, relevant_hkt_bound) in relevant_hkt_bounds {
+            self.infcx.probe(|_| {
+                if let Ok(_substs) = self.match_hkt(my_did, relevant_hkt_bound, obligation) {
+                    candidates.push(HKTCandidate(my_did, relevant_hkt_bound.skip_binder()));
+                }
+            })
         }
     }
 
@@ -709,7 +755,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
     /// Assembles the trait which are built-in to the language itself:
     /// `Copy`, `Clone` and `Sized`.
-    #[instrument(level = "debug", skip(self, candidates))]
+    #[instrument(level = "info", skip(self, candidates, conditions))]
     fn assemble_builtin_bound_candidates(
         &mut self,
         conditions: BuiltinImplConditions<'tcx>,

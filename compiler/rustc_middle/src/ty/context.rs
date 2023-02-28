@@ -16,13 +16,7 @@ use crate::mir::{
 use crate::thir::Thir;
 use crate::traits;
 use crate::ty::query::{self, TyCtxtAt};
-use crate::ty::{
-    self, ArgumentDef, AdtDef, AdtDefData, AdtKind, Binder, Const, ConstData, DefIdTree, FloatTy, FloatVar,
-    FloatVid, GenericParamDefKind, ImplPolarity, InferTy, IntTy, IntVar, IntVid, List, ParamConst,
-    ParamTy, PolyExistentialPredicate, PolyFnSig, Predicate, PredicateKind, Region, RegionKind,
-    ReprOptions, TraitObjectVisitor, Ty, TyKind, TyVar, TyVid, TypeAndMut, TypeckResults, UintTy,
-    Visibility,
-};
+use crate::ty::{self, ArgumentDef, AdtDef, AdtDefData, AdtKind, Binder, Const, ConstData, DefIdTree, FloatTy, FloatVar, FloatVid, GenericParamDefKind, ImplPolarity, InferTy, IntTy, IntVar, IntVid, List, ParamConst, ParamTy, PolyExistentialPredicate, PolyFnSig, Predicate, PredicateKind, Region, RegionKind, ReprOptions, TraitObjectVisitor, Ty, TyKind, TyVar, TyVid, TypeAndMut, TypeckResults, UintTy, Visibility, HKTSubstType};
 use crate::ty::{GenericArg, InternalSubsts, SubstsRef};
 use rustc_ast as ast;
 use rustc_data_structures::fingerprint::Fingerprint;
@@ -1069,7 +1063,7 @@ impl<'tcx> TyCtxt<'tcx> {
         self.mk_imm_ref(
             self.lifetimes.re_static,
             self.bound_type_of(self.require_lang_item(LangItem::PanicLocation, None))
-                .subst(self, self.mk_substs([self.lifetimes.re_static.into()].iter())),
+                .subst(self, self.mk_substs([self.lifetimes.re_static.into()].iter()), HKTSubstType::SubstHKTParamWithType),
         )
     }
 
@@ -1809,7 +1803,7 @@ impl<'tcx> TyCtxt<'tcx> {
                         ty_param.into()
                     } else {
                         assert!(has_default);
-                        self.bound_type_of(param.def_id).subst(self, substs).into()
+                        self.bound_type_of(param.def_id).subst(self, substs, HKTSubstType::SubstHKTParamWithType).into()
                     }
                 }
                 GenericParamDefKind::HKT => todo!("hoch") // FIXMIG: what to do here?

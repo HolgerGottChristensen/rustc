@@ -7,9 +7,7 @@ use rustc_hir::def_id::{CrateNum, DefId};
 use rustc_hir::definitions::{DefPathData, DisambiguatedDefPathData};
 use rustc_middle::ty::layout::IntegerExt;
 use rustc_middle::ty::print::{Print, Printer};
-use rustc_middle::ty::{
-    self, EarlyBinder, FloatTy, Instance, IntTy, Ty, TyCtxt, TypeVisitable, UintTy,
-};
+use rustc_middle::ty::{self, EarlyBinder, FloatTy, HKTSubstType, Instance, IntTy, Ty, TyCtxt, TypeVisitable, UintTy};
 use rustc_middle::ty::{GenericArg, GenericArgKind};
 use rustc_span::symbol::kw;
 use rustc_target::abi::Integer;
@@ -280,7 +278,7 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
 
         let mut param_env = self.tcx.param_env_reveal_all_normalized(impl_def_id);
         if !substs.is_empty() {
-            param_env = EarlyBinder(param_env).subst(self.tcx, substs);
+            param_env = EarlyBinder(param_env).subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType);
         }
 
         match &mut impl_trait_ref {

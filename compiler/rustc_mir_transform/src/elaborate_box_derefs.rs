@@ -8,7 +8,7 @@ use rustc_index::vec::Idx;
 use rustc_middle::mir::patch::MirPatch;
 use rustc_middle::mir::visit::MutVisitor;
 use rustc_middle::mir::*;
-use rustc_middle::ty::{Ty, TyCtxt};
+use rustc_middle::ty::{HKTSubstType, Ty, TyCtxt};
 
 /// Constructs the types used when accessing a Box's pointer
 pub fn build_ptr_tys<'tcx>(
@@ -18,8 +18,8 @@ pub fn build_ptr_tys<'tcx>(
     nonnull_did: DefId,
 ) -> (Ty<'tcx>, Ty<'tcx>, Ty<'tcx>) {
     let substs = tcx.intern_substs(&[pointee.into()]);
-    let unique_ty = tcx.bound_type_of(unique_did).subst(tcx, substs);
-    let nonnull_ty = tcx.bound_type_of(nonnull_did).subst(tcx, substs);
+    let unique_ty = tcx.bound_type_of(unique_did).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
+    let nonnull_ty = tcx.bound_type_of(nonnull_did).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
     let ptr_ty = tcx.mk_imm_ptr(pointee);
 
     (unique_ty, nonnull_ty, ptr_ty)

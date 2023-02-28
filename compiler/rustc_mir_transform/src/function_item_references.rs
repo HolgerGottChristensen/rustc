@@ -3,7 +3,7 @@ use rustc_errors::Applicability;
 use rustc_hir::def_id::DefId;
 use rustc_middle::mir::visit::Visitor;
 use rustc_middle::mir::*;
-use rustc_middle::ty::{self, EarlyBinder, GenericArgKind, PredicateKind, SubstsRef, Ty, TyCtxt};
+use rustc_middle::ty::{self, EarlyBinder, GenericArgKind, HKTSubstType, PredicateKind, SubstsRef, Ty, TyCtxt};
 use rustc_session::lint::builtin::FUNCTION_ITEM_REFERENCES;
 use rustc_span::{symbol::sym, Span};
 use rustc_target::spec::abi::Abi;
@@ -87,7 +87,7 @@ impl<'tcx> FunctionItemRefChecker<'_, 'tcx> {
                             // If the inner type matches the type bound by `Pointer`
                             if inner_ty == bound_ty {
                                 // Do a substitution using the parameters from the callsite
-                                let subst_ty = EarlyBinder(inner_ty).subst(self.tcx, substs_ref);
+                                let subst_ty = EarlyBinder(inner_ty).subst(self.tcx, substs_ref, HKTSubstType::SubstHKTParamWithType);
                                 if let Some((fn_id, fn_substs)) =
                                     FunctionItemRefChecker::is_fn_ref(subst_ty)
                                 {
