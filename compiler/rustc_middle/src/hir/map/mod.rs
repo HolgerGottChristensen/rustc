@@ -203,6 +203,9 @@ impl<'hir> Map<'hir> {
     /// Do not call this function directly. The query should be called.
     pub(super) fn opt_def_kind(self, local_def_id: LocalDefId) -> Option<DefKind> {
         let hir_id = self.local_def_id_to_hir_id(local_def_id);
+        println!("LOCAL_DEF_ID: {:?}", local_def_id);
+        println!("HIR_ID: {:?}", hir_id);
+        println!("FOUND: {:?}", self.find(hir_id));
         let def_kind = match self.find(hir_id)? {
             Node::Item(item) => match item.kind {
                 ItemKind::Static(_, mt, _) => DefKind::Static(mt),

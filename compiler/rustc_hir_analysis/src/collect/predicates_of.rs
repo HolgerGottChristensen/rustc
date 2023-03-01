@@ -164,7 +164,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         _ => NO_GENERICS,
     };
 
-    let generics = tcx.generics_of(def_id);
+    let generics: &ty::Generics = tcx.generics_of(def_id);
+
+    info!("Generics221: {:#?}", generics);
 
     let parent_count = generics.parent_count as u32;
     let has_own_self = generics.has_self && parent_count == 0;
@@ -251,7 +253,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         }
     }
 
-    trace!(?predicates);
+    info!(?predicates);
     // Add in the bounds that appear in the where-clause.
     for predicate in ast_generics.predicates {
         match predicate {

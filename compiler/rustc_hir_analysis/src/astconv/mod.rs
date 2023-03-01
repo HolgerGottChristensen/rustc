@@ -2459,19 +2459,22 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     }
 
     /// Check a type `Path` and convert it to a `Ty`.
-    #[instrument(level = "info", skip(self))]
+    #[instrument(level = "info", skip_all, ret)]
     pub fn res_to_ty(
         &self,
         opt_self_ty: Option<Ty<'tcx>>,
         path: &hir::Path<'_>,
         permit_variants: bool,
     ) -> Ty<'tcx> {
+        info!("res: {:?}", path.res);
+        info!("opt_self_ty: {:?}", opt_self_ty);
+        info!("path_segments: {:#?}", path.segments);
         let tcx = self.tcx();
 
-        info!(
+        /*info!(
             "res_to_ty(res={:#?}, opt_self_ty={:#?}, path_segments={:#?})",
             path.res, opt_self_ty, path.segments
-        );
+        );*/
 
         let span = path.span;
         match path.res {
@@ -2521,8 +2524,10 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 });
 
                 let def_id = def_id.expect_local();
-                let item_def_id = tcx.hir().ty_param_owner(def_id);
-                let generics = tcx.generics_of(item_def_id);
+                let item_def_id = tcx.hir().ty_param_owner(def_id); // FIXMIG: This should be re-added
+                info!("Parent of {:?} is item_def_id: {:#?}", def_id, item_def_id);
+                let generics: &ty::Generics = tcx.generics_of(item_def_id);
+                info!("GERNERINGS: {:#?}", generics);
                 let index = generics.param_def_id_to_index[&def_id.to_def_id()];
                 tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
             }

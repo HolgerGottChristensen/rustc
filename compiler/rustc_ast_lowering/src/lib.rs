@@ -555,7 +555,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     ///
     /// This function sets up `HirId` lowering infrastructure,
     /// and stashes the shared mutable state to avoid pollution by the closure.
-    #[instrument(level = "debug", skip(self, f))]
+    #[instrument(level = "info", skip(self, f))]
     fn with_hir_id_owner(
         &mut self,
         owner: NodeId,
@@ -2198,6 +2198,9 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             }
             GenericParamKind::HKT(kinds) => {
                 // TODO(hoch)
+                /*self.with_hir_id_owner(param.id, |s| {
+
+                })*/
 
                 let itctx = ImplTraitContext::Disallowed(ImplTraitPosition::Type);
 

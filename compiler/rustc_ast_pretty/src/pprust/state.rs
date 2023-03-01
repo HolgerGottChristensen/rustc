@@ -1603,6 +1603,10 @@ impl<'a> State<'a> {
         self.commasep(Inconsistent, &kinds.params, |s, kind| {
             s.word("%");
             s.print_ident(kind.ident);
+            if !kind.bounds.is_empty() {
+                s.word_nbsp(":");
+                s.print_type_bounds(&kind.bounds);
+            }
             /*match kind {
                 HKTKind::Atomic(ident) => {
                     s.word("?");
