@@ -1427,7 +1427,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 }))
             }
             GenericParamKind::HKT(..) => {
-                // TODO(hoch)
+                // FIXMIG(hoch)
                 let def_id = self.local_def_id(id).to_def_id();
                 let hir_id = self.next_id();
 

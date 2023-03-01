@@ -2460,7 +2460,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
                     continue;
                 }
                 GenericParamKind::HKT(_) => {
-                    // TODO(hoch)
+                    // FIXMIG (hoch)
                     (&mut function_type_rib, DefKind::HKTParam)
                 }
             };
