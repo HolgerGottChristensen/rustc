@@ -3,7 +3,7 @@ use super::Subtype;
 
 use rustc_middle::ty::relate::{self, Relate, RelateResult, TypeRelation};
 use rustc_middle::ty::subst::SubstsRef;
-use rustc_middle::ty::TyVar;
+use rustc_middle::ty::{TyVar};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 
 use rustc_hir::def_id::DefId;
@@ -74,29 +74,33 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
         self.relate(a, b)
     }
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     fn tys(&mut self, a: Ty<'tcx>, b: Ty<'tcx>) -> RelateResult<'tcx, Ty<'tcx>> {
         if a == b {
             return Ok(a);
         }
 
-        trace!(a = ?a.kind(), b = ?b.kind());
-
         let infcx = self.fields.infcx;
 
         let a = infcx.inner.borrow_mut().type_variables().replace_if_possible(a);
         let b = infcx.inner.borrow_mut().type_variables().replace_if_possible(b);
+        info!("a is: {:#?}, b is: {:#?}", a.ty_adt_def(), b.ty_adt_def());
 
         match (a.kind(), b.kind()) {
             (&ty::Infer(TyVar(a_id)), &ty::Infer(TyVar(b_id))) => {
+                info!("numero 1");
                 infcx.inner.borrow_mut().type_variables().equate(a_id, b_id);
             }
 
             (&ty::Infer(TyVar(a_id)), _) => {
+                info!("numero 2");
+                info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
                 self.fields.instantiate(b, RelationDir::EqTo, a_id, self.a_is_expected)?;
             }
 
             (_, &ty::Infer(TyVar(b_id))) => {
+                info!("numero 3");
+                info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
                 self.fields.instantiate(a, RelationDir::EqTo, b_id, self.a_is_expected)?;
             }
 
@@ -104,12 +108,14 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
                 &ty::Alias(ty::Opaque, ty::AliasTy { def_id: a_def_id, .. }),
                 &ty::Alias(ty::Opaque, ty::AliasTy { def_id: b_def_id, .. }),
             ) if a_def_id == b_def_id => {
+                info!("numero 4");
                 self.fields.infcx.super_combine_tys(self, a, b)?;
             }
             (&ty::Alias(ty::Opaque, ty::AliasTy { def_id, .. }), _)
             | (_, &ty::Alias(ty::Opaque, ty::AliasTy { def_id, .. }))
                 if self.fields.define_opaque_types && def_id.is_local() =>
             {
+                info!("numero 5");
                 self.fields.obligations.extend(
                     infcx
                         .handle_opaque_type(
@@ -126,6 +132,7 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
             // free regions are replaced with bound regions during construction.
             // This greatly speeds up equating of GeneratorWitness.
             (&ty::GeneratorWitness(a_types), &ty::GeneratorWitness(b_types)) => {
+                info!("numero 6");
                 let a_types = infcx.tcx.anonymize_bound_vars(a_types);
                 let b_types = infcx.tcx.anonymize_bound_vars(b_types);
                 if a_types.bound_vars() == b_types.bound_vars() {
@@ -143,6 +150,8 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
             }
 
             _ => {
+                info!("numero 7");
+                info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
                 self.fields.infcx.super_combine_tys(self, a, b)?;
             }
         }

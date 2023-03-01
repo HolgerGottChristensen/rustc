@@ -166,14 +166,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         tuple_arguments: TupleArgumentsFlag,
         fn_def_id: Option<DefId>,
     ) {
+        // info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
         // debug!("fn_def_id={:#?}", fn_def_id);
         // debug!("{:#?}", call_expr);
         // debug!("formal_input_tys={:#?}", formal_input_tys);
         // debug!("expected_input_tys={:#?}", expected_input_tys);
         // debug!("provided_args={:#?}", provided_args);
         let tcx = self.tcx;
-
-
 
         // Conceptually, we've got some number of expected inputs, and some number of provided arguments
         // and we can form a grid of whether each argument could satisfy a given input:
@@ -272,11 +271,21 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             debug!("pre check_expr_with_expectation");
             let checked_ty = self.check_expr_with_expectation(provided_arg, expectation);
 
+            if formal_input_tys.len() > 1 {
+                info!("expected input tys: {:#?}", expected_input_tys);
+                info!("expected input ty: {:#?}", expected_input_ty);
+                info!("expectation: {:#?}", expectation);
+                info!("checked ty baby: {:#?}", checked_ty);
+            }
+
             // 2. Coerce to the most detailed type that could be coerced
             //    to, which is `expected_ty` if `rvalue_hint` returns an
             //    `ExpectHasType(expected_ty)`, or the `formal_ty` otherwise.
             debug!("pre expectation.only_has_type(self)");
             let coerced_ty = expectation.only_has_type(self).unwrap_or(formal_input_ty);
+            if formal_input_tys.len() > 1 {
+                info!("coerced ty baby: {:#?}", coerced_ty);
+            }
 
             // Cause selection errors caused by resolving a single argument to point at the
             // argument and not the call. This lets us customize the span pointed to in the
@@ -288,6 +297,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             let coerce_error = self
                 .try_coerce(provided_arg, checked_ty, coerced_ty, AllowTwoPhase::Yes, None)
                 .err();
+
+            if formal_input_tys.len() > 1 {
+                info!("new coerced ty baby: {:#?}", coerced_ty);
+            }
 
             if coerce_error.is_some() {
                 return Compatibility::Incompatible(coerce_error);
@@ -1394,7 +1407,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         // Hide the outer diverging and `has_errors` flags.
         let old_diverges = self.diverges.replace(Diverges::Maybe);
-
         match stmt.kind {
             hir::StmtKind::Local(l) => {
                 self.check_decl_local(l);

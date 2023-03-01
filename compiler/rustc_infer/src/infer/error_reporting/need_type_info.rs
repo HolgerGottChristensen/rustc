@@ -379,7 +379,7 @@ impl<'tcx> InferCtxt<'tcx> {
 }
 
 impl<'tcx> TypeErrCtxt<'_, 'tcx> {
-    #[instrument(level = "debug", skip(self, error_code))]
+    #[instrument(level = "info", skip(self, error_code))]
     pub fn emit_inference_failure_err(
         &self,
         body_id: Option<hir::BodyId>,
@@ -388,6 +388,7 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
         error_code: TypeAnnotationNeeded,
         should_label_span: bool,
     ) -> DiagnosticBuilder<'tcx, ErrorGuaranteed> {
+        info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
         let arg = self.resolve_vars_if_possible(arg);
         let arg_data = self.extract_inference_diagnostics_data(arg, None);
 

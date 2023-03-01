@@ -509,7 +509,51 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             fn_sig.inputs(),
         );
 
+        if fn_sig.inputs().len() > 1 {
+            info!("expect before function call: {:#?}", expected_arg_tys);
+            info!("function signature: {:#?}", fn_sig);
+            info!("callee ty: {:#?}", callee_ty);
+            // Figure out whether this function have HKT parameters.
+            // If so, infer the type I<%J> of the first argument.
+            // When we infer the type of I - Infer_I - we will call 'check_argument_types', however, we have now changed formal_input_tys
+            // by substituting the type parameters of the function signature of the called function with substitution containing Infer_I<%J>.
+            // This will be analogous to calling the function with type annotation. This method only works when using %J of I
 
+            match *callee_ty.kind() {
+                ty::FnDef(def_id, _) => {
+                    let fn_signature = self.tcx.bound_fn_sig(def_id);
+                    let is_hkt = fn_signature.skip_binder().skip_binder().inputs().to_vec().iter().any(|inp| {
+                        if let ty::HKT(_, _, _) = inp.kind() {
+                            true
+                        } else {
+                            false
+                        }
+                    });
+                    info!("is hkt: {:#?}", is_hkt);
+                    let expected_input_tys = if let Some(expect) = expected_arg_tys.clone() {
+                        expect
+                    } else {
+                        (*fn_sig.inputs()).to_vec()
+                    };
+                    if let (Some(args), Some(expect)) = (arg_exprs.first(), expected_input_tys.first()) {
+                        let resolved = self.check_expr_with_expectation(args, Expectation::rvalue_hint(self,*expect));
+                        info!("first arg resolved: {:#?}", resolved.kind());
+                        match resolved.kind() {
+                            ty::Adt(_adt, _) => {
+
+                            }
+                            _ => {
+                                //FIXMIG: andre cases
+                            }
+                        }
+                    }
+
+                }
+                _ => {}
+            }
+
+        }
+        info!("fn_sig inputs {:#?}, with fun_id {:#?}", fn_sig.inputs(), def_id);
         self.check_argument_types(
             call_expr.span,
             call_expr,

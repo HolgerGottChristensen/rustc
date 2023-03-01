@@ -1881,6 +1881,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for ShallowResolver<'a, 'tcx> {
                 //
                 // Note: if these two lines are combined into one we get
                 // dynamic borrow errors on `self.inner`.
+                info!("its a TyVar with ID {:#?}", v);
                 let known = self.infcx.inner.borrow_mut().type_variables().probe(v).known();
                 known.map_or(ty, |t| self.fold_ty(t))
             }

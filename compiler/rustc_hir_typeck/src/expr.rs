@@ -242,8 +242,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         });
 
         info!("pre resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
-
+        info!("ty before resolving: {:#?}", ty);
         let ty = self.resolve_vars_if_possible(ty);
+        info!("ty after resolving: {:#?}", ty);
         info!("post resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
 

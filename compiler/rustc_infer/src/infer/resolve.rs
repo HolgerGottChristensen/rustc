@@ -36,6 +36,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for OpportunisticVarResolver<'a, 'tcx> {
             t // micro-optimize -- if there is nothing in this type that this fold affects...
         } else {
             let t = self.infcx.shallow_resolve(t);
+            info!("shallow resolve: {:#?}", t);
             t.super_fold_with(self)
         }
     }
