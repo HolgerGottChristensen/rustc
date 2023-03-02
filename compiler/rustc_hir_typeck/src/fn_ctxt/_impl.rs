@@ -1370,7 +1370,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         substs: SubstsRef<'tcx>,
         code: impl Fn(usize, Span) -> ObligationCauseCode<'tcx>,
     ) {
-        let param_env = self.param_env;
+        let param_env =
+            self.tcx.param_env_with_hkt((def_id, self.param_env.without_const()));
 
         let remap = match self.tcx.def_kind(def_id) {
             // Associated consts have `Self: ~const Trait` bounds that should be satisfiable when

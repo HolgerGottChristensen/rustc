@@ -586,7 +586,9 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         root_obligation: &PredicateObligation<'tcx>,
         error: &SelectionError<'tcx>,
     ) {
-        info!("Error when selecting in env: {:#?}", obligation.param_env);
+        println!("Error for obligation: {:#?}", obligation.predicate);
+        println!("Error for obligation cause: {:#?}", obligation.cause);
+        println!("Error when selecting in env: {:#?}", obligation.param_env);
         info!("Stacktrace: \n{}", std::backtrace::Backtrace::capture());
         let tcx = self.tcx;
         let mut span = obligation.cause.span;

@@ -86,11 +86,11 @@ pub trait QueryTypeOp<'tcx>: fmt::Debug + Copy + TypeFoldable<'tcx> + 'tcx {
         PredicateObligations<'tcx>,
         Certainty,
     )> {
-        info!("Before try fast path");
+        //info!("Before try fast path");
         if let Some(result) = QueryTypeOp::try_fast_path(infcx.tcx, &query_key) {
             return Ok((result, None, vec![], Certainty::Proven));
         }
-        info!("After try fast path");
+        //info!("After try fast path");
 
         // FIXME(#33684) -- We need to use
         // `canonicalize_query_keep_static` here because of things

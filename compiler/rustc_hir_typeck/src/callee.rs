@@ -85,7 +85,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// specified type.
     ///
     /// returns: The return type of the function call.
-    #[instrument(level = "info", skip(self, call_expr, callee_expr, arg_exprs), ret)]
+    #[instrument(level = "info", skip(self, call_expr, callee_expr, arg_exprs), fields(id = ?call_expr.hir_id)ret)]
     pub fn check_call(
         &self,
         call_expr: &'tcx hir::Expr<'tcx>,
