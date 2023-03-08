@@ -2072,6 +2072,7 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             match param.kind {
                 hir::GenericParamKind::HKT(_)
                 | hir::GenericParamKind::Lifetime { .. }
+                | hir::GenericParamKind::HKTRef
                 | hir::GenericParamKind::Type { .. } => {}
                 hir::GenericParamKind::Const { ref default, .. } => {
                     let def_id = param.def_id.to_def_id();

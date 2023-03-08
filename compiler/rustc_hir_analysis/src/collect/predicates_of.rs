@@ -250,6 +250,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                 debug!("predicatesa = {:#?}", predicates);*/
                 index += 1;
             }
+            GenericParamKind::HKTRef => {
+                todo!()
+            }
         }
     }
 

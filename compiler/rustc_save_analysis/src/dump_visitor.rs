@@ -332,7 +332,10 @@ impl<'tcx> DumpVisitor<'tcx> {
                 }
                 hir::GenericParamKind::Const { .. } => {}
                 GenericParamKind::HKT(_) => {
-                    todo!() // TODO(hoch)
+                    todo!() // FIXMIG: what to do here?
+                }
+                GenericParamKind::HKTRef => {
+                    todo!() // FIXMIG: what to do here?
                 }
             }
         }
@@ -1281,7 +1284,10 @@ impl<'tcx> Visitor<'tcx> for DumpVisitor<'tcx> {
                     }
                 }
                 GenericParamKind::HKT(_) => {
-                    todo!() // TODO(hoch)
+                    todo!() // FIXMIG: What to do here?
+                }
+                GenericParamKind::HKTRef => {
+                    todo!() // FIXMIG: What to do here?
                 }
             }
         }

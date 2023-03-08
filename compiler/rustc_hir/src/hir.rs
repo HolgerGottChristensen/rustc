@@ -488,6 +488,7 @@ pub enum GenericParamKind<'hir> {
         default: Option<AnonConst>,
     },
     HKT (&'hir Generics<'hir>),
+    HKTRef,
 }
 
 #[derive(Debug, HashStable_Generic)]
@@ -3289,16 +3290,18 @@ pub enum OwnerNode<'hir> {
     TraitItem(&'hir TraitItem<'hir>),
     ImplItem(&'hir ImplItem<'hir>),
     Crate(&'hir Mod<'hir>),
+    HKT(&'hir GenericParam<'hir>),
 }
 
 impl<'hir> OwnerNode<'hir> {
     pub fn ident(&self) -> Option<Ident> {
         match self {
             OwnerNode::Item(Item { ident, .. })
+            | OwnerNode::HKT(GenericParam { name: ParamName::Plain(ident), ..})
             | OwnerNode::ForeignItem(ForeignItem { ident, .. })
             | OwnerNode::ImplItem(ImplItem { ident, .. })
             | OwnerNode::TraitItem(TraitItem { ident, .. }) => Some(*ident),
-            OwnerNode::Crate(..) => None,
+            OwnerNode::Crate(..) | OwnerNode::HKT(_) => None,
         }
     }
 
@@ -3307,6 +3310,7 @@ impl<'hir> OwnerNode<'hir> {
             OwnerNode::Item(Item { span, .. })
             | OwnerNode::ForeignItem(ForeignItem { span, .. })
             | OwnerNode::ImplItem(ImplItem { span, .. })
+            | OwnerNode::HKT(GenericParam {span, ..})
             | OwnerNode::TraitItem(TraitItem { span, .. }) => *span,
             OwnerNode::Crate(Mod { spans: ModSpans { inner_span, .. }, .. }) => *inner_span,
         }
@@ -3347,6 +3351,9 @@ impl<'hir> OwnerNode<'hir> {
             | OwnerNode::TraitItem(TraitItem { owner_id, .. })
             | OwnerNode::ImplItem(ImplItem { owner_id, .. })
             | OwnerNode::ForeignItem(ForeignItem { owner_id, .. }) => *owner_id,
+            OwnerNode::HKT(GenericParam { def_id, .. }) => {
+                OwnerId { def_id: *def_id }
+            }
             OwnerNode::Crate(..) => crate::CRATE_HIR_ID.owner,
         }
     }
@@ -3412,6 +3419,7 @@ impl<'hir> Into<Node<'hir>> for OwnerNode<'hir> {
             OwnerNode::ImplItem(n) => Node::ImplItem(n),
             OwnerNode::TraitItem(n) => Node::TraitItem(n),
             OwnerNode::Crate(n) => Node::Crate(n),
+            OwnerNode::HKT(n) => Node::GenericParam(n),
         }
     }
 }

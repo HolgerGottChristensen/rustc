@@ -122,6 +122,7 @@ fn check_well_formed(tcx: TyCtxt<'_>, def_id: hir::OwnerId) {
     let node = tcx.hir().owner(def_id);
     match node {
         hir::OwnerNode::Crate(_) => {}
+        hir::OwnerNode::HKT(_) => {todo!()}
         hir::OwnerNode::Item(item) => check_item(tcx, item),
         hir::OwnerNode::TraitItem(item) => check_trait_item(tcx, item),
         hir::OwnerNode::ImplItem(item) => check_impl_item(tcx, item),
@@ -852,7 +853,7 @@ fn check_impl_item(tcx: TyCtxt<'_>, impl_item: &hir::ImplItem<'_>) {
 fn check_param_wf(tcx: TyCtxt<'_>, param: &hir::GenericParam<'_>) {
     match param.kind {
         // We currently only check wf of const params here.
-        hir::GenericParamKind::Lifetime { .. } | hir::GenericParamKind::Type { .. } | hir::GenericParamKind::HKT(_) => (),
+        hir::GenericParamKind::Lifetime { .. } | hir::GenericParamKind::Type { .. } | hir::GenericParamKind::HKT(_) | hir::GenericParamKind::HKTRef => (),
 
         // Const parameters are well formed if their type is structural match.
         hir::GenericParamKind::Const { ty: hir_ty, default: _ } => {

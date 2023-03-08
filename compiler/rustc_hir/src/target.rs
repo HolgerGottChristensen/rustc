@@ -150,7 +150,8 @@ impl Target {
                 Target::GenericParam(GenericParamKind::Lifetime)
             }
             hir::GenericParamKind::Const { .. } => Target::GenericParam(GenericParamKind::Const),
-            hir::GenericParamKind::HKT(_) => Target::GenericParam(GenericParamKind::HKT)
+            hir::GenericParamKind::HKT(_) => Target::GenericParam(GenericParamKind::HKT),
+            hir::GenericParamKind::HKTRef => Target::GenericParam(GenericParamKind::HKT)
         }
     }
 

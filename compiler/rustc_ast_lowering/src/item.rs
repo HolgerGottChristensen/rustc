@@ -100,6 +100,7 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
         def_id: LocalDefId,
     ) -> hir::MaybeOwner<&'hir hir::OwnerInfo<'hir>> {
         self.owners.ensure_contains_elem(def_id, || hir::MaybeOwner::Phantom);
+
         if let hir::MaybeOwner::Phantom = self.owners[def_id] {
             let node = self.ast_index[def_id];
             match node {
@@ -108,9 +109,14 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
                 AstOwner::Item(item) => self.lower_item(item),
                 AstOwner::AssocItem(item, ctxt) => self.lower_assoc_item(item, ctxt),
                 AstOwner::ForeignItem(item) => self.lower_foreign_item(item),
+                AstOwner::HKT(param) => {
+                    self.lower_hkt_param(param)
+                }
             }
-        }
+        } else {
 
+        }
+        println!("Owner: {:?}: {:#?}", def_id, self.owners[def_id]);
         self.owners[def_id]
     }
 
@@ -126,7 +132,48 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
 
     #[instrument(level = "debug", skip(self))]
     fn lower_item(&mut self, item: &Item) {
-        self.with_lctx(item.id, |lctx| hir::OwnerNode::Item(lctx.lower_item(item)))
+        self.with_lctx(item.id, |lctx| {
+            hir::OwnerNode::Item(lctx.lower_item(item))
+        })
+    }
+
+    #[instrument(level = "info", skip_all)]
+    fn lower_hkt_param(&mut self, param: &GenericParam) {
+        println!("We should lower hkt param");
+        self.with_lctx(param.id, |lctx| {
+            let res_param = match &param.kind {
+                GenericParamKind::Lifetime
+                | GenericParamKind::Type { .. }
+                | GenericParamKind::Const { .. } => unreachable!(),
+                GenericParamKind::HKT(generics) => {
+                    let itctx = ImplTraitContext::Disallowed(ImplTraitPosition::Type);
+
+                    let kind = hir::GenericParamKind::HKT (
+                        lctx.lower_generics(generics, param.id, &itctx, |_| {()}).0
+                    );
+
+                    let name = hir::ParamName::Plain(lctx.lower_ident(param.ident));
+
+                    let hir_id = lctx.lower_node_id(param.id());
+
+                    lctx.lower_attrs(hir_id, &param.attrs);
+
+                    hir::GenericParam {
+                        hir_id,
+                        def_id: lctx.local_def_id(param.id),
+                        name,
+                        span: lctx.lower_span(param.span()),
+                        pure_wrt_drop: lctx.tcx.sess.contains_name(&param.attrs, sym::may_dangle),
+                        kind,
+                        colon_span: param.colon_span.map(|s| lctx.lower_span(s)),
+                    }
+                }
+            };
+
+            let res = hir::OwnerNode::HKT(lctx.arena.alloc(res_param));
+            info!("Return = {:#?}", res);
+            res
+        })
     }
 
     fn lower_assoc_item(&mut self, item: &AssocItem, ctxt: AssocCtxt) {
@@ -153,7 +200,9 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
     }
 
     fn lower_foreign_item(&mut self, item: &ForeignItem) {
-        self.with_lctx(item.id, |lctx| hir::OwnerNode::ForeignItem(lctx.lower_foreign_item(item)))
+        self.with_lctx(item.id, |lctx| {
+            hir::OwnerNode::ForeignItem(lctx.lower_foreign_item(item))
+        })
     }
 }
 
@@ -201,6 +250,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
         let hir_id = self.lower_node_id(i.id);
         let attrs = self.lower_attrs(hir_id, &i.attrs);
         let kind = self.lower_item_kind(i.span, i.id, hir_id, &mut ident, attrs, vis_span, &i.kind);
+
         let item = hir::Item {
             owner_id: hir_id.expect_owner(),
             ident: self.lower_ident(ident),
