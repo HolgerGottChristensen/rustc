@@ -278,7 +278,6 @@ impl<'hir> Map<'hir> {
                 GenericParamKind::Type { .. } => DefKind::TyParam,
                 GenericParamKind::Const { .. } => DefKind::ConstParam,
                 GenericParamKind::HKT(_) => DefKind::HKTParam,
-                GenericParamKind::HKTRef => DefKind::HKTParam
             },
             Node::Crate(_) => DefKind::Mod,
             Node::Stmt(_)

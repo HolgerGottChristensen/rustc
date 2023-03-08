@@ -1347,9 +1347,6 @@ fn create_mono_items_for_default_impls<'tcx>(
                     GenericParamKind::HKT(_) => {
                         todo!() // FIXMIG: what to do here?
                     }
-                    GenericParamKind::HKTRef => {
-                        todo!() // FIXMIG: what to do here?
-                    }
                 }
             }
 

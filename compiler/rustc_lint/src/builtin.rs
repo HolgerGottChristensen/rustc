@@ -1217,9 +1217,6 @@ impl<'tcx> LateLintPass<'tcx> for InvalidNoMangleItems {
                     GenericParamKind::HKT(_) => {
                         todo!("hoch") // FIXMIG: What to do here?
                     }
-                    GenericParamKind::HKTRef => {
-                        todo!("hoch") // FIXMIG: What to do here?
-                    }
                 }
             }
         };

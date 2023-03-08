@@ -488,7 +488,6 @@ pub enum GenericParamKind<'hir> {
         default: Option<AnonConst>,
     },
     HKT (&'hir Generics<'hir>),
-    HKTRef,
 }
 
 #[derive(Debug, HashStable_Generic)]

@@ -2153,9 +2153,6 @@ impl<'a> State<'a> {
                 self.print_hkt_kind(nested);
                 self.word(">");
             }
-            GenericParamKind::HKTRef => {
-                todo!()
-            }
         }
     }
 

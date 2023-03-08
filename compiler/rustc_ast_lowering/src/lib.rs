@@ -70,7 +70,6 @@ use rustc_span::{Span, DUMMY_SP};
 use smallvec::SmallVec;
 use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Formatter};
-use rustc_hir::GenericParamKind::HKTRef;
 use rustc_span::def_id::CRATE_DEF_ID;
 
 macro_rules! arena_vec {
@@ -2236,9 +2235,10 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             }
             GenericParamKind::HKT(_) => {
 
-                let kind = HKTRef;
+                todo!("hoch")
+                //let kind = HKTRef;
 
-                (hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
+                //(hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
             }
         }
     }

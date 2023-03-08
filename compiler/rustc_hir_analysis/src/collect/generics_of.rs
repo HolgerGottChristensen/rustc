@@ -304,9 +304,6 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
                 kind,
             })
         }
-        GenericParamKind::HKTRef => {
-            todo!("hoch")
-        }
     }));
 
     // provide junk type parameter defs - the only place that

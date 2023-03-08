@@ -862,9 +862,6 @@ pub fn walk_generic_param<'v, V: Visitor<'v>>(visitor: &mut V, param: &'v Generi
         GenericParamKind::HKT(_) => {
             // FIXMIG: What to do here?
         }
-        GenericParamKind::HKTRef => {
-            // FIXMIG: What to do here?
-        }
     }
 }
 
