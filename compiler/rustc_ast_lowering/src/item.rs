@@ -148,8 +148,6 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
 
             let lowered_generics = lctx.lower_generics(generics, param.id, &itctx, |_| {()}).0;
 
-
-
             lctx.lower_attrs(hir_id, &param.attrs);
 
             let name = lctx.lower_ident(param.ident);

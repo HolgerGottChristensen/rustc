@@ -1175,7 +1175,7 @@ impl Resolver<'_> {
         // anything in the AST, so they don't have a `NodeId`. For these cases
         // we don't need a mapping from `NodeId` to `LocalDefId`.
         if node_id != ast::DUMMY_NODE_ID {
-            debug!("create_def: def_id_to_node_id[{:?}] <-> {:?}", def_id, node_id);
+            info!("create_def: def_id_to_node_id[{:?}] <-> {:?}", def_id, node_id);
             self.node_id_to_def_id.insert(node_id, def_id);
         }
         assert_eq!(self.def_id_to_node_id.push(node_id), def_id);
@@ -1549,7 +1549,10 @@ impl<'a> Resolver<'a> {
     }
 
     /// Entry point to crate resolution.
+    #[instrument(skip(self, krate), level = "info")]
     pub fn resolve_crate(&mut self, krate: &Crate) {
+        info!("resolve_crate: {:#?}", self.node_id_to_def_id);
+
         self.session.time("resolve_crate", || {
             self.session.time("finalize_imports", || ImportResolver { r: self }.finalize_imports());
             self.session.time("compute_effective_visibilities", || {

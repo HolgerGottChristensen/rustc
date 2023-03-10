@@ -110,7 +110,7 @@ impl<'tcx> TyCtxt<'tcx> {
 #[instrument(skip(tcx), level = "info")]
 fn hir_owner(tcx: TyCtxt<'_>, owner_id: OwnerId) -> Option<Owner<'_>> {
     let krate: &Crate<'_> = tcx.hir_crate(());
-    info!("crate: {:#?}", krate);
+    //info!("crate: {:#?}", krate);
     let owner = krate.owners.get(owner_id.def_id)?.as_owner()?;
     let node = owner.node();
     Some(Owner { node, hash_without_bodies: owner.nodes.hash_without_bodies })
@@ -119,7 +119,7 @@ fn hir_owner(tcx: TyCtxt<'_>, owner_id: OwnerId) -> Option<Owner<'_>> {
 #[instrument(skip(tcx), level = "info")]
 fn hir_owner_nodes(tcx: TyCtxt<'_>, owner_id: OwnerId) -> MaybeOwner<&OwnerNodes<'_>> {
     let krate: &Crate<'_> = tcx.hir_crate(());
-    info!("crate: {:#?}", krate);
+    //info!("crate: {:#?}", krate);
     krate.owners[owner_id.def_id].map(|i| &i.nodes)
 }
 

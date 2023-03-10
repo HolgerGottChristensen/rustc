@@ -446,14 +446,17 @@ fn compute_hir_hash(
     })
 }
 
+#[instrument(skip(tcx), level = "info")]
 pub fn lower_to_hir(tcx: TyCtxt<'_>, (): ()) -> hir::Crate<'_> {
     let sess = tcx.sess;
     let krate = tcx.untracked_crate.steal();
     let mut resolver: ResolverAstLowering = tcx.resolver_for_lowering(()).steal();
 
+    info!("Resolver: {:#?}", resolver);
+
     let ast_index = Indexer::index_crate(&resolver.node_id_to_def_id, &krate);
 
-    //println!("index: {:#?}", ast_index);
+    info!("index: {:#?}", ast_index);
 
     let mut owners = IndexVec::from_fn_n(
         |_| hir::MaybeOwner::Phantom,
@@ -726,7 +729,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     /// actually used in the HIR, as that would trigger an assertion in the
     /// `HirIdValidator` later on, which makes sure that all `NodeId`s got mapped
     /// properly. Calling the method twice with the same `NodeId` is fine though.
-    #[instrument(level = "info", skip(self), ret)]
+    #[instrument(level = "debug", skip(self), ret)]
     fn lower_node_id(&mut self, ast_node_id: NodeId) -> hir::HirId {
         assert_ne!(ast_node_id, DUMMY_NODE_ID);
 
@@ -2216,6 +2219,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 (param_name, kind)
             }
             GenericParamKind::Type { default, .. } => {
+                info!("We are lowering a GenericParamKind: {:#?}", self.resolver.node_id_to_def_id);
                 let hir_id = self.lower_node_id(param.id());
                 self.lower_attrs(hir_id, &param.attrs);
                 let def_id = self.local_def_id(param.id);

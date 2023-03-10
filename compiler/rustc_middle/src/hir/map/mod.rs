@@ -330,7 +330,7 @@ impl<'hir> Map<'hir> {
     }
 
     /// Retrieves the `Node` corresponding to `id`, returning `None` if cannot be found.
-    #[instrument(level = "info", skip(self), fields(local_id = ?id.local_id), ret)]
+    #[instrument(level = "debug", skip(self), fields(local_id = ?id.local_id), ret)]
     pub fn find(self, id: HirId) -> Option<Node<'hir>> {
         // I think checking for 0, means check that the id itself is an owner
         if id.local_id == ItemLocalId::from_u32(0) {
@@ -338,11 +338,11 @@ impl<'hir> Map<'hir> {
             Some(owner.node.into())
         } else {
             let owner_nodes: MaybeOwner<&OwnerNodes<'_>> = self.tcx.hir_owner_nodes(id.owner);
-            info!("owner nodes success");
+            debug!("owner nodes success");
             let owner = owner_nodes.as_owner()?;
-            info!("as_owner success: {:?}", owner.nodes.len());
+            debug!("as_owner success: {:?}", owner.nodes.len());
             let node = owner.nodes[id.local_id].as_ref()?;
-            info!("Owner node ident: {:#?}", node.node.ident());
+            debug!("Owner node ident: {:#?}", node.node.ident());
             Some(node.node)
         }
     }

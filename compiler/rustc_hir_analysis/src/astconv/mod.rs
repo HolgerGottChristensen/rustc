@@ -820,7 +820,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     /// where `'a` is a bound region at depth 0. Similarly, the `poly_trait_ref` would be
     /// `Bar<'a>`. The returned poly-trait-ref will have this binder instantiated explicitly,
     /// however.
-    #[instrument(level = "info", skip(self, span, constness, bounds, speculative))]
+    #[instrument(level = "info", skip(self, trait_ref, span, constness, bounds, speculative))]
     pub(crate) fn instantiate_poly_trait_ref(
         &self,
         trait_ref: &hir::TraitRef<'_>,
@@ -830,6 +830,8 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         bounds: &mut Bounds<'tcx>,
         speculative: bool,
     ) -> GenericArgCountResult {
+        info!("trait_ref: {:#?}", trait_ref);
+        info!("bounds: {:#?}", bounds);
         let hir_id = trait_ref.hir_ref_id;
         let binding_span = None;
         let trait_ref_span = trait_ref.path.span;

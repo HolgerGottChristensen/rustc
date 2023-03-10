@@ -258,7 +258,9 @@ fn resolve_lifetimes(tcx: TyCtxt<'_>, local_def_id: hir::OwnerId) -> ResolveLife
             visitor.visit_impl_item(item)
         }
         hir::OwnerNode::Crate(_) => {}
-        hir::OwnerNode::HKT(_) => {todo!()}
+        hir::OwnerNode::HKT(param) => {
+            visitor.visit_owned_hkt_param(param)
+        }
     }
 
     let mut rl = ResolveLifetimes::default();
