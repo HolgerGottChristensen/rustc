@@ -1,4 +1,21 @@
 error[E0277]: the size for values of type `[u32]` cannot be known at compilation time
+  --> $DIR/unsized_local_binding.rs:4:12
+   |
+LL |     let i: I<[u32]> = todo!();
+   |            ^^^^^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `[u32]`
+note: required by a bound in `test::I`
+  --> $DIR/unsized_local_binding.rs:3:12
+   |
+LL | fn test<I<%J>>() {
+   |            ^ required by this bound in `test::I`
+help: consider relaxing the implicit `Sized` restriction
+   |
+LL | fn test<I<%J: ?Sized>>() {
+   |             ++++++++
+
+error[E0277]: the size for values of type `[u32]` cannot be known at compilation time
   --> $DIR/unsized_local_binding.rs:4:9
    |
 LL |     let i: I<[u32]> = todo!();
@@ -13,6 +30,6 @@ help: consider borrowing here
 LL |     let i: &I<[u32]> = todo!();
    |            +
 
-error: aborting due to previous error
+error: aborting due to 2 previous errors
 
 For more information about this error, try `rustc --explain E0277`.

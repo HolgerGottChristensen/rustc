@@ -476,28 +476,43 @@ pub enum LifetimeParamKind {
 pub enum GenericParamKind<'hir> {
     /// A lifetime definition (e.g., `'a: 'b + 'c + 'd`).
     Lifetime {
+        hir_id: HirId,
+        def_id: LocalDefId,
         kind: LifetimeParamKind,
     },
     Type {
+        hir_id: HirId,
+        def_id: LocalDefId,
         default: Option<&'hir Ty<'hir>>,
         synthetic: bool,
     },
     Const {
+        hir_id: HirId,
+        def_id: LocalDefId,
         ty: &'hir Ty<'hir>,
         /// Optional default value for the const generic param
         default: Option<AnonConst>,
     },
-    HKT (&'hir Generics<'hir>),
+    HKT (OwnerId),
 }
 
 #[derive(Debug, HashStable_Generic)]
 pub struct GenericParam<'hir> {
-    pub hir_id: HirId,
-    pub def_id: LocalDefId,
     pub name: ParamName,
     pub span: Span,
     pub pure_wrt_drop: bool,
     pub kind: GenericParamKind<'hir>,
+    pub colon_span: Option<Span>,
+}
+
+#[derive(Debug, HashStable_Generic)]
+pub struct OwnedHKTParam<'hir> {
+    pub owner_id: OwnerId,
+    pub hir_id: HirId,
+    pub name: Ident,
+    pub span: Span,
+    pub generics: &'hir Generics<'hir>,
+    pub pure_wrt_drop: bool,
     pub colon_span: Option<Span>,
 }
 
@@ -513,7 +528,34 @@ impl<'hir> GenericParam<'hir> {
     ///
     /// See `lifetime_to_generic_param` in `rustc_ast_lowering` for more information.
     pub fn is_elided_lifetime(&self) -> bool {
-        matches!(self.kind, GenericParamKind::Lifetime { kind: LifetimeParamKind::Elided })
+        matches!(self.kind, GenericParamKind::Lifetime { kind: LifetimeParamKind::Elided, .. })
+    }
+
+    pub fn local_def_id(&self) -> LocalDefId {
+         match self.kind {
+             GenericParamKind::Lifetime { def_id, .. }
+             | GenericParamKind::Type { def_id, .. }
+             | GenericParamKind::Const { def_id, .. } => def_id,
+             GenericParamKind::HKT(owner_id) => owner_id.def_id,
+         }
+    }
+
+    pub fn hir_id(&self) -> Option<HirId> {
+        match self.kind {
+            GenericParamKind::Lifetime { hir_id, .. }
+            | GenericParamKind::Type { hir_id, .. }
+            | GenericParamKind::Const { hir_id, .. } => Some(hir_id),
+            GenericParamKind::HKT(_) => None,
+        }
+    }
+
+    pub fn expect_hir_id(&self) -> HirId {
+        match self.kind {
+            GenericParamKind::Lifetime { hir_id, .. }
+            | GenericParamKind::Type { hir_id, .. }
+            | GenericParamKind::Const { hir_id, .. } => hir_id,
+            GenericParamKind::HKT(_) => panic!("Cannot get hir_id from HKT type?")
+        }
     }
 }
 
@@ -3289,18 +3331,18 @@ pub enum OwnerNode<'hir> {
     TraitItem(&'hir TraitItem<'hir>),
     ImplItem(&'hir ImplItem<'hir>),
     Crate(&'hir Mod<'hir>),
-    HKT(&'hir GenericParam<'hir>),
+    HKT(&'hir OwnedHKTParam<'hir>),
 }
 
 impl<'hir> OwnerNode<'hir> {
     pub fn ident(&self) -> Option<Ident> {
         match self {
             OwnerNode::Item(Item { ident, .. })
-            | OwnerNode::HKT(GenericParam { name: ParamName::Plain(ident), ..})
+            | OwnerNode::HKT(OwnedHKTParam { name: ident, ..})
             | OwnerNode::ForeignItem(ForeignItem { ident, .. })
             | OwnerNode::ImplItem(ImplItem { ident, .. })
             | OwnerNode::TraitItem(TraitItem { ident, .. }) => Some(*ident),
-            OwnerNode::Crate(..) | OwnerNode::HKT(_) => None,
+            OwnerNode::Crate(..) => None,
         }
     }
 
@@ -3309,7 +3351,7 @@ impl<'hir> OwnerNode<'hir> {
             OwnerNode::Item(Item { span, .. })
             | OwnerNode::ForeignItem(ForeignItem { span, .. })
             | OwnerNode::ImplItem(ImplItem { span, .. })
-            | OwnerNode::HKT(GenericParam {span, ..})
+            | OwnerNode::HKT(OwnedHKTParam {span, ..})
             | OwnerNode::TraitItem(TraitItem { span, .. }) => *span,
             OwnerNode::Crate(Mod { spans: ModSpans { inner_span, .. }, .. }) => *inner_span,
         }
@@ -3349,10 +3391,8 @@ impl<'hir> OwnerNode<'hir> {
             OwnerNode::Item(Item { owner_id, .. })
             | OwnerNode::TraitItem(TraitItem { owner_id, .. })
             | OwnerNode::ImplItem(ImplItem { owner_id, .. })
+            | OwnerNode::HKT(OwnedHKTParam { owner_id, .. })
             | OwnerNode::ForeignItem(ForeignItem { owner_id, .. }) => *owner_id,
-            OwnerNode::HKT(GenericParam { def_id, .. }) => {
-                OwnerId { def_id: *def_id }
-            }
             OwnerNode::Crate(..) => crate::CRATE_HIR_ID.owner,
         }
     }
@@ -3381,6 +3421,13 @@ impl<'hir> OwnerNode<'hir> {
     pub fn expect_trait_item(self) -> &'hir TraitItem<'hir> {
         match self {
             OwnerNode::TraitItem(n) => n,
+            _ => panic!(),
+        }
+    }
+
+    pub fn expect_hkt_param(self) -> &'hir OwnedHKTParam<'hir> {
+        match self {
+            OwnerNode::HKT(n) => n,
             _ => panic!(),
         }
     }
@@ -3418,7 +3465,7 @@ impl<'hir> Into<Node<'hir>> for OwnerNode<'hir> {
             OwnerNode::ImplItem(n) => Node::ImplItem(n),
             OwnerNode::TraitItem(n) => Node::TraitItem(n),
             OwnerNode::Crate(n) => Node::Crate(n),
-            OwnerNode::HKT(n) => Node::GenericParam(n),
+            OwnerNode::HKT(n) => Node::OwnedHKTParam(n),
         }
     }
 }
@@ -3452,6 +3499,7 @@ pub enum Node<'hir> {
 
     Lifetime(&'hir Lifetime),
     GenericParam(&'hir GenericParam<'hir>),
+    OwnedHKTParam(&'hir OwnedHKTParam<'hir>),
 
     Crate(&'hir Mod<'hir>),
 
@@ -3484,6 +3532,7 @@ impl<'hir> Node<'hir> {
             | Node::PathSegment(PathSegment { ident, .. }) => Some(*ident),
             Node::Lifetime(lt) => Some(lt.ident),
             Node::GenericParam(p) => Some(p.name.ident()),
+            Node::OwnedHKTParam(p) => Some(p.name),
             Node::TypeBinding(b) => Some(b.ident),
             Node::Param(..)
             | Node::AnonConst(..)
@@ -3544,7 +3593,7 @@ impl<'hir> Node<'hir> {
             })
             | Node::TraitItem(TraitItem { generics, .. })
             | Node::ImplItem(ImplItem { generics, .. }) => Some(generics),
-            Node::GenericParam(GenericParam {kind: GenericParamKind::HKT(generics), .. }) => {
+            Node::OwnedHKTParam(OwnedHKTParam {generics, .. }) => {
                 Some(generics)
             }
             Node::Item(item) => item.kind.generics(),
@@ -3559,6 +3608,7 @@ impl<'hir> Node<'hir> {
             Node::TraitItem(i) => Some(OwnerNode::TraitItem(i)),
             Node::ImplItem(i) => Some(OwnerNode::ImplItem(i)),
             Node::Crate(i) => Some(OwnerNode::Crate(i)),
+            Node::OwnedHKTParam(i) => Some(OwnerNode::HKT(i)),
             _ => None,
         }
     }

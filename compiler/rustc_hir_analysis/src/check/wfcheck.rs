@@ -856,8 +856,8 @@ fn check_param_wf(tcx: TyCtxt<'_>, param: &hir::GenericParam<'_>) {
         hir::GenericParamKind::Lifetime { .. } | hir::GenericParamKind::Type { .. } | hir::GenericParamKind::HKT(_) => (),
 
         // Const parameters are well formed if their type is structural match.
-        hir::GenericParamKind::Const { ty: hir_ty, default: _ } => {
-            let ty = tcx.type_of(param.def_id);
+        hir::GenericParamKind::Const { ty: hir_ty, default: _, def_id, .. } => {
+            let ty = tcx.type_of(def_id);
 
             if tcx.features().adt_const_params {
                 if let Some(non_structural_match_ty) =

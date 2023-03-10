@@ -57,7 +57,7 @@ use rustc_hir as hir;
 use rustc_hir::def::{DefKind, LifetimeRes, Namespace, PartialRes, PerNS, Res};
 use rustc_hir::def_id::{LocalDefId};
 use rustc_hir::definitions::DefPathData;
-use rustc_hir::{ConstArg, GenericArg, ItemLocalId, ParamName, TraitCandidate};
+use rustc_hir::{ConstArg, GenericArg, ItemLocalId, OwnerId, ParamName, TraitCandidate};
 use rustc_index::vec::{Idx, IndexVec};
 use rustc_middle::span_bug;
 use rustc_middle::ty::{ResolverAstLowering, TyCtxt};
@@ -453,14 +453,14 @@ pub fn lower_to_hir(tcx: TyCtxt<'_>, (): ()) -> hir::Crate<'_> {
 
     let ast_index = Indexer::index_crate(&resolver.node_id_to_def_id, &krate);
 
-    println!("index: {:#?}", ast_index);
+    //println!("index: {:#?}", ast_index);
 
     let mut owners = IndexVec::from_fn_n(
         |_| hir::MaybeOwner::Phantom,
         tcx.definitions_untracked().def_index_count(),
     );
 
-    println!("owners: {:#?}", owners);
+    //println!("owners: {:#?}", owners);
 
     for def_id in ast_index.indices() {
         item::ItemLowerer {
@@ -858,12 +858,10 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         let hir_id = self.lower_node_id(node_id);
         let def_id = self.local_def_id(node_id);
         Some(hir::GenericParam {
-            hir_id,
-            def_id,
             name,
             span: self.lower_span(ident.span),
             pure_wrt_drop: false,
-            kind: hir::GenericParamKind::Lifetime { kind },
+            kind: hir::GenericParamKind::Lifetime { hir_id, def_id, kind },
             colon_span: None,
         })
     }
@@ -1539,12 +1537,14 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                         };
 
                         hir::GenericParam {
-                            hir_id,
-                            def_id: lctx.local_def_id(new_node_id),
                             name,
                             span: lifetime.ident.span,
                             pure_wrt_drop: false,
-                            kind: hir::GenericParamKind::Lifetime { kind },
+                            kind: hir::GenericParamKind::Lifetime {
+                                hir_id,
+                                def_id: lctx.local_def_id(new_node_id),
+                                kind
+                            },
                             colon_span: None,
                         }
                     },
@@ -1996,12 +1996,14 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                         };
 
                         hir::GenericParam {
-                            hir_id,
-                            def_id: this.local_def_id(new_node_id),
                             name,
                             span: lifetime.ident.span,
                             pure_wrt_drop: false,
-                            kind: hir::GenericParamKind::Lifetime { kind },
+                            kind: hir::GenericParamKind::Lifetime {
+                                hir_id,
+                                def_id: this.local_def_id(new_node_id),
+                                kind
+                            },
                             colon_span: None,
                         }
                     },
@@ -2180,13 +2182,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     fn lower_generic_param(&mut self, param: &GenericParam) -> hir::GenericParam<'hir> {
         let (name, kind) = self.lower_generic_param_kind(param);
 
-        //self.local_def_id(i.id)
-        let hir_id = self.lower_node_id(param.id());
-
-        self.lower_attrs(hir_id, &param.attrs);
         hir::GenericParam {
-            hir_id,
-            def_id: self.local_def_id(param.id),
             name,
             span: self.lower_span(param.span()),
             pure_wrt_drop: self.tcx.sess.contains_name(&param.attrs, sym::may_dangle),
@@ -2201,6 +2197,10 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     ) -> (hir::ParamName, hir::GenericParamKind<'hir>) {
         match &param.kind {
             GenericParamKind::Lifetime => {
+                let hir_id = self.lower_node_id(param.id());
+                self.lower_attrs(hir_id, &param.attrs);
+                let def_id = self.local_def_id(param.id);
+
                 // AST resolution emitted an error on those parameters, so we lower them using
                 // `ParamName::Error`.
                 let param_name =
@@ -2211,12 +2211,18 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                         ParamName::Plain(ident)
                     };
                 let kind =
-                    hir::GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit };
+                    hir::GenericParamKind::Lifetime { hir_id, def_id, kind: hir::LifetimeParamKind::Explicit };
 
                 (param_name, kind)
             }
             GenericParamKind::Type { default, .. } => {
+                let hir_id = self.lower_node_id(param.id());
+                self.lower_attrs(hir_id, &param.attrs);
+                let def_id = self.local_def_id(param.id);
+
                 let kind = hir::GenericParamKind::Type {
+                    hir_id,
+                    def_id,
                     default: default.as_ref().map(|x| {
                         self.lower_ty(x, &ImplTraitContext::Disallowed(ImplTraitPosition::Type))
                     }),
@@ -2226,19 +2232,21 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 (hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
             }
             GenericParamKind::Const { ty, kw_span: _, default } => {
+                let hir_id = self.lower_node_id(param.id());
+                self.lower_attrs(hir_id, &param.attrs);
+                let def_id = self.local_def_id(param.id);
+
                 let ty = self.lower_ty(&ty, &ImplTraitContext::Disallowed(ImplTraitPosition::Type));
                 let default = default.as_ref().map(|def| self.lower_anon_const(def));
                 (
                     hir::ParamName::Plain(self.lower_ident(param.ident)),
-                    hir::GenericParamKind::Const { ty, default },
+                    hir::GenericParamKind::Const { hir_id, def_id, ty, default },
                 )
             }
             GenericParamKind::HKT(_) => {
-
-                todo!("hoch")
-                //let kind = HKTRef;
-
-                //(hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
+                (hir::ParamName::Plain(self.lower_ident(param.ident)), hir::GenericParamKind::HKT(
+                    OwnerId { def_id: self.local_def_id(param.id) }
+                ))
             }
         }
     }
@@ -2298,12 +2306,10 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
         // Set the name to `impl Bound1 + Bound2`.
         let param = hir::GenericParam {
-            hir_id: self.lower_node_id(node_id),
-            def_id,
             name: ParamName::Plain(self.lower_ident(ident)),
             pure_wrt_drop: false,
             span,
-            kind: hir::GenericParamKind::Type { default: None, synthetic: true },
+            kind: hir::GenericParamKind::Type { hir_id: self.lower_node_id(node_id), def_id, default: None, synthetic: true },
             colon_span: None,
         };
 

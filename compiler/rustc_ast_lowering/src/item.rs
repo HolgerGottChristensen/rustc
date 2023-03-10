@@ -10,7 +10,7 @@ use rustc_data_structures::sorted_map::SortedMap;
 use rustc_hir as hir;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{LocalDefId, CRATE_DEF_ID};
-use rustc_hir::PredicateOrigin;
+use rustc_hir::{OwnedHKTParam, PredicateOrigin};
 use rustc_index::vec::{Idx, IndexVec};
 use rustc_middle::ty::{DefIdTree, ResolverAstLowering, TyCtxt};
 use rustc_span::lev_distance::find_best_match_for_name;
@@ -116,7 +116,7 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
         } else {
 
         }
-        println!("Owner: {:?}: {:#?}", def_id, self.owners[def_id]);
+        //println!("Owner: {:?}: {:#?}", def_id, self.owners[def_id]);
         self.owners[def_id]
     }
 
@@ -139,38 +139,32 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
 
     #[instrument(level = "info", skip_all)]
     fn lower_hkt_param(&mut self, param: &GenericParam) {
-        println!("We should lower hkt param");
+        //println!("We should lower hkt param");
         self.with_lctx(param.id, |lctx| {
-            let res_param = match &param.kind {
-                GenericParamKind::Lifetime
-                | GenericParamKind::Type { .. }
-                | GenericParamKind::Const { .. } => unreachable!(),
-                GenericParamKind::HKT(generics) => {
-                    let itctx = ImplTraitContext::Disallowed(ImplTraitPosition::Type);
+            let itctx = ImplTraitContext::Disallowed(ImplTraitPosition::Type);
+            let hir_id = lctx.lower_node_id(param.id);
 
-                    let kind = hir::GenericParamKind::HKT (
-                        lctx.lower_generics(generics, param.id, &itctx, |_| {()}).0
-                    );
+            let generics = param.expect_hkt();
 
-                    let name = hir::ParamName::Plain(lctx.lower_ident(param.ident));
+            let lowered_generics = lctx.lower_generics(generics, param.id, &itctx, |_| {()}).0;
 
-                    let hir_id = lctx.lower_node_id(param.id());
 
-                    lctx.lower_attrs(hir_id, &param.attrs);
 
-                    hir::GenericParam {
-                        hir_id,
-                        def_id: lctx.local_def_id(param.id),
-                        name,
-                        span: lctx.lower_span(param.span()),
-                        pure_wrt_drop: lctx.tcx.sess.contains_name(&param.attrs, sym::may_dangle),
-                        kind,
-                        colon_span: param.colon_span.map(|s| lctx.lower_span(s)),
-                    }
-                }
+            lctx.lower_attrs(hir_id, &param.attrs);
+
+            let name = lctx.lower_ident(param.ident);
+
+            let owned_hkt_param = OwnedHKTParam {
+                owner_id: hir_id.expect_owner(),
+                hir_id,
+                name,
+                span: lctx.lower_span(param.span()),
+                generics: lowered_generics,
+                pure_wrt_drop: false,
+                colon_span: param.colon_span.map(|s| lctx.lower_span(s)),
             };
 
-            let res = hir::OwnerNode::HKT(lctx.arena.alloc(res_param));
+            let res = hir::OwnerNode::HKT(lctx.arena.alloc(owned_hkt_param));
             info!("Return = {:#?}", res);
             res
         })

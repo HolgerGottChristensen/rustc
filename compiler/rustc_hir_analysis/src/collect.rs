@@ -285,17 +285,17 @@ impl<'tcx> Visitor<'tcx> for CollectItemTypesVisitor<'tcx> {
         for param in generics.params {
             match param.kind {
                 hir::GenericParamKind::Lifetime { .. } => {}
-                hir::GenericParamKind::Type { default: Some(_), .. } => {
-                    self.tcx.ensure().type_of(param.def_id);
+                hir::GenericParamKind::Type { def_id, default: Some(_), .. } => {
+                    self.tcx.ensure().type_of(def_id);
                 }
                 hir::GenericParamKind::HKT (_) => {}
                 hir::GenericParamKind::Type { .. } => {}
-                hir::GenericParamKind::Const { default, .. } => {
-                    self.tcx.ensure().type_of(param.def_id);
+                hir::GenericParamKind::Const { def_id, default, .. } => {
+                    self.tcx.ensure().type_of(def_id);
                     if let Some(default) = default {
                         // need to store default and type of default
                         self.tcx.ensure().type_of(default.def_id);
-                        self.tcx.ensure().const_param_default(param.def_id);
+                        self.tcx.ensure().const_param_default(def_id);
                     }
                 }
             }
@@ -1448,7 +1448,7 @@ fn early_bound_lifetimes_from_generics<'a, 'tcx: 'a>(
     generics: &'a hir::Generics<'a>,
 ) -> impl Iterator<Item = &'a hir::GenericParam<'a>> + Captures<'tcx> {
     generics.params.iter().filter(move |param| match param.kind {
-        GenericParamKind::Lifetime { .. } => !tcx.is_late_bound(param.hir_id),
+        GenericParamKind::Lifetime { .. } => !tcx.is_late_bound(param.expect_hir_id()),
         _ => false,
     })
 }

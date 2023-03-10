@@ -1,0 +1,33 @@
+error[E0277]: the size for values of type `%J` cannot be known at compilation time
+  --> $DIR/hkt_debug_print_non_printable.rs:11:12
+   |
+LL |     test::<Option<%J>>(Some(42));
+   |            ^^^^^^^^^^ doesn't have a size known at compile-time
+   |
+   = help: the trait `Sized` is not implemented for `%J`
+   = help: the trait `Debug` is implemented for `Option<T>`
+   = note: required for `Option<%J>` to implement `Debug`
+note: required by a bound in `test`
+  --> $DIR/hkt_debug_print_non_printable.rs:6:16
+   |
+LL | fn test<I<%J>: Debug>(input: I<u32>) {
+   |                ^^^^^ required by this bound in `test`
+
+error[E0277]: `%J` doesn't implement `Debug`
+  --> $DIR/hkt_debug_print_non_printable.rs:11:12
+   |
+LL |     test::<Option<%J>>(Some(42));
+   |            ^^^^^^^^^^ `%J` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+   |
+   = help: the trait `Debug` is not implemented for `%J`
+   = help: the trait `Debug` is implemented for `Option<T>`
+   = note: required for `Option<%J>` to implement `Debug`
+note: required by a bound in `test`
+  --> $DIR/hkt_debug_print_non_printable.rs:6:16
+   |
+LL | fn test<I<%J>: Debug>(input: I<u32>) {
+   |                ^^^^^ required by this bound in `test`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0277`.

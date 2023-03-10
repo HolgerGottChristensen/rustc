@@ -308,7 +308,7 @@ impl<'tcx> DumpVisitor<'tcx> {
                     // Append $id to name to make sure each one is unique.
                     let qualname = format!("{}::{}${}", prefix, name, id);
                     if !self.span.filter_generated(param_ss) {
-                        let id = id_from_hir_id(param.hir_id, &self.save_ctxt);
+                        let id = id_from_hir_id(param.expect_hir_id(), &self.save_ctxt);
                         let span = self.span_from_span(param_ss);
 
                         self.dumper.dump_def(
@@ -1274,7 +1274,7 @@ impl<'tcx> Visitor<'tcx> for DumpVisitor<'tcx> {
                         self.visit_ty(ty);
                     }
                 }
-                hir::GenericParamKind::Const { ref ty, ref default } => {
+                hir::GenericParamKind::Const { ref ty, ref default, .. } => {
                     self.visit_ty(ty);
                     if let Some(default) = default {
                         self.visit_anon_const(default);

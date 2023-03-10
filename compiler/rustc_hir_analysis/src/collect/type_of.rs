@@ -517,8 +517,7 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> Ty<'_> {
                 }
 
                 Node::GenericParam(&GenericParam {
-                    def_id: param_def_id,
-                    kind: GenericParamKind::Const { default: Some(ct), .. },
+                    kind: GenericParamKind::Const { def_id: param_def_id, default: Some(ct), .. },
                     ..
                 }) if ct.hir_id == hir_id => tcx.type_of(param_def_id),
 
@@ -545,6 +544,17 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> Ty<'_> {
             }
             x => bug!("unexpected non-type Node::GenericParam: {:?}", x),
         },
+        Node::OwnedHKTParam(param) => {
+            let item_def_id = tcx.hir().ty_param_owner(def_id);
+
+            // Get the index of the ty_param
+            let generics: &ty::Generics = tcx.generics_of(item_def_id);
+            let index = generics.param_def_id_to_index[&def_id.to_def_id()];
+
+            let substs = InternalSubsts::identity_for_item(tcx, def_id.to_def_id());
+            let ty = tcx.mk_hkt_param(def_id.to_def_id(), index, param.name.name, substs);
+            ty
+        }
 
         x => {
             bug!("unexpected sort of node in type_of(): {:?}", x);

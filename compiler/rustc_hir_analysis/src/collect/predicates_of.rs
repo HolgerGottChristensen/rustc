@@ -159,7 +159,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             ForeignItemKind::Type => NO_GENERICS,
         },
 
-        Node::GenericParam(GenericParam{kind: GenericParamKind::HKT(generics), ..}) => *generics,
+        Node::GenericParam(GenericParam{kind: GenericParamKind::HKT(owner_id), ..}) => {
+            todo!("HKT with owner id: {:?}", owner_id) //*generics
+        },
 
         _ => NO_GENERICS,
     };
@@ -219,7 +221,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                     &icx,
                     &mut bounds,
                     &[],
-                    Some((param.def_id, ast_generics.predicates)),
+                    Some((param.local_def_id(), ast_generics.predicates)),
                     param.span,
                 );
                 trace!(?bounds);
@@ -360,7 +362,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             }
 
             let hir::GenericParamKind::Lifetime { .. } = duplicate.kind else { continue };
-            let dup_def = tcx.hir().local_def_id(duplicate.hir_id).to_def_id();
+            let dup_def = tcx.hir().local_def_id(duplicate.expect_hir_id()).to_def_id();
 
             let Some(dup_index) = generics.param_def_id_to_index(tcx, dup_def) else { bug!() };
 

@@ -8,7 +8,7 @@ use rustc_ast_pretty::pp::Breaks::{Consistent, Inconsistent};
 use rustc_ast_pretty::pp::{self, Breaks};
 use rustc_ast_pretty::pprust::{Comments, PrintState};
 use rustc_hir as hir;
-use rustc_hir::{LifetimeParamKind};
+use rustc_hir::{LifetimeParamKind, OwnedHKTParam};
 use rustc_hir::{
     BindingAnnotation, ByRef, GenericArg, GenericParam, GenericParamKind, Mutability, Node, Term,
 };
@@ -37,6 +37,7 @@ pub enum AnnNode<'a> {
 
 pub enum Nested {
     Item(hir::ItemId),
+    HKT(hir::OwnerId),
     TraitItem(hir::TraitItemId),
     ImplItem(hir::ImplItemId),
     ForeignItem(hir::ForeignItemId),
@@ -60,6 +61,7 @@ impl PpAnn for &dyn rustc_hir::intravisit::Map<'_> {
     fn nested(&self, state: &mut State<'_>, nested: Nested) {
         match nested {
             Nested::Item(id) => state.print_item(self.item(id)),
+            Nested::HKT(id) => state.print_hkt_param(self.hkt_param(id)),
             Nested::TraitItem(id) => state.print_trait_item(self.trait_item(id)),
             Nested::ImplItem(id) => state.print_impl_item(self.impl_item(id)),
             Nested::ForeignItem(id) => state.print_foreign_item(self.foreign_item(id)),
@@ -106,6 +108,7 @@ impl<'a> State<'a> {
             }
             Node::Lifetime(a) => self.print_lifetime(a),
             Node::GenericParam(_) => panic!("cannot print Node::GenericParam"),
+            Node::OwnedHKTParam(_) => panic!("cannot print Node::OwnedHKTParam"),
             Node::Field(_) => panic!("cannot print Node::Field"),
             // These cases do not carry enough information in the
             // `hir_map` to reconstruct their full structure for pretty
@@ -2050,7 +2053,7 @@ impl<'a> State<'a> {
                 matches!(
                     p,
                     GenericParam {
-                        kind: GenericParamKind::Lifetime { kind: LifetimeParamKind::Explicit },
+                        kind: GenericParamKind::Lifetime { kind: LifetimeParamKind::Explicit, .. },
                         ..
                     }
                 )
@@ -2139,7 +2142,7 @@ impl<'a> State<'a> {
                     self.print_type(default);
                 }
             }
-            GenericParamKind::Const { ty, ref default } => {
+            GenericParamKind::Const { ty, ref default, .. } => {
                 self.word_space(":");
                 self.print_type(ty);
                 if let Some(default) = default {
@@ -2148,19 +2151,21 @@ impl<'a> State<'a> {
                     self.print_anon_const(default);
                 }
             }
-            GenericParamKind::HKT(ref nested) => {
-                self.word("<");
-                self.print_hkt_kind(nested);
-                self.word(">");
+            GenericParamKind::HKT(nested) => {
+                self.ann.nested(self, Nested::HKT(nested));
             }
         }
     }
 
-    pub fn print_hkt_kind(&mut self, kinds: &hir::Generics<'_>) {
-        self.commasep(Inconsistent, kinds.params, |s, kind| {
-            s.word("?");
+    pub fn print_hkt_param(&mut self, param: &OwnedHKTParam<'_>) {
+        self.word("<");
+
+        self.commasep(Inconsistent, param.generics.params, |s, kind| {
+            s.word("%");
             s.print_ident(kind.name.ident());
         });
+
+        self.word(">");
     }
 
     pub fn print_lifetime(&mut self, lifetime: &hir::Lifetime) {

@@ -1130,6 +1130,7 @@ fn compare_number_of_generics<'tcx>(
                     .filter(|p| match p.kind {
                         hir::GenericParamKind::Lifetime {
                             kind: hir::LifetimeParamKind::Elided,
+                            ..
                         } => {
                             // A fn can have an arbitrary number of extra elided lifetimes for the
                             // same signature.

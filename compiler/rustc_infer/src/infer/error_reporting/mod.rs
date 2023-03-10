@@ -2258,7 +2258,7 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
                     let node = self.tcx.hir().get_if_local(def_id).unwrap();
                     match node {
                         Node::GenericParam(param) => {
-                            for h in self.tcx.hir().parent_iter(param.hir_id) {
+                            for h in self.tcx.hir().parent_iter(param.expect_hir_id()) {
                                 break 'origin match h.1 {
                                     Node::ImplItem(hir::ImplItem {
                                         kind: hir::ImplItemKind::Type(..),

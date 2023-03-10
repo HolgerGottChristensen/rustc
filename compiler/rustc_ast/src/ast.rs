@@ -385,6 +385,15 @@ impl GenericParam {
         self.id
     }
 
+    pub fn expect_hkt(&self) -> &Generics {
+        match &self.kind {
+            GenericParamKind::Lifetime
+            | GenericParamKind::Type { .. }
+            | GenericParamKind::Const { .. } => todo!("hoch"),
+            GenericParamKind::HKT(g) => g
+        }
+    }
+
     pub fn last_span(&self) -> Span {
         if !self.bounds.is_empty() {
             return self.bounds.last().unwrap().span();

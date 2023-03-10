@@ -279,6 +279,7 @@ impl<'hir> Map<'hir> {
                 GenericParamKind::Const { .. } => DefKind::ConstParam,
                 GenericParamKind::HKT(_) => DefKind::HKTParam,
             },
+            Node::OwnedHKTParam(_) => DefKind::HKTParam,
             Node::Crate(_) => DefKind::Mod,
             Node::Stmt(_)
             | Node::PathSegment(_)
@@ -380,6 +381,10 @@ impl<'hir> Map<'hir> {
 
     pub fn item(self, id: ItemId) -> &'hir Item<'hir> {
         self.tcx.hir_owner(id.owner_id).unwrap().node.expect_item()
+    }
+
+    pub fn hkt_param(self, id: OwnerId) -> &'hir OwnedHKTParam<'hir> {
+        self.tcx.hir_owner(id).unwrap().node.expect_hkt_param()
     }
 
     pub fn trait_item(self, id: TraitItemId) -> &'hir TraitItem<'hir> {
@@ -863,6 +868,13 @@ impl<'hir> Map<'hir> {
         }
     }
 
+    pub fn expect_hkt_param(self, id: LocalDefId) -> &'hir OwnedHKTParam<'hir> {
+        match self.tcx.hir_owner(OwnerId { def_id: id }) {
+            Some(Owner { node: OwnerNode::HKT(item), .. }) => item,
+            _ => bug!("expected item, found {}", self.node_to_string(HirId::make_owner(id))),
+        }
+    }
+
     pub fn expect_impl_item(self, id: LocalDefId) -> &'hir ImplItem<'hir> {
         match self.tcx.hir_owner(OwnerId { def_id: id }) {
             Some(Owner { node: OwnerNode::ImplItem(item), .. }) => item,
@@ -1083,6 +1095,7 @@ impl<'hir> Map<'hir> {
             Node::Ctor(..) => self.span_with_body(self.parent_id(hir_id)),
             Node::Lifetime(lifetime) => lifetime.ident.span,
             Node::GenericParam(param) => param.span,
+            Node::OwnedHKTParam(param) => param.span,
             Node::Infer(i) => i.span,
             Node::Local(local) => local.span,
             Node::Crate(item) => item.spans.inner_span,
@@ -1112,8 +1125,7 @@ impl<'hir> Map<'hir> {
     pub fn opt_const_param_default_param_def_id(self, anon_const: HirId) -> Option<LocalDefId> {
         match self.get_parent(anon_const) {
             Node::GenericParam(GenericParam {
-                def_id: param_id,
-                kind: GenericParamKind::Const { .. },
+                kind: GenericParamKind::Const { def_id: param_id, .. },
                 ..
             }) => Some(*param_id),
             _ => None,
@@ -1132,6 +1144,10 @@ impl<'hir> intravisit::Map<'hir> for Map<'hir> {
 
     fn item(&self, id: ItemId) -> &'hir Item<'hir> {
         (*self).item(id)
+    }
+
+    fn hkt_param(&self, id: OwnerId) -> &'hir OwnedHKTParam<'hir> {
+        (*self).hkt_param(id)
     }
 
     fn trait_item(&self, id: TraitItemId) -> &'hir TraitItem<'hir> {
@@ -1302,8 +1318,11 @@ fn hir_id_to_string(map: Map<'_>, id: HirId) -> String {
             id_str
         ),
         Some(Node::Lifetime(_)) => node_str("lifetime"),
+        Some(Node::OwnedHKTParam(_)) => {
+            node_str("hkt_param")
+        }
         Some(Node::GenericParam(ref param)) => {
-            format!("generic_param {}{}", path_str(param.def_id), id_str)
+            format!("generic_param {}{}", path_str(param.local_def_id()), id_str)
         }
         Some(Node::Crate(..)) => String::from("root_crate"),
         None => format!("unknown node{}", id_str),

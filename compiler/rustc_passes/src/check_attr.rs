@@ -411,7 +411,7 @@ impl CheckAttrVisitor<'_> {
         if let Some(generics) = tcx.hir().get_generics(tcx.hir().local_def_id(hir_id)) {
             for p in generics.params {
                 let hir::GenericParamKind::Type { .. } = p.kind else { continue };
-                let default = tcx.object_lifetime_default(p.def_id);
+                let default = tcx.object_lifetime_default(p.local_def_id());
                 let repr = match default {
                     ObjectLifetimeDefault::Empty => "BaseDefault".to_owned(),
                     ObjectLifetimeDefault::Static => "'static".to_owned(),
@@ -2078,9 +2078,13 @@ impl<'tcx> Visitor<'tcx> for CheckAttrVisitor<'tcx> {
     }
 
     fn visit_generic_param(&mut self, generic_param: &'tcx hir::GenericParam<'tcx>) {
-        let target = Target::from_generic_param(generic_param);
-        self.check_attributes(generic_param.hir_id, generic_param.span, target, None);
-        intravisit::walk_generic_param(self, generic_param)
+        if let hir::GenericParamKind::HKT(owner_id) = generic_param.kind {
+            self.visit_nested_hkt_param(owner_id);
+        } else {
+            let target = Target::from_generic_param(generic_param);
+            self.check_attributes(generic_param.expect_hir_id(), generic_param.span, target, None);
+            intravisit::walk_generic_param(self, generic_param)
+        }
     }
 
     fn visit_trait_item(&mut self, trait_item: &'tcx TraitItem<'tcx>) {

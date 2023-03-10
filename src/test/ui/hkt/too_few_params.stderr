@@ -10,7 +10,7 @@ note: hkt parameter defined here, with 2 generic parameters: `J`, `K`
   --> $DIR/too_few_params.rs:4:9
    |
 LL | fn test<I<%J, %K>>(input: I<u32>) {}
-   |         ^
+   |         ^  -   -
 help: add missing generic argument
    |
 LL | fn test<I<%J, %K>>(input: I<u32, K>) {}
