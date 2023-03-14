@@ -3593,7 +3593,7 @@ impl<'hir> Node<'hir> {
             })
             | Node::TraitItem(TraitItem { generics, .. })
             | Node::ImplItem(ImplItem { generics, .. }) => Some(generics),
-            Node::OwnedHKTParam(OwnedHKTParam {generics, .. }) => {
+            Node::OwnedHKTParam(OwnedHKTParam { generics, .. }) => {
                 Some(generics)
             }
             Node::Item(item) => item.kind.generics(),

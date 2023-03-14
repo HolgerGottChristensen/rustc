@@ -1,16 +1,19 @@
 error[E0277]: the size for values of type `[u32]` cannot be known at compilation time
-  --> $DIR/unsized_parameter.rs:4:16
+  --> $DIR/unsized_parameter.rs:4:24
    |
 LL | fn test<I<%J>>(_input: I<[u32]>) { }
-   |                ^^^^^^ doesn't have a size known at compile-time
+   |                        ^^^^^^^^ doesn't have a size known at compile-time
    |
-   = help: within `I<[u32]>`, the trait `Sized` is not implemented for `[u32]`
-   = note: required because it appears within the type `I<[u32]>`
-   = help: unsized fn params are gated as an unstable feature
-help: function arguments must have a statically known size, borrowed types always have a known size
+   = help: the trait `Sized` is not implemented for `[u32]`
+note: required by a bound in `test::I`
+  --> $DIR/unsized_parameter.rs:4:12
    |
-LL | fn test<I<%J>>(_input: &I<[u32]>) { }
-   |                        +
+LL | fn test<I<%J>>(_input: I<[u32]>) { }
+   |            ^ required by this bound in `test::I`
+help: consider relaxing the implicit `Sized` restriction
+   |
+LL | fn test<I<%J: ?Sized>>(_input: I<[u32]>) { }
+   |             ++++++++
 
 error: aborting due to previous error
 

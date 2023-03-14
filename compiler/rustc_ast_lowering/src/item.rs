@@ -1520,8 +1520,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
         }
     }
 
+    #[instrument(skip_all, level = "info")]
     fn lower_where_predicate(&mut self, pred: &WherePredicate) -> hir::WherePredicate<'hir> {
-        match pred {
+        info!("pred: {:#?}", pred);
+        let p = match pred {
             WherePredicate::BoundPredicate(WhereBoundPredicate {
                 bound_generic_params,
                 bounded_ty,
@@ -1561,6 +1563,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     span: self.lower_span(*span),
                 })
             }
-        }
+        };
+
+        info!("return: {:#?}", p);
+
+        p
     }
 }

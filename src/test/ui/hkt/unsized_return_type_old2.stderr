@@ -1,0 +1,13 @@
+error[E0277]: the size for values of type `[u32]` cannot be known at compilation time
+  --> $DIR/unsized_return_type.rs:4:21
+   |
+LL | fn test<I<%J>>() -> I<[u32]> { todo!() }
+   |                     ^^^^^^^^ doesn't have a size known at compile-time
+   |
+   = help: within `I<[u32]>`, the trait `Sized` is not implemented for `[u32]`
+   = note: required because it appears within the type `I<[u32]>`
+   = note: the return type of a function must have a statically known size
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0277`.
