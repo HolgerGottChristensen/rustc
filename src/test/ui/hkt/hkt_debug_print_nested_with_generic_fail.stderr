@@ -1,0 +1,19 @@
+error[E0277]: `T` doesn't implement `Debug`
+  --> $DIR/hkt_debug_print_nested_with_generic_fail.rs:6:40
+   |
+LL | fn test<T, I<%J: Debug>: Debug>(input: I<T>) {
+   |                                        ^^^^ `T` cannot be formatted using `{:?}` because it doesn't implement `Debug`
+   |
+note: required by a bound in `test::I`
+  --> $DIR/hkt_debug_print_nested_with_generic_fail.rs:6:18
+   |
+LL | fn test<T, I<%J: Debug>: Debug>(input: I<T>) {
+   |                  ^^^^^ required by this bound in `test::I`
+help: consider restricting type parameter `T`
+   |
+LL | fn test<T: std::fmt::Debug, I<%J: Debug>: Debug>(input: I<T>) {
+   |          +++++++++++++++++
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0277`.
