@@ -65,15 +65,10 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
         let outer_generics: &ty::Generics = tcx.generics_of(def_id);
         let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
-        println!("outer_generics: {:#?}", outer_generics);
-
         for param in &outer_generics.params {
             match param.kind {
                 GenericParamDefKind::HKT => {
                     let inner_generics: &ty::Generics = tcx.generics_of(param.def_id);
-                    println!("inner_generics: {:#?}", inner_generics);
-
-
 
                     for inner_param in &inner_generics.params {
                         let ty = tcx.mk_ty(ty::Argument(ArgumentDef {
@@ -99,7 +94,6 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
 
                     let hir_id = tcx.hir().local_def_id_to_hir_id(param.def_id.expect_local());
                     let node = tcx.hir().get(hir_id);
-                    println!("node: {:#?}", node);
 
                     let icx = ItemCtxt::new(tcx, def_id);
 
