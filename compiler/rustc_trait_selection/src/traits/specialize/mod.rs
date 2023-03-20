@@ -21,7 +21,7 @@ use crate::traits::{
 use rustc_data_structures::fx::FxIndexSet;
 use rustc_errors::{error_code, DelayDm, Diagnostic};
 use rustc_hir::def_id::{DefId, LocalDefId};
-use rustc_middle::ty::{self, ImplSubject, Ty, TyCtxt};
+use rustc_middle::ty::{self, HKTSubstType, ImplSubject, Ty, TyCtxt};
 use rustc_middle::ty::{InternalSubsts, SubstsRef};
 use rustc_session::lint::builtin::COHERENCE_LEAK_CHECK;
 use rustc_session::lint::builtin::ORDER_DEPENDENT_TRAIT_OBJECTS;
@@ -87,7 +87,7 @@ pub fn translate_substs<'tcx>(
         param_env, source_impl, source_substs, target_node
     );
     let source_trait_ref =
-        infcx.tcx.bound_impl_trait_ref(source_impl).unwrap().subst(infcx.tcx, &source_substs);
+        infcx.tcx.bound_impl_trait_ref(source_impl).unwrap().subst(infcx.tcx, &source_substs, HKTSubstType::SubstHKTParamWithType);
 
     // translate the Self and Param parts of the substitution, since those
     // vary across impls

@@ -244,7 +244,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
         if obligation.predicate.has_non_region_infer() {
             debug!("Has non region infer");
             obligation.predicate = self.selcx.infcx.resolve_vars_if_possible(obligation.predicate);
-            debug!(?obligation, "post-resolve-vars-if-possible");
+            info!("post-resolve: {:#?}", obligation);
         }
 
 
@@ -338,10 +338,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                         ProcessResult::Changed(vec![])
                     }
 
-                    ty::PredicateKind::Clause(ty::Clause::TypeOutlives(ty::OutlivesPredicate(
-                                                                           t_a,
-                                                                           r_b,
-                                                                       ))) => {
+                    ty::PredicateKind::Clause(ty::Clause::TypeOutlives(ty::OutlivesPredicate(t_a, r_b, ))) => {
                         if infcx.considering_regions {
                             infcx.register_region_obligation_with_cause(t_a, r_b, &obligation.cause);
                         }

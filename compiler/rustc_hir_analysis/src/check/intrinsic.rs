@@ -11,7 +11,7 @@ use hir::def_id::DefId;
 use rustc_errors::{struct_span_err, DiagnosticMessage};
 use rustc_hir as hir;
 use rustc_middle::traits::{ObligationCause, ObligationCauseCode};
-use rustc_middle::ty::{self, TyCtxt};
+use rustc_middle::ty::{self, HKTSubstType, TyCtxt};
 use rustc_span::symbol::{kw, sym, Symbol};
 use rustc_target::spec::abi::Abi;
 
@@ -151,7 +151,7 @@ pub fn check_intrinsic_type(tcx: TyCtxt<'_>, it: &hir::ForeignItem<'_>) {
                 ty::INNERMOST,
                 ty::BoundRegion { var: ty::BoundVar::from_u32(1), kind: ty::BrEnv },
             ));
-            let va_list_ty = tcx.bound_type_of(did).subst(tcx, &[region.into()]);
+            let va_list_ty = tcx.bound_type_of(did).subst(tcx, &[region.into()], HKTSubstType::SubstHKTParamWithType);
             (tcx.mk_ref(env_region, ty::TypeAndMut { ty: va_list_ty, mutbl }), va_list_ty)
         })
     };

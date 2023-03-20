@@ -16,7 +16,7 @@ use rustc_middle::mir::{
     FakeReadCause, LocalDecl, LocalInfo, LocalKind, Location, Operand, Place, PlaceRef,
     ProjectionElem, Rvalue, Statement, StatementKind, Terminator, TerminatorKind, VarBindingForm,
 };
-use rustc_middle::ty::{self, suggest_constraining_type_params, PredicateKind, Ty};
+use rustc_middle::ty::{self, suggest_constraining_type_params, PredicateKind, Ty, HKTSubstType};
 use rustc_mir_dataflow::move_paths::{InitKind, MoveOutIndex, MovePathIndex};
 use rustc_span::def_id::LocalDefId;
 use rustc_span::hygiene::DesugaringKind;
@@ -679,7 +679,7 @@ impl<'cx, 'tcx> MirBorrowckCtxt<'cx, 'tcx> {
                                      substs| {
             predicates.0.iter().find_map(|(pred, _)| {
                     let pred = if let Some(substs) = substs {
-                        predicates.rebind(*pred).subst(tcx, substs).kind().skip_binder()
+                        predicates.rebind(*pred).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType).kind().skip_binder()
                     } else {
                         pred.kind().skip_binder()
                     };

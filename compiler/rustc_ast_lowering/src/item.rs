@@ -10,7 +10,7 @@ use rustc_data_structures::sorted_map::SortedMap;
 use rustc_hir as hir;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{LocalDefId, CRATE_DEF_ID};
-use rustc_hir::PredicateOrigin;
+use rustc_hir::{OwnedHKTParam, PredicateOrigin};
 use rustc_index::vec::{Idx, IndexVec};
 use rustc_middle::ty::{DefIdTree, ResolverAstLowering, TyCtxt};
 use rustc_span::lev_distance::find_best_match_for_name;
@@ -100,6 +100,7 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
         def_id: LocalDefId,
     ) -> hir::MaybeOwner<&'hir hir::OwnerInfo<'hir>> {
         self.owners.ensure_contains_elem(def_id, || hir::MaybeOwner::Phantom);
+
         if let hir::MaybeOwner::Phantom = self.owners[def_id] {
             let node = self.ast_index[def_id];
             match node {
@@ -108,9 +109,14 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
                 AstOwner::Item(item) => self.lower_item(item),
                 AstOwner::AssocItem(item, ctxt) => self.lower_assoc_item(item, ctxt),
                 AstOwner::ForeignItem(item) => self.lower_foreign_item(item),
+                AstOwner::HKT(param) => {
+                    self.lower_hkt_param(param)
+                }
             }
-        }
+        } else {
 
+        }
+        //println!("Owner: {:?}: {:#?}", def_id, self.owners[def_id]);
         self.owners[def_id]
     }
 
@@ -126,7 +132,40 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
 
     #[instrument(level = "debug", skip(self))]
     fn lower_item(&mut self, item: &Item) {
-        self.with_lctx(item.id, |lctx| hir::OwnerNode::Item(lctx.lower_item(item)))
+        self.with_lctx(item.id, |lctx| {
+            hir::OwnerNode::Item(lctx.lower_item(item))
+        })
+    }
+
+    #[instrument(level = "info", skip_all)]
+    fn lower_hkt_param(&mut self, param: &GenericParam) {
+        //println!("We should lower hkt param");
+        self.with_lctx(param.id, |lctx| {
+            let itctx = ImplTraitContext::Disallowed(ImplTraitPosition::Type);
+            let hir_id = lctx.lower_node_id(param.id);
+
+            let generics = param.expect_hkt();
+
+            let lowered_generics = lctx.lower_generics(generics, param.id, &itctx, |_| {()}).0;
+
+            lctx.lower_attrs(hir_id, &param.attrs);
+
+            let name = lctx.lower_ident(param.ident);
+
+            let owned_hkt_param = OwnedHKTParam {
+                owner_id: hir_id.expect_owner(),
+                hir_id,
+                name,
+                span: lctx.lower_span(param.span()),
+                generics: lowered_generics,
+                pure_wrt_drop: false,
+                colon_span: param.colon_span.map(|s| lctx.lower_span(s)),
+            };
+
+            let res = hir::OwnerNode::HKT(lctx.arena.alloc(owned_hkt_param));
+            info!("Return = {:#?}", res);
+            res
+        })
     }
 
     fn lower_assoc_item(&mut self, item: &AssocItem, ctxt: AssocCtxt) {
@@ -153,7 +192,9 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
     }
 
     fn lower_foreign_item(&mut self, item: &ForeignItem) {
-        self.with_lctx(item.id, |lctx| hir::OwnerNode::ForeignItem(lctx.lower_foreign_item(item)))
+        self.with_lctx(item.id, |lctx| {
+            hir::OwnerNode::ForeignItem(lctx.lower_foreign_item(item))
+        })
     }
 }
 
@@ -201,6 +242,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
         let hir_id = self.lower_node_id(i.id);
         let attrs = self.lower_attrs(hir_id, &i.attrs);
         let kind = self.lower_item_kind(i.span, i.id, hir_id, &mut ident, attrs, vis_span, &i.kind);
+
         let item = hir::Item {
             owner_id: hir_id.expect_owner(),
             ident: self.lower_ident(ident),
@@ -1255,7 +1297,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
     /// Return the pair of the lowered `generics` as `hir::Generics` and the evaluation of `f` with
     /// the carried impl trait definitions and bounds.
-    #[instrument(level = "debug", skip(self, f))]
+    #[instrument(level = "info", skip(self, f, generics, parent_node_id, itctx))]
     pub(crate) fn lower_generics<T>(
         &mut self,
         generics: &Generics,
@@ -1263,6 +1305,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
         itctx: &ImplTraitContext,
         f: impl FnOnce(&mut Self) -> T,
     ) -> (&'hir hir::Generics<'hir>, T) {
+        info!("generics = {:#?}", generics);
+        info!("parent_node_id = {:#?}", parent_node_id);
+        info!("itctx = {:#?}", itctx);
+
         debug_assert!(self.impl_trait_defs.is_empty());
         debug_assert!(self.impl_trait_bounds.is_empty());
 
@@ -1356,6 +1402,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
             span,
         });
 
+        info!("ret = {:#?}", lowered_generics);
         (lowered_generics, res)
     }
 
@@ -1426,18 +1473,37 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     in_where_clause: false,
                 }))
             }
-            GenericParamKind::HKT(..) => {
+            GenericParamKind::HKT(generics) => {
                 // FIXMIG(hoch)
-                let def_id = self.local_def_id(id).to_def_id();
+                let def_id = self.local_def_id(id);
                 let hir_id = self.next_id();
 
-                let res = Res::Def(DefKind::HKTParam, def_id);
+
+                let res = Res::Def(DefKind::HKTParam, def_id.to_def_id());
+
+                let mut segment = hir::PathSegment::new(ident, hir_id, res);
+
+                let args = generics.params.iter().map(|param| {
+                    hir::GenericArg::Type(
+                        self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(param.ident, Some(def_id)), span: self.lower_span(param.ident.span), hir_id: self.next_id()})
+                    )
+                }).collect::<Vec<_>>();
+
+                let generic_args = self.arena.alloc(hir::GenericArgs {
+                    args: self.arena.alloc_from_iter(args),
+                    bindings: &[], // FIXMIG: what kind of bindings should be created here?
+                    parenthesized: false,
+                    span_ext: Default::default(),
+                });
+
+                segment.args = Some(generic_args);
+
                 let ty_path = self.arena.alloc(hir::Path {
                     span: param_span,
                     res,
                     segments: self
                         .arena
-                        .alloc_from_iter([hir::PathSegment::new(ident, hir_id, res)]),
+                        .alloc_from_iter([segment]),
                 });
                 let ty_id = self.next_id();
                 let bounded_ty =
@@ -1454,8 +1520,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
         }
     }
 
+    #[instrument(skip_all, level = "info")]
     fn lower_where_predicate(&mut self, pred: &WherePredicate) -> hir::WherePredicate<'hir> {
-        match pred {
+        info!("pred: {:#?}", pred);
+        let p = match pred {
             WherePredicate::BoundPredicate(WhereBoundPredicate {
                 bound_generic_params,
                 bounded_ty,
@@ -1495,6 +1563,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     span: self.lower_span(*span),
                 })
             }
-        }
+        };
+
+        info!("return: {:#?}", p);
+
+        p
     }
 }

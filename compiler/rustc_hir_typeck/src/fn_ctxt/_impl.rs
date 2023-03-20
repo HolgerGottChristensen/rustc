@@ -21,7 +21,7 @@ use rustc_middle::ty::adjustment::{Adjust, Adjustment, AutoBorrow, AutoBorrowMut
 use rustc_middle::ty::error::TypeError;
 use rustc_middle::ty::fold::TypeFoldable;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, AdtKind, CanonicalUserType, DefIdTree, GenericParamDefKind, ParamEnv, Ty, UserType};
+use rustc_middle::ty::{self, AdtKind, CanonicalUserType, DefIdTree, GenericParamDefKind, HKTSubstType, ParamEnv, Ty, UserType};
 use rustc_middle::ty::{GenericArgKind, InternalSubsts, SubstsRef, UserSelfTy, UserSubsts};
 use rustc_session::lint;
 use rustc_span::def_id::LocalDefId;
@@ -769,7 +769,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             self.tcx.bound_type_of(def_id)
         };
         let substs = self.fresh_substs_for_item(span, def_id);
-        let ty = item_ty.subst(self.tcx, substs);
+        let ty = item_ty.subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType);
 
         self.write_resolution(hir_id, Ok((def_kind, def_id)));
 
@@ -972,8 +972,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     ) {
         let (sig, did, substs) = match (&expected.kind(), &found.kind()) {
             (ty::FnDef(did1, substs1), ty::FnDef(did2, substs2)) => {
-                let sig1 = self.tcx.bound_fn_sig(*did1).subst(self.tcx, substs1);
-                let sig2 = self.tcx.bound_fn_sig(*did2).subst(self.tcx, substs2);
+                let sig1 = self.tcx.bound_fn_sig(*did1).subst(self.tcx, substs1, HKTSubstType::SubstHKTParamWithType);
+                let sig2 = self.tcx.bound_fn_sig(*did2).subst(self.tcx, substs2, HKTSubstType::SubstHKTParamWithType);
                 if sig1 != sig2 {
                     return;
                 }
@@ -984,7 +984,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 (sig1, *did1, substs1)
             }
             (ty::FnDef(did, substs), ty::FnPtr(sig2)) => {
-                let sig1 = self.tcx.bound_fn_sig(*did).subst(self.tcx, substs);
+                let sig1 = self.tcx.bound_fn_sig(*did).subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType);
                 if sig1 != *sig2 {
                     return;
                 }
@@ -1257,7 +1257,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                             // is missing.
                             let default = tcx.bound_type_of(param.def_id);
                             self.fcx
-                                .normalize_ty(self.span, default.subst(tcx, substs.unwrap()))
+                                .normalize_ty(self.span, default.subst(tcx, substs.unwrap(), HKTSubstType::SubstHKTParamWithType))
                                 .into()
                         } else {
                             // If no type arguments were provided, we have to infer them.
@@ -1270,7 +1270,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     GenericParamDefKind::Const { has_default } => {
                         if !infer_args && has_default {
                             tcx.bound_const_param_default(param.def_id)
-                                .subst(tcx, substs.unwrap())
+                                .subst(tcx, substs.unwrap(), HKTSubstType::SubstHKTParamWithType)
                                 .into()
                         } else {
                             self.fcx.var_for_def(self.span, param)
@@ -1315,7 +1315,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let ty = tcx.bound_type_of(def_id);
         assert!(!substs.has_escaping_bound_vars());
         assert!(!ty.0.has_escaping_bound_vars());
-        let ty_substituted = self.normalize(span, ty.subst(tcx, substs));
+        let ty_substituted = self.normalize(span, ty.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType));
 
         if let Some(UserSelfTy { impl_def_id, self_ty }) = user_self_ty {
             // In the case of `Foo<T>::method` and `<Foo<T>>::method`, if `method`
@@ -1323,7 +1323,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // type parameters, which we can infer by unifying the provided `Self`
             // with the substituted impl type.
             // This also occurs for an enum variant on a type alias.
-            let impl_ty = self.normalize(span, tcx.bound_type_of(impl_def_id).subst(tcx, substs));
+            let impl_ty = self.normalize(span, tcx.bound_type_of(impl_def_id).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType));
             match self.at(&self.misc(span), self.param_env).eq(impl_ty, self_ty) {
                 Ok(ok) => self.register_infer_ok_obligations(ok),
                 Err(_) => {
@@ -1370,7 +1370,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         substs: SubstsRef<'tcx>,
         code: impl Fn(usize, Span) -> ObligationCauseCode<'tcx>,
     ) {
-        let param_env = self.param_env;
+        let param_env =
+            self.tcx.param_env_with_hkt((def_id, self.param_env.without_const()));
 
         let remap = match self.tcx.def_kind(def_id) {
             // Associated consts have `Self: ~const Trait` bounds that should be satisfiable when

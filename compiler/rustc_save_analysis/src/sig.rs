@@ -151,7 +151,7 @@ impl<'hir> Sig for hir::Ty<'hir> {
     fn make(&self, offset: usize, _parent_id: Option<hir::HirId>, scx: &SaveContext<'_>) -> Result {
         let id = Some(self.hir_id);
         match self.kind {
-            hir::TyKind::Argument(_) => {
+            hir::TyKind::Argument(_, _) => {
                 todo!("hoch")
             }
             hir::TyKind::Slice(ref ty) => {
@@ -627,11 +627,11 @@ impl<'hir> Sig for hir::Generics<'hir> {
             }
             param_text.push_str(param.name.ident().as_str());
             defs.push(SigElement {
-                id: id_from_hir_id(param.hir_id, scx),
+                id: id_from_hir_id(param.expect_hir_id(), scx),
                 start: offset + text.len(),
                 end: offset + text.len() + param_text.as_str().len(),
             });
-            if let hir::GenericParamKind::Const { ref ty, default } = param.kind {
+            if let hir::GenericParamKind::Const { ref ty, default, .. } = param.kind {
                 param_text.push_str(": ");
                 param_text.push_str(&ty_to_string(&ty));
                 if let Some(default) = default {

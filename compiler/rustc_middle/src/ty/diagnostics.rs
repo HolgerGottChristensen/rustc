@@ -163,7 +163,7 @@ fn suggest_removing_unsized_bound(
         let WherePredicate::BoundPredicate(predicate) = predicate else {
             continue;
         };
-        if !predicate.is_param_bound(param.def_id.to_def_id()) {
+        if !predicate.is_param_bound(param.local_def_id().to_def_id()) {
             continue;
         };
 
@@ -281,7 +281,7 @@ pub fn suggest_constraining_type_params<'a>(
         //          --
         //          |
         //          replace with: `T: Bar +`
-        if let Some(span) = generics.bounds_span_for_suggestions(param.def_id) {
+        if let Some(span) = generics.bounds_span_for_suggestions(param.local_def_id()) {
             suggest_restrict(span, true);
             continue;
         }
@@ -469,11 +469,11 @@ impl<'tcx> TypeVisitor<'tcx> for IsSuggestableVisitor<'tcx> {
                 }
             }
 
-            HKT(_param, ..) => {
-                todo!("hoch") // FIXMIG: what to do here?
-                /*if param.name().as_str().starts_with("impl ") {
+            HKT(_, param, ..) => {
+                // FIXMIG: Is this correct?
+                if param.name().as_str().starts_with("impl ") {
                     return ControlFlow::Break(());
-                }*/
+                }
             }
             Param(param) => {
                 // FIXME: It would be nice to make this not use string manipulation,

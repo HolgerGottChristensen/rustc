@@ -13,10 +13,7 @@ use rustc_infer::infer::{self, InferCtxt, TyCtxtInferExt};
 use rustc_middle::mir::ConstraintCategory;
 use rustc_middle::ty::query::Providers;
 use rustc_middle::ty::trait_def::TraitSpecializationKind;
-use rustc_middle::ty::{
-    self, AdtKind, DefIdTree, GenericParamDefKind, Ty, TyCtxt, TypeFoldable, TypeSuperVisitable,
-    TypeVisitable, TypeVisitor,
-};
+use rustc_middle::ty::{self, AdtKind, DefIdTree, GenericParamDefKind, HKTSubstType, Ty, TyCtxt, TypeFoldable, TypeSuperVisitable, TypeVisitable, TypeVisitor};
 use rustc_middle::ty::{GenericArgKind, InternalSubsts};
 use rustc_session::parse::feature_err;
 use rustc_span::symbol::{sym, Ident, Symbol};
@@ -99,7 +96,7 @@ pub(super) fn enter_wf_checking_ctxt<'tcx, F>(
     let ocx = ObligationCtxt::new(infcx);
 
     let assumed_wf_types = ocx.assumed_wf_types(param_env, span, body_def_id);
-    debug!("assumed_wf_types = {:#?}", assumed_wf_types);
+    info!("assumed_wf_types = {:#?}", assumed_wf_types);
 
     let mut wfcx = WfCheckingCtxt { ocx, span, body_id, param_env };
 
@@ -125,6 +122,7 @@ fn check_well_formed(tcx: TyCtxt<'_>, def_id: hir::OwnerId) {
     let node = tcx.hir().owner(def_id);
     match node {
         hir::OwnerNode::Crate(_) => {}
+        hir::OwnerNode::HKT(_) => {todo!()}
         hir::OwnerNode::Item(item) => check_item(tcx, item),
         hir::OwnerNode::TraitItem(item) => check_trait_item(tcx, item),
         hir::OwnerNode::ImplItem(item) => check_impl_item(tcx, item),
@@ -151,11 +149,11 @@ fn check_well_formed(tcx: TyCtxt<'_>, def_id: hir::OwnerId) {
 /// We do this check as a pre-pass before checking fn bodies because if these constraints are
 /// not included it frequently leads to confusing errors in fn bodies. So it's better to check
 /// the types first.
-#[instrument(skip(tcx), level = "debug")]
+#[instrument(skip(tcx, item), fields(id = ?item.owner_id.def_id), level = "info")]
 fn check_item<'tcx>(tcx: TyCtxt<'tcx>, item: &'tcx hir::Item<'tcx>) {
     let def_id = item.owner_id.def_id;
 
-    debug!(
+    info!(
         ?item.owner_id,
         item.name = ? tcx.def_path_str(def_id.to_def_id())
     );
@@ -858,8 +856,8 @@ fn check_param_wf(tcx: TyCtxt<'_>, param: &hir::GenericParam<'_>) {
         hir::GenericParamKind::Lifetime { .. } | hir::GenericParamKind::Type { .. } | hir::GenericParamKind::HKT(_) => (),
 
         // Const parameters are well formed if their type is structural match.
-        hir::GenericParamKind::Const { ty: hir_ty, default: _ } => {
-            let ty = tcx.type_of(param.def_id);
+        hir::GenericParamKind::Const { ty: hir_ty, default: _, def_id, .. } => {
+            let ty = tcx.type_of(def_id);
 
             if tcx.features().adt_const_params {
                 if let Some(non_structural_match_ty) =
@@ -1445,7 +1443,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             }
             let mut param_count = CountParams::default();
             let has_region = pred.visit_with(&mut param_count).is_break();
-            let substituted_pred = predicates.rebind(pred).subst(tcx, substs);
+            let substituted_pred = predicates.rebind(pred).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
 
             debug!(?substituted_pred);
             // Don't check non-defaulted params, dependent defaults (including lifetimes)
@@ -1481,9 +1479,9 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
             traits::Obligation::new(tcx, cause, wfcx.param_env, pred)
         });
 
-    debug!("pre instantiate_identity - {:#?}", predicates);
+    info!("pre instantiate_identity - {:#?}", predicates);
     let predicates = predicates.0.instantiate_identity(tcx);
-    debug!("pre normalize - {:#?}", predicates);
+    info!("pre normalize - {:#?}", predicates);
     let predicates = wfcx.normalize(span, None, predicates);
     info!("post normalize - {:#?}", predicates);
 
@@ -1492,6 +1490,7 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
     let wf_obligations =
         iter::zip(&predicates.predicates, &predicates.spans).flat_map(|(&p, &sp)| {
             let param_env = tcx.param_env_with_hkt((def_id.to_def_id(), wfcx.param_env.without_const()));
+            //let param_env = wfcx.param_env.without_const();
             traits::wf::predicate_obligations(
                 infcx,
                 param_env,
@@ -1634,7 +1633,7 @@ fn check_return_position_impl_trait_in_trait_bounds<'tcx>(
                 let span = tcx.def_span(proj.def_id);
                 let bounds = wfcx.tcx().explicit_item_bounds(proj.def_id);
                 let wf_obligations = bounds.iter().flat_map(|&(bound, bound_span)| {
-                    let bound = ty::EarlyBinder(bound).subst(tcx, proj.substs);
+                    let bound = ty::EarlyBinder(bound).subst(tcx, proj.substs, HKTSubstType::SubstHKTParamWithType);
                     let normalized_bound = wfcx.normalize(span, None, bound);
                     traits::wf::predicate_obligations(
                         wfcx.infcx,

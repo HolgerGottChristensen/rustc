@@ -21,6 +21,7 @@ macro_rules! arena_types {
             [] generic_args: rustc_hir::GenericArgs<'tcx>,
             [] generic_bound: rustc_hir::GenericBound<'tcx>,
             [] generic_param: rustc_hir::GenericParam<'tcx>,
+            [] hkt_param: rustc_hir::OwnedHKTParam<'tcx>,
             [] expr: rustc_hir::Expr<'tcx>,
             [] impl_: rustc_hir::Impl<'tcx>,
             [] let_expr: rustc_hir::Let<'tcx>,

@@ -20,7 +20,7 @@ use rustc_hir::def_id::DefId;
 use rustc_infer::infer::{self, InferOk};
 use rustc_middle::traits::ObligationCause;
 use rustc_middle::ty::subst::{InternalSubsts, SubstsRef};
-use rustc_middle::ty::{self, GenericParamDefKind, Ty, TypeVisitable};
+use rustc_middle::ty::{self, GenericParamDefKind, HKTSubstType, Ty, TypeVisitable};
 use rustc_span::symbol::Ident;
 use rustc_span::Span;
 use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt;
@@ -168,7 +168,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// * `call_expr`:             the complete method call: (`foo.bar::<T1,...Tn>(...)`)
     /// * `self_expr`:             the self expression (`foo`)
     /// * `args`:                  the expressions of the arguments (`a, b + 1, ...`)
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self, self_ty, segment, span, call_expr, self_expr, args), ret)]
     pub fn lookup_method(
         &self,
         self_ty: Ty<'tcx>,
@@ -178,8 +178,19 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self_expr: &'tcx hir::Expr<'tcx>,
         args: &'tcx [hir::Expr<'tcx>],
     ) -> Result<MethodCallee<'tcx>, MethodError<'tcx>> {
-        let pick =
-            self.lookup_probe(segment.ident, self_ty, call_expr, ProbeScope::TraitsInScope)?;
+        info!("self_ty = {:#?}", self_ty);
+        info!("segment = {:#?}", segment);
+        //info!("span = {:#?}", span);
+        //info!("call_expr = {:#?}", call_expr);
+        //info!("self_expr = {:#?}", self_expr);
+        //info!("args = {:#?}", args);
+
+        let pick = self.lookup_probe(
+            segment.ident,
+            self_ty,
+            call_expr,
+            ProbeScope::TraitsInScope
+        )?;
 
         self.lint_dot_call_from_2018(self_ty, segment, span, call_expr, self_expr, &pick, args);
 
@@ -193,7 +204,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.tcx.check_stability(pick.item.def_id, Some(call_expr.hir_id), span, None);
 
         let result = self.confirm_method(span, self_expr, call_expr, self_ty, &pick, segment);
-        debug!("result = {:?}", result);
+        debug!("confirm_result = {:?}", result);
 
         if let Some(span) = result.illegal_sized_bound {
             let mut needs_mut = false;
@@ -242,7 +253,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         Ok(result.callee)
     }
 
-    #[instrument(level = "debug", skip(self, call_expr))]
+    #[instrument(level = "info", skip(self, call_expr, self_ty), ret)]
     pub fn lookup_probe(
         &self,
         method_name: Ident,
@@ -371,7 +382,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // function signature so that normalization does not need to deal
         // with bound regions.
         let fn_sig = tcx.bound_fn_sig(def_id);
-        let fn_sig = fn_sig.subst(self.tcx, substs);
+        let fn_sig = fn_sig.subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType);
         let fn_sig =
             self.replace_bound_vars_with_fresh_vars(obligation.cause.span, infer::FnCall, fn_sig);
 

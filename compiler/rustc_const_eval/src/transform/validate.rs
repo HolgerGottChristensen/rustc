@@ -12,7 +12,7 @@ use rustc_middle::mir::{
     ProjectionElem, RetagKind, RuntimePhase, Rvalue, SourceScope, Statement, StatementKind,
     Terminator, TerminatorKind, UnOp, START_BLOCK,
 };
-use rustc_middle::ty::{self, InstanceDef, ParamEnv, Ty, TyCtxt, TypeVisitable};
+use rustc_middle::ty::{self, HKTSubstType, InstanceDef, ParamEnv, Ty, TyCtxt, TypeVisitable};
 use rustc_mir_dataflow::impls::MaybeStorageLive;
 use rustc_mir_dataflow::storage::always_storage_live_locals;
 use rustc_mir_dataflow::{Analysis, ResultsCursor};
@@ -242,7 +242,7 @@ impl<'a, 'tcx> Visitor<'tcx> for TypeChecker<'a, 'tcx> {
 
                 let kind = match parent_ty.ty.kind() {
                     &ty::Alias(ty::Opaque, ty::AliasTy { def_id, substs, .. }) => {
-                        self.tcx.bound_type_of(def_id).subst(self.tcx, substs).kind()
+                        self.tcx.bound_type_of(def_id).subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType).kind()
                     }
                     kind => kind,
                 };

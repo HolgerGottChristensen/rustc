@@ -98,7 +98,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         );
     }
 
-    #[instrument(level = "debug", skip(self, instantiated_predicates))]
+    #[instrument(level = "info", skip(self, instantiated_predicates))]
     pub(super) fn normalize_and_prove_instantiated_predicates(
         &mut self,
         // Keep this parameter for now, in case we start using
@@ -107,13 +107,13 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         instantiated_predicates: ty::InstantiatedPredicates<'tcx>,
         locations: Locations,
     ) {
-        debug!("instantiated_predicates={:#?}", instantiated_predicates);
+        info!("instantiated_predicates={:#?}", instantiated_predicates);
         for (predicate, span) in instantiated_predicates
             .predicates
             .into_iter()
             .zip(instantiated_predicates.spans.into_iter())
         {
-            debug!(?predicate);
+            info!("predicate: {:?}", predicate);
             let category = ConstraintCategory::Predicate(span);
             let predicate = self.normalize_with_category(predicate, locations, category);
             self.prove_predicate(predicate, locations, category);
@@ -131,7 +131,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
         }
     }
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     pub(super) fn prove_predicate(
         &mut self,
         predicate: impl ToPredicate<'tcx> + std::fmt::Debug,

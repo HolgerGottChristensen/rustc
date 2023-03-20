@@ -111,6 +111,7 @@ pub trait Map<'hir> {
     fn find(&self, hir_id: HirId) -> Option<Node<'hir>>;
     fn body(&self, id: BodyId) -> &'hir Body<'hir>;
     fn item(&self, id: ItemId) -> &'hir Item<'hir>;
+    fn hkt_param(&self, id: OwnerId) -> &'hir OwnedHKTParam<'hir>;
     fn trait_item(&self, id: TraitItemId) -> &'hir TraitItem<'hir>;
     fn impl_item(&self, id: ImplItemId) -> &'hir ImplItem<'hir>;
     fn foreign_item(&self, id: ForeignItemId) -> &'hir ForeignItem<'hir>;
@@ -125,6 +126,9 @@ impl<'hir> Map<'hir> for ! {
         *self;
     }
     fn item(&self, _: ItemId) -> &'hir Item<'hir> {
+        *self;
+    }
+    fn hkt_param(&self, _: OwnerId) -> &'hir OwnedHKTParam<'hir> {
         *self;
     }
     fn trait_item(&self, _: TraitItemId) -> &'hir TraitItem<'hir> {
@@ -236,6 +240,13 @@ pub trait Visitor<'v>: Sized {
         if Self::NestedFilter::INTER {
             let item = self.nested_visit_map().item(id);
             self.visit_item(item);
+        }
+    }
+
+    fn visit_nested_hkt_param(&mut self, id: OwnerId) {
+        if Self::NestedFilter::INTER {
+            let item = self.nested_visit_map().hkt_param(id);
+            self.visit_owned_hkt_param(item);
         }
     }
 
@@ -443,6 +454,9 @@ pub trait Visitor<'v>: Sized {
     }
     fn visit_inline_asm(&mut self, asm: &'v InlineAsm<'v>, id: HirId) {
         walk_inline_asm(self, asm, id);
+    }
+    fn visit_owned_hkt_param(&mut self, param: &'v OwnedHKTParam<'v>) {
+        walk_owned_hkt_param(self, param);
     }
 }
 
@@ -840,12 +854,20 @@ pub fn walk_ty<'v, V: Visitor<'v>>(visitor: &mut V, typ: &'v Ty<'v>) {
         }
         TyKind::Typeof(ref expression) => visitor.visit_anon_const(expression),
         TyKind::Infer | TyKind::Err => {}
-        TyKind::Argument(i) => visitor.visit_ident(i)
+        TyKind::Argument(i, _) => visitor.visit_ident(i)
     }
 }
 
 pub fn walk_generic_param<'v, V: Visitor<'v>>(visitor: &mut V, param: &'v GenericParam<'v>) {
-    visitor.visit_id(param.hir_id);
+    match param.kind {
+        GenericParamKind::Lifetime { hir_id, .. }
+        | GenericParamKind::Type { hir_id, .. }
+        | GenericParamKind::Const { hir_id, .. } => {
+            visitor.visit_id(hir_id);
+        }
+        GenericParamKind::HKT(_) => {}
+    }
+
     match param.name {
         ParamName::Plain(ident) => visitor.visit_ident(ident),
         ParamName::Error | ParamName::Fresh => {}
@@ -853,16 +875,21 @@ pub fn walk_generic_param<'v, V: Visitor<'v>>(visitor: &mut V, param: &'v Generi
     match param.kind {
         GenericParamKind::Lifetime { .. } => {}
         GenericParamKind::Type { ref default, .. } => walk_list!(visitor, visit_ty, default),
-        GenericParamKind::Const { ref ty, ref default } => {
+        GenericParamKind::Const { ref ty, ref default, hir_id, .. } => {
             visitor.visit_ty(ty);
             if let Some(ref default) = default {
-                visitor.visit_const_param_default(param.hir_id, default);
+                visitor.visit_const_param_default(hir_id, default);
             }
         }
-        GenericParamKind::HKT(_) => {
-            // TODO(hoch)
+        GenericParamKind::HKT(owner_id) => {
+            // FIXMIG: What to do here?
+            visitor.visit_nested_hkt_param(owner_id)
         }
     }
+}
+
+pub fn walk_owned_hkt_param<'v, V: Visitor<'v>>(visitor: &mut V, param: &'v OwnedHKTParam<'v>) {
+    visitor.visit_generics(param.generics);
 }
 
 pub fn walk_const_param_default<'v, V: Visitor<'v>>(visitor: &mut V, ct: &'v AnonConst) {

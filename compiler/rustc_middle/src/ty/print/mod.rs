@@ -1,4 +1,4 @@
-use crate::ty::GenericArg;
+use crate::ty::{GenericArg, HKTSubstType};
 use crate::ty::{self, DefIdTree, Ty, TyCtxt};
 
 use rustc_data_structures::fx::FxHashSet;
@@ -119,8 +119,8 @@ pub trait Printer<'tcx>: Sized {
                 let impl_trait_ref = self.tcx().bound_impl_trait_ref(def_id);
                 let (self_ty, impl_trait_ref) = if substs.len() >= generics.count() {
                     (
-                        self_ty.subst(self.tcx(), substs),
-                        impl_trait_ref.map(|i| i.subst(self.tcx(), substs)),
+                        self_ty.subst(self.tcx(), substs, HKTSubstType::SubstHKTParamWithType),
+                        impl_trait_ref.map(|i| i.subst(self.tcx(), substs, HKTSubstType::SubstHKTParamWithType)),
                     )
                 } else {
                     (self_ty.0, impl_trait_ref.map(|i| i.0))

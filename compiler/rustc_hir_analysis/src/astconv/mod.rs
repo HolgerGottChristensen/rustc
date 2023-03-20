@@ -26,7 +26,7 @@ use rustc_hir::intravisit::{walk_generics, Visitor as _};
 use rustc_hir::{GenericArg, GenericArgs, OpaqueTyOrigin};
 use rustc_middle::middle::stability::AllowUnstable;
 use rustc_middle::ty::subst::{self, GenericArgKind, InternalSubsts, SubstsRef};
-use rustc_middle::ty::{ArgumentDef, GenericParamDefKind};
+use rustc_middle::ty::{ArgumentDef, GenericParamDefKind, HKTSubstType};
 use rustc_middle::ty::{self, Const, DefIdTree, IsSuggestable, Ty, TyCtxt, TypeVisitable};
 use rustc_middle::ty::{DynKind, EarlyBinder};
 use rustc_session::lint::builtin::{AMBIGUOUS_ASSOCIATED_ITEMS, BARE_TRAIT_OBJECTS};
@@ -510,6 +510,9 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                             tcx.const_error(ty).into()
                         }
                     }
+                    (GenericParamDefKind::HKT, GenericArg::Type(ty)) => {
+                        self.astconv.ast_ty_to_ty(ty).into()
+                    }
                     _ => unreachable!(),
                 }
             }
@@ -552,7 +555,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                                     self.span,
                                     tcx.at(self.span)
                                         .bound_type_of(param.def_id)
-                                        .subst(tcx, substs),
+                                        .subst(tcx, substs, HKTSubstType::SubstHKTParamWithType),
                                 )
                                 .into()
                         } else if infer_args {
@@ -569,7 +572,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                         }
                         if !infer_args && has_default {
                             tcx.bound_const_param_default(param.def_id)
-                                .subst(tcx, substs.unwrap())
+                                .subst(tcx, substs.unwrap(), HKTSubstType::SubstHKTParamWithType)
                                 .into()
                         } else {
                             if infer_args {
@@ -584,6 +587,10 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 }
             }
         }
+
+        info!("def_id = {:#?}", def_id);
+        info!("generic_args = {:#?}", generic_args);
+        info!("infer_args = {:#?}", infer_args);
 
         let mut substs_ctx = SubstsForAstPathCtxt {
             astconv: self,
@@ -813,7 +820,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     /// where `'a` is a bound region at depth 0. Similarly, the `poly_trait_ref` would be
     /// `Bar<'a>`. The returned poly-trait-ref will have this binder instantiated explicitly,
     /// however.
-    #[instrument(level = "debug", skip(self, span, constness, bounds, speculative))]
+    #[instrument(level = "info", skip(self, trait_ref, span, constness, bounds, speculative))]
     pub(crate) fn instantiate_poly_trait_ref(
         &self,
         trait_ref: &hir::TraitRef<'_>,
@@ -823,6 +830,8 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         bounds: &mut Bounds<'tcx>,
         speculative: bool,
     ) -> GenericArgCountResult {
+        info!("trait_ref: {:#?}", trait_ref);
+        info!("bounds: {:#?}", bounds);
         let hir_id = trait_ref.hir_ref_id;
         let binding_span = None;
         let trait_ref_span = trait_ref.path.span;
@@ -971,7 +980,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     /// **A note on binders:** there is an implied binder around
     /// `param_ty` and `ast_bounds`. See `instantiate_poly_trait_ref`
     /// for more details.
-    #[instrument(level = "debug", skip(self, ast_bounds, bounds))]
+    #[instrument(level = "info", skip(self, ast_bounds, bounds))]
     pub(crate) fn add_bounds<'hir, I: Iterator<Item = &'hir hir::GenericBound<'hir>>>(
         &self,
         param_ty: Ty<'tcx>,
@@ -980,6 +989,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         bound_vars: &'tcx ty::List<ty::BoundVariableKind>,
     ) {
         for ast_bound in ast_bounds {
+            info!("Bound = {:#?}", ast_bound);
             match ast_bound {
                 hir::GenericBound::Trait(poly_trait_ref, modifier) => {
                     let constness = match modifier {
@@ -1267,7 +1277,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                             hir::def::DefKind::AssocConst => tcx
                                 .const_error_with_guaranteed(
                                     tcx.bound_type_of(assoc_item_def_id)
-                                        .subst(tcx, projection_ty.skip_binder().substs),
+                                        .subst(tcx, projection_ty.skip_binder().substs, HKTSubstType::SubstHKTParamWithType),
                                     reported,
                                 )
                                 .into(),
@@ -1304,7 +1314,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         item_segment: &hir::PathSegment<'_>,
     ) -> Ty<'tcx> {
         let substs = self.ast_path_substs_for_ty(span, did, item_segment);
-        self.normalize_ty(span, self.tcx().at(span).bound_type_of(did).subst(self.tcx(), substs))
+        self.normalize_ty(span, self.tcx().at(span).bound_type_of(did).subst(self.tcx(), substs, HKTSubstType::SubstHKTParamWithType))
     }
 
     fn conv_object_ty_poly_trait_ref(
@@ -1972,7 +1982,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                     assoc_segment,
                     adt_substs,
                 );
-                let ty = tcx.bound_type_of(assoc_ty_did).subst(tcx, item_substs);
+                let ty = tcx.bound_type_of(assoc_ty_did).subst(tcx, item_substs, HKTSubstType::SubstHKTParamWithType);
                 let ty = self.normalize_ty(span, ty);
                 return Ok((ty, DefKind::AssocTy, assoc_ty_did));
             }
@@ -2451,19 +2461,22 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     }
 
     /// Check a type `Path` and convert it to a `Ty`.
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip_all, ret)]
     pub fn res_to_ty(
         &self,
         opt_self_ty: Option<Ty<'tcx>>,
         path: &hir::Path<'_>,
         permit_variants: bool,
     ) -> Ty<'tcx> {
+        info!("res: {:?}", path.res);
+        info!("opt_self_ty: {:?}", opt_self_ty);
+        info!("path_segments: {:#?}", path.segments);
         let tcx = self.tcx();
 
-        debug!(
+        /*info!(
             "res_to_ty(res={:#?}, opt_self_ty={:#?}, path_segments={:#?})",
             path.res, opt_self_ty, path.segments
-        );
+        );*/
 
         let span = path.span;
         match path.res {
@@ -2513,8 +2526,10 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 });
 
                 let def_id = def_id.expect_local();
-                let item_def_id = tcx.hir().ty_param_owner(def_id);
-                let generics = tcx.generics_of(item_def_id);
+                let item_def_id = tcx.hir().ty_param_owner(def_id); // FIXMIG: This should be re-added
+                info!("Parent of {:?} is item_def_id: {:#?}", def_id, item_def_id);
+                let generics: &ty::Generics = tcx.generics_of(item_def_id);
+                info!("GERNERINGS: {:#?}", generics);
                 let index = generics.param_def_id_to_index[&def_id.to_def_id()];
                 tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
             }
@@ -2545,7 +2560,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
 
                 //self.normalize_ty(span, self.tcx().at(span).bound_type_of(did).subst(self.tcx(), substs))
 
-                debug!("{:#?}, {:#?}, {:#?}, {:#?}", def_id, item_def_id, generics, index);
+                info!("{:#?}, {:#?}, {:#?}, {:#?}", def_id, item_def_id, generics, index);
 
                 //tcx.mk_ty_param(index, tcx.hir().ty_param_name(def_id))
                 tcx.mk_hkt_param(def_id.to_def_id(), index, tcx.hir().ty_param_name(def_id), substs)
@@ -2737,33 +2752,38 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         let tcx = self.tcx();
 
         let result_ty = match ast_ty.kind {
-            hir::TyKind::Argument(i) => {
-                if let Some(did) = self.current_argument_env() {
-                    let generics: &ty::Generics = self.tcx().generics_of(did);
-
-                    for param in &generics.params {
-                        if param.name == i.name {
-                            return tcx.mk_ty(ty::Argument(ArgumentDef {
-                                def_id: did,
-                                index: param.index,
-                                name: param.name,
-                            }))
-                        }
-                    }
-
-                    let possibilities = generics.params.iter().map(|param| {
-                        format!("`%{}`", param.name)
-                    }).collect::<Vec<_>>().join(", ");
-
-                    // FIXMIG: Give a proper error code
-                    struct_span_err!(tcx.sess, i.span, E9999, "hkt argument `%{}` could not be found in the definition", i.name)
-                        .span_note(tcx.def_span(did), &format!("expected one of the parameters {} inside the definition", possibilities))
-                        .emit();
-
-                    tcx.ty_error()
+            hir::TyKind::Argument(i, def_id) => {
+                let did = if let Some(did) = def_id {
+                    did.to_def_id()
+                } else if let Some(did) = self.current_argument_env() {
+                    did
                 } else {
                     todo!("hoch") // FIXMIG: Give a proper error message
+                };
+
+                let generics: &ty::Generics = self.tcx().generics_of(did);
+
+                for param in &generics.params {
+                    if param.name == i.name {
+                        return tcx.mk_ty(ty::Argument(ArgumentDef {
+                            def_id: did,
+                            index: param.index,
+                            name: param.name,
+                        }))
+                    }
                 }
+
+                let possibilities = generics.params.iter().map(|param| {
+                    format!("`%{}`", param.name)
+                }).collect::<Vec<_>>().join(", ");
+
+                // FIXMIG: Give a proper error code
+                struct_span_err!(tcx.sess, i.span, E9999, "hkt argument `%{}` could not be found in the definition", i.name)
+                    .span_note(tcx.def_span(did), &format!("expected one of the parameters {} inside the definition", possibilities))
+                    .emit();
+
+                tcx.ty_error()
+
             },
             hir::TyKind::Slice(ref ty) => {
                 tcx.mk_slice(self.ast_ty_to_ty(ty))
@@ -2835,7 +2855,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                     ty::BoundConstness::NotConst,
                 );
                 EarlyBinder(self.normalize_ty(span, tcx.at(span).type_of(def_id)))
-                    .subst(tcx, substs)
+                    .subst(tcx, substs, HKTSubstType::SubstHKTParamWithType)
             }
             hir::TyKind::Array(ref ty, ref length) => {
                 let length = match length {
@@ -3068,6 +3088,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         let fn_sig = tcx.bound_fn_sig(assoc.def_id).subst(
             tcx,
             trait_ref.substs.extend_to(tcx, assoc.def_id, |param, _| tcx.mk_param_from_def(param)),
+            HKTSubstType::SubstHKTParamWithType,
         );
 
         let ty = if let Some(arg_idx) = arg_idx { fn_sig.input(arg_idx) } else { fn_sig.output() };

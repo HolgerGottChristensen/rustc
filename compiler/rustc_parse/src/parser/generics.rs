@@ -37,28 +37,109 @@ impl<'a> Parser<'a> {
 
             self.expect_gt()?;
 
+            let mut colon_span = None;
+
+            let bounds = if self.eat(&token::Colon) {
+                colon_span = Some(self.prev_token.span);
+                // recover from `impl Trait` in type param bound
+                if self.token.is_keyword(kw::Impl) {
+                    let impl_span = self.token.span;
+                    let snapshot = self.create_snapshot_for_diagnostic();
+                    match self.parse_ty() {
+                        Ok(p) => {
+                            if let TyKind::ImplTrait(_, bounds) = &(*p).kind {
+                                let span = impl_span.to(self.token.span.shrink_to_lo());
+                                let mut err = self.struct_span_err(
+                                    span,
+                                    "expected trait bound, found `impl Trait` type",
+                                );
+                                err.span_label(span, "not a trait");
+                                if let [bound, ..] = &bounds[..] {
+                                    err.span_suggestion_verbose(
+                                        impl_span.until(bound.span()),
+                                        "use the trait bounds directly",
+                                        String::new(),
+                                        Applicability::MachineApplicable,
+                                    );
+                                }
+                                err.emit();
+                                return Err(err);
+                            }
+                        }
+                        Err(err) => {
+                            err.cancel();
+                        }
+                    }
+                    self.restore_snapshot(snapshot);
+                }
+                self.parse_generic_bounds(colon_span)?
+            } else {
+                Vec::new()
+            };
+
             Ok(GenericParam {
                 ident,
                 id: ast::DUMMY_NODE_ID,
                 attrs: AttrVec::new(),
-                bounds: GenericBounds::new(),
+                bounds,
                 kind: GenericParamKind::HKT(Generics {
                     params,
                     where_clause: Default::default(),
                     span: Default::default(), // FIXMIG: hoch fix spans
                 }),
                 is_placeholder: false,
-                colon_span: None,
+                colon_span,
             })
         } else {
+
+            let mut colon_span = None;
+
+            let bounds = if self.eat(&token::Colon) {
+                colon_span = Some(self.prev_token.span);
+                // recover from `impl Trait` in type param bound
+                if self.token.is_keyword(kw::Impl) {
+                    let impl_span = self.token.span;
+                    let snapshot = self.create_snapshot_for_diagnostic();
+                    match self.parse_ty() {
+                        Ok(p) => {
+                            if let TyKind::ImplTrait(_, bounds) = &(*p).kind {
+                                let span = impl_span.to(self.token.span.shrink_to_lo());
+                                let mut err = self.struct_span_err(
+                                    span,
+                                    "expected trait bound, found `impl Trait` type",
+                                );
+                                err.span_label(span, "not a trait");
+                                if let [bound, ..] = &bounds[..] {
+                                    err.span_suggestion_verbose(
+                                        impl_span.until(bound.span()),
+                                        "use the trait bounds directly",
+                                        String::new(),
+                                        Applicability::MachineApplicable,
+                                    );
+                                }
+                                err.emit();
+                                return Err(err);
+                            }
+                        }
+                        Err(err) => {
+                            err.cancel();
+                        }
+                    }
+                    self.restore_snapshot(snapshot);
+                }
+                self.parse_generic_bounds(colon_span)?
+            } else {
+                Vec::new()
+            };
+
             Ok(GenericParam {
                 ident,
                 id: ast::DUMMY_NODE_ID,
                 attrs: AttrVec::new(),
-                bounds: GenericBounds::new(),
+                bounds,
                 kind: GenericParamKind::Type { default: None },
                 is_placeholder: false,
-                colon_span: None,
+                colon_span,
             })
         }
     }
@@ -243,7 +324,7 @@ impl<'a> Parser<'a> {
 
     /// Parses a (possibly empty) list of lifetime and type parameters, possibly including
     /// a trailing comma and erroneous trailing attributes.
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     pub(super) fn parse_generic_params(&mut self) -> PResult<'a, Vec<GenericParam>> {
         let mut params = Vec::new();
         let mut done = false;
@@ -349,7 +430,7 @@ impl<'a> Parser<'a> {
         }
 
         use rustc_ast_pretty::pprust::PrintState;
-        debug!("{}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
+        info!("Parsed: {}", rustc_ast_pretty::pprust::State::new().generic_params_to_string(&params));
 
         Ok(params)
     }

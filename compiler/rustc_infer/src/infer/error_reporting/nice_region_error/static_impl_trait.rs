@@ -324,7 +324,7 @@ pub fn suggest_new_region_bound(
                         && let named_lifetimes = generics
                         .params
                         .iter()
-                        .filter(|p| matches!(p.kind, GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit }))
+                        .filter(|p| matches!(p.kind, GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit, .. }))
                         .map(|p| { if let hir::ParamName::Plain(name) = p.name {Some(name.to_string())} else {None}})
                         .filter(|n| ! matches!(n, None))
                         .collect::<Vec<_>>()

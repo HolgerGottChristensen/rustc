@@ -102,7 +102,7 @@ pub fn trait_obligations<'tcx>(
     wf.normalize(infcx)
 }
 
-#[instrument(skip(infcx), ret, level = "info")]
+#[instrument(skip_all, level = "info")]
 pub fn predicate_obligations<'tcx>(
     infcx: &InferCtxt<'tcx>,
     param_env: ty::ParamEnv<'tcx>,
@@ -110,6 +110,11 @@ pub fn predicate_obligations<'tcx>(
     predicate: ty::Predicate<'tcx>,
     span: Span,
 ) -> Vec<traits::PredicateObligation<'tcx>> {
+    info!("param_env: {:#?}", param_env);
+    info!("body_id: {:#?}", body_id);
+    info!("predicate: {:#?}", predicate);
+    info!("span: {:#?}", span);
+
     let mut wf = WfPredicates {
         tcx: infcx.tcx,
         param_env,
@@ -162,7 +167,9 @@ pub fn predicate_obligations<'tcx>(
         }
     }
 
-    wf.normalize(infcx)
+    let ret = wf.normalize(infcx);
+    info!("return: {:#?}", ret);
+    ret
 }
 
 struct WfPredicates<'tcx> {
@@ -435,13 +442,13 @@ impl<'tcx> WfPredicates<'tcx> {
     }
 
     /// Pushes all the predicates needed to validate that `ty` is WF into `out`.
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     fn compute(&mut self, arg: GenericArg<'tcx>) {
         let mut walker = arg.walk();
         let param_env = self.param_env;
         let depth = self.recursion_depth;
         while let Some(arg) = walker.next() {
-            debug!(?arg, ?self.out);
+            info!(?arg, ?self.out);
             let ty = match arg.unpack() {
                 GenericArgKind::Type(ty) => ty,
 
@@ -748,11 +755,11 @@ impl<'tcx> WfPredicates<'tcx> {
             origins.extend(iter::repeat(parent).take(head.predicates.len()));
         }
 
-        debug!("Predicates of: {:?}, {:#?}", def_id, predicates);
+        info!("Predicates of: {:?}, {:#?}", def_id, predicates);
 
         let predicates = predicates.instantiate(self.tcx, substs);
-        debug!("post instantiate: {:#?}", predicates);
-        debug!("{:#?}", self.param_env);
+        info!("post instantiate: {:#?}", predicates);
+        info!("{:#?}", self.param_env);
         debug_assert_eq!(predicates.predicates.len(), origins.len());
 
         iter::zip(iter::zip(predicates.predicates, predicates.spans), origins.into_iter().rev())

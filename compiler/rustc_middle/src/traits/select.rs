@@ -120,6 +120,7 @@ pub enum SelectionCandidate<'tcx> {
     TransmutabilityCandidate,
 
     ParamCandidate(ty::PolyTraitPredicate<'tcx>),
+    HKTCandidate(DefId, ty::TraitRef<'tcx>),
     ImplCandidate(DefId),
     AutoImplCandidate,
 

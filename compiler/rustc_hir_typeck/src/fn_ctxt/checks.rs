@@ -1814,7 +1814,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         && let ty::HKT(_, param_ty, ..) = ty.kind()
                         && matches(param_ty)
                     {
-                        Some(arg)
+                        Some(arg) // FIXMIG: Is this correct?
                     } else {
                         None
                     }

@@ -10,7 +10,7 @@
 use crate::mir;
 use crate::traits::query::NoSolution;
 use crate::ty::fold::{FallibleTypeFolder, TypeFoldable, TypeFolder};
-use crate::ty::{self, EarlyBinder, SubstsRef, Ty, TyCtxt};
+use crate::ty::{self, EarlyBinder, HKTSubstType, SubstsRef, Ty, TyCtxt};
 
 #[derive(Debug, Copy, Clone, HashStable, TyEncodable, TyDecodable)]
 pub enum NormalizationError<'tcx> {
@@ -154,7 +154,7 @@ impl<'tcx> TyCtxt<'tcx> {
              param_env={:?})",
             param_substs, value, param_env,
         );
-        let substituted = EarlyBinder(value).subst(self, param_substs);
+        let substituted = EarlyBinder(value).subst(self, param_substs, HKTSubstType::SubstHKTParamWithType);
         self.normalize_erasing_regions(param_env, substituted)
     }
 
@@ -178,7 +178,7 @@ impl<'tcx> TyCtxt<'tcx> {
              param_env={:?})",
             param_substs, value, param_env,
         );
-        let substituted = EarlyBinder(value).subst(self, param_substs);
+        let substituted = EarlyBinder(value).subst(self, param_substs, HKTSubstType::SubstHKTParamWithType);
         self.try_normalize_erasing_regions(param_env, substituted)
     }
 }

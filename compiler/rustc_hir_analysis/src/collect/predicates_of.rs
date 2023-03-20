@@ -8,6 +8,7 @@ use rustc_hir as hir;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::intravisit::{self, Visitor};
+use rustc_hir::{OwnedHKTParam, WherePredicate};
 use rustc_middle::ty::subst::InternalSubsts;
 use rustc_middle::ty::{ArgumentDef, GenericParamDefKind, ParamEnv, ToPredicate};
 use rustc_middle::ty::{self, Ty, TyCtxt};
@@ -89,6 +90,73 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
                         predicates.extend(bounds.predicates(tcx, ty));
                         trace!(?predicates);
                     }
+
+
+                    let hir_id = tcx.hir().local_def_id_to_hir_id(param.def_id.expect_local());
+                    let node = tcx.hir().get(hir_id);
+
+                    let icx = ItemCtxt::new(tcx, def_id);
+
+                    if let Node::OwnedHKTParam(OwnedHKTParam { generics, .. }) = node {
+                        for predicate in generics.predicates {
+                            match predicate {
+                                WherePredicate::BoundPredicate(bound_pred) => {
+                                    let ty = icx.to_ty(bound_pred.bounded_ty);
+
+                                    let ty = match ty.kind() {
+                                        ty::Param(p) => {
+                                            icx.tcx.mk_ty(ty::Argument(ArgumentDef {
+                                                def_id: param.def_id,
+                                                index: p.index(),
+                                                name: p.name(),
+                                            }))
+                                        }
+                                        _ => unreachable!("This should be impossible since HKTs only contain param types")
+                                    };
+
+                                    let bound_vars = icx.tcx.late_bound_vars(bound_pred.hir_id);
+                                    // Keep the type around in a dummy predicate, in case of no bounds.
+                                    // That way, `where Ty:` is not a complete noop (see #53696) and `Ty`
+                                    // is still checked for WF.
+                                    if bound_pred.bounds.is_empty() {
+                                        if let ty::Param(_) = ty.kind() {
+                                            // This is a `where T:`, which can be in the HIR from the
+                                            // transformation that moves `?Sized` to `T`'s declaration.
+                                            // We can skip the predicate because type parameters are
+                                            // trivially WF, but also we *should*, to avoid exposing
+                                            // users who never wrote `where Type:,` themselves, to
+                                            // compiler/tooling bugs from not handling WF predicates.
+                                        } else if let ty::HKT(..) = ty.kind() {
+                                            // TODO(hoch)
+                                        } else {
+                                            let span = bound_pred.bounded_ty.span;
+                                            let predicate = ty::Binder::bind_with_vars(
+                                                ty::PredicateKind::WellFormed(ty.into()),
+                                                bound_vars,
+                                            );
+                                            predicates.insert((predicate.to_predicate(tcx), span));
+                                        }
+                                    }
+
+                                    let mut bounds = Bounds::default();
+                                    <dyn AstConv<'_>>::add_bounds(
+                                        &icx,
+                                        ty,
+                                        bound_pred.bounds.iter(),
+                                        &mut bounds,
+                                        bound_vars,
+                                    );
+                                    predicates.extend(bounds.predicates(tcx, ty));
+                                }
+                                WherePredicate::RegionPredicate(_) => {
+                                    todo!("hoch")
+                                }
+                                WherePredicate::EqPredicate(_) => {
+                                    todo!("hoch")
+                                }
+                            }
+                        }
+                    }
                 }
                 _ => (),
             }
@@ -108,7 +176,7 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
 
 /// Returns a list of user-specified type predicates for the definition with ID `def_id`.
 /// N.B., this does not include any implied/inferred constraints.
-#[instrument(level = "debug", skip(tcx), ret)]
+#[instrument(level = "info", skip(tcx), ret)]
 fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicates<'_> {
     use rustc_hir::*;
 
@@ -126,7 +194,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
     // Preserving the order of insertion is important here so as not to break UI tests.
     let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
-    debug!("Node: {:#?}", node);
+    //info!("Node: {:#?}", node);
     let ast_generics = match node {
         Node::TraitItem(item) => item.generics,
 
@@ -159,12 +227,19 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             ForeignItemKind::Type => NO_GENERICS,
         },
 
-        Node::GenericParam(GenericParam{kind: GenericParamKind::HKT(generics), ..}) => *generics,
+        Node::GenericParam(GenericParam { kind: GenericParamKind::HKT(owner_id), .. }) => {
+            todo!("HKT with owner id: {:?}", owner_id) // FIXMIG: What to do here?
+        },
+        Node::OwnedHKTParam(owned) => {
+            owned.generics
+        }
 
         _ => NO_GENERICS,
     };
 
-    let generics = tcx.generics_of(def_id);
+    let generics: &ty::Generics = tcx.generics_of(def_id);
+
+    info!("Generics: {:#?}\nAST-Generics: {:#?}", generics, ast_generics);
 
     let parent_count = generics.parent_count as u32;
     let has_own_self = generics.has_self && parent_count == 0;
@@ -175,6 +250,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
     // associated types.
     if let Some(_trait_ref) = is_trait {
         predicates.extend(tcx.super_predicates_of(def_id).predicates.iter().cloned());
+        info!("Predicates after super_predicates_of: {:#?}", predicates);
     }
 
     // In default impls, we can assume that the self type implements
@@ -196,9 +272,9 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         + has_own_self as u32
         + super::early_bound_lifetimes_from_generics(tcx, ast_generics).count() as u32;
 
-    debug!("predicatesss = {:#?}", predicates);
-    debug!("ast_generics = {:#?}", ast_generics);
-    debug!("generics = {:#?}", generics);
+    //info!("predicatesss = {:#?}", predicates);
+    //info!("ast_generics = {:#?}", ast_generics);
+    //info!("generics = {:#?}", generics);
 
     // Collect the predicates that were written inline by the user on each
     // type parameter (e.g., `<T: Foo>`).
@@ -217,7 +293,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                     &icx,
                     &mut bounds,
                     &[],
-                    Some((param.def_id, ast_generics.predicates)),
+                    Some((param.local_def_id(), ast_generics.predicates)),
                     param.span,
                 );
                 trace!(?bounds);
@@ -229,7 +305,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                 index += 1;
             }
             GenericParamKind::HKT(..) => {
-                let name = param.name.ident().name;
+                /*let name = param.name.ident().name;
                 let param_ty = ty::ParamTy::new_hkt(param.def_id.to_def_id(), index, name).to_ty(tcx);
 
 
@@ -245,13 +321,13 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
                 debug!("bounds = {:#?}", bounds);
                 predicates.extend(bounds.predicates(tcx, param_ty));
 
-                debug!("predicatesa = {:#?}", predicates);
+                debug!("predicatesa = {:#?}", predicates);*/
                 index += 1;
             }
         }
     }
 
-    trace!(?predicates);
+    info!("Predicates after ast_generics.params: {:#?}", predicates);
     // Add in the bounds that appear in the where-clause.
     for predicate in ast_generics.predicates {
         match predicate {
@@ -317,6 +393,8 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         }
     }
 
+    info!("Predicates after ast_generics.predicates: {:#?}", predicates);
+
     if tcx.features().generic_const_exprs {
         predicates.extend(const_evaluatable_predicates_of(tcx, def_id.expect_local()));
     }
@@ -358,7 +436,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
             }
 
             let hir::GenericParamKind::Lifetime { .. } = duplicate.kind else { continue };
-            let dup_def = tcx.hir().local_def_id(duplicate.hir_id).to_def_id();
+            let dup_def = tcx.hir().local_def_id(duplicate.expect_hir_id()).to_def_id();
 
             let Some(dup_index) = generics.param_def_id_to_index(tcx, dup_def) else { bug!() };
 

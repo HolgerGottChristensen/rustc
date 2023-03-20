@@ -203,8 +203,6 @@ pub enum GenericArg {
     Type(P<Ty>),
     /// `1` in `Foo<1>`
     Const(AnonConst),
-    /// %J in Foo<%J>
-    HKTVar(HKTVar)
 }
 
 impl GenericArg {
@@ -213,7 +211,6 @@ impl GenericArg {
             GenericArg::Lifetime(lt) => lt.ident.span,
             GenericArg::Type(ty) => ty.span,
             GenericArg::Const(ct) => ct.value.span,
-            GenericArg::HKTVar(v) => v.ident.span,
         }
     }
 }
@@ -386,6 +383,15 @@ impl GenericParam {
 
     pub fn id(&self) -> NodeId {
         self.id
+    }
+
+    pub fn expect_hkt(&self) -> &Generics {
+        match &self.kind {
+            GenericParamKind::Lifetime
+            | GenericParamKind::Type { .. }
+            | GenericParamKind::Const { .. } => todo!("hoch"),
+            GenericParamKind::HKT(g) => g
+        }
     }
 
     pub fn last_span(&self) -> Span {
@@ -2132,6 +2138,8 @@ pub struct BareFnTy {
 /// The various kinds of type recognized by the compiler.
 #[derive(Clone, Encodable, Decodable, Debug)]
 pub enum TyKind {
+    /// A hkt argument (`%J`)
+    Argument(Ident),
     /// A variable-length slice (`[T]`).
     Slice(P<Ty>),
     /// A fixed length array (`[T; n]`).

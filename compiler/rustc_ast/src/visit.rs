@@ -137,9 +137,6 @@ pub trait Visitor<'ast>: Sized {
     fn visit_anon_const(&mut self, c: &'ast AnonConst) {
         walk_anon_const(self, c)
     }
-    fn visit_hkt_var(&mut self, v: &'ast HKTVar) {
-        walk_hkt_var(self, v)
-    }
     fn visit_expr(&mut self, ex: &'ast Expr) {
         walk_expr(self, ex)
     }
@@ -397,6 +394,7 @@ pub fn walk_pat_field<'a, V: Visitor<'a>>(visitor: &mut V, fp: &'a PatField) {
 
 pub fn walk_ty<'a, V: Visitor<'a>>(visitor: &mut V, typ: &'a Ty) {
     match &typ.kind {
+        TyKind::Argument(ident) => visitor.visit_ident(*ident),
         TyKind::Slice(ty) | TyKind::Paren(ty) => visitor.visit_ty(ty),
         TyKind::Ptr(mutable_type) => visitor.visit_ty(&mutable_type.ty),
         TyKind::Ref(opt_lifetime, mutable_type) => {
@@ -492,7 +490,6 @@ where
         GenericArg::Lifetime(lt) => visitor.visit_lifetime(lt, LifetimeCtxt::GenericArg),
         GenericArg::Type(ty) => visitor.visit_ty(ty),
         GenericArg::Const(ct) => visitor.visit_anon_const(ct),
-        GenericArg::HKTVar(v) => visitor.visit_hkt_var(v)
     }
 }
 
@@ -735,10 +732,6 @@ pub fn walk_mac<'a, V: Visitor<'a>>(visitor: &mut V, mac: &'a MacCall) {
 
 pub fn walk_anon_const<'a, V: Visitor<'a>>(visitor: &mut V, constant: &'a AnonConst) {
     visitor.visit_expr(&constant.value);
-}
-
-pub fn walk_hkt_var<'a, V: Visitor<'a>>(visitor: &mut V, v: &'a HKTVar) {
-    visitor.visit_ident(v.ident);
 }
 
 pub fn walk_inline_asm<'a, V: Visitor<'a>>(visitor: &mut V, asm: &'a InlineAsm) {

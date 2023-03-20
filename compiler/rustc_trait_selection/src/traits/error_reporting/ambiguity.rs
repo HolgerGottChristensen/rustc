@@ -3,6 +3,7 @@ use rustc_infer::infer::{InferCtxt, LateBoundRegionConversionTime};
 use rustc_infer::traits::util::elaborate_predicates_with_span;
 use rustc_infer::traits::{Obligation, ObligationCause, TraitObligation};
 use rustc_middle::ty;
+use rustc_middle::ty::HKTSubstType;
 use rustc_span::{Span, DUMMY_SP};
 
 use crate::traits::ObligationCtxt;
@@ -27,7 +28,7 @@ pub fn recompute_applicable_impls<'tcx>(
             ocx.normalize(&ObligationCause::dummy(), param_env, placeholder_obligation.trait_ref);
 
         let impl_substs = infcx.fresh_substs_for_item(DUMMY_SP, impl_def_id);
-        let impl_trait_ref = tcx.bound_impl_trait_ref(impl_def_id).unwrap().subst(tcx, impl_substs);
+        let impl_trait_ref = tcx.bound_impl_trait_ref(impl_def_id).unwrap().subst(tcx, impl_substs, HKTSubstType::SubstHKTParamWithType);
         let impl_trait_ref = ocx.normalize(&ObligationCause::dummy(), param_env, impl_trait_ref);
 
         if let Err(_) =

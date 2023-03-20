@@ -10,7 +10,7 @@ note: hkt parameter defined here, with 1 generic parameter: `J`
   --> $DIR/too_many_params.rs:4:9
    |
 LL | fn test<I<%J>>(input: I<u32, u32>) {}
-   |         ^
+   |         ^  -
 
 error: aborting due to previous error
 

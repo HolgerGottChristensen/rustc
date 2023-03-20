@@ -1009,7 +1009,6 @@ impl<'a> State<'a> {
             GenericArg::Lifetime(lt) => self.print_lifetime(*lt),
             GenericArg::Type(ty) => self.print_type(ty),
             GenericArg::Const(ct) => self.print_expr(&ct.value),
-            GenericArg::HKTVar(v) => self.print_hkt_var(*v),
         }
     }
 
@@ -1017,6 +1016,10 @@ impl<'a> State<'a> {
         self.maybe_print_comment(ty.span.lo());
         self.ibox(0);
         match &ty.kind {
+            ast::TyKind::Argument(ident) => {
+                self.word("%");
+                self.print_name(ident.name)
+            }
             ast::TyKind::Slice(ty) => {
                 self.word("[");
                 self.print_type(ty);
@@ -1582,10 +1585,6 @@ impl<'a> State<'a> {
         self.print_name(lifetime.ident.name)
     }
 
-    pub(crate) fn print_hkt_var(&mut self, hkt_var: ast::HKTVar) {
-        self.word("%");
-        self.print_name(hkt_var.ident.name)
-    }
 
     pub(crate) fn print_lifetime_bounds(&mut self, bounds: &ast::GenericBounds) {
         for (i, bound) in bounds.iter().enumerate() {
@@ -1604,6 +1603,10 @@ impl<'a> State<'a> {
         self.commasep(Inconsistent, &kinds.params, |s, kind| {
             s.word("%");
             s.print_ident(kind.ident);
+            if !kind.bounds.is_empty() {
+                s.word_nbsp(":");
+                s.print_type_bounds(&kind.bounds);
+            }
             /*match kind {
                 HKTKind::Atomic(ident) => {
                     s.word("?");
@@ -1672,6 +1675,11 @@ impl<'a> State<'a> {
                     s.word("<");
                     s.print_hkt_kind(nested);
                     s.word(">");
+
+                    if !param.bounds.is_empty() {
+                        s.word_nbsp(":");
+                        s.print_type_bounds(&param.bounds);
+                    }
                 }
             }
         });

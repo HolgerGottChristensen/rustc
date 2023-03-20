@@ -318,7 +318,7 @@ impl<'cx, 'tcx> Visitor<'tcx> for WritebackCx<'cx, 'tcx> {
             hir::GenericParamKind::Lifetime { .. } => {
                 // Nothing to write back here
             }
-            GenericParamKind::HKT(_)  | hir::GenericParamKind::Type { .. } | hir::GenericParamKind::Const { .. } => {
+            GenericParamKind::HKT(_) | hir::GenericParamKind::Type { .. } | hir::GenericParamKind::Const { .. } => {
                 self.tcx().sess.delay_span_bug(p.span, format!("unexpected generic param: {p:?}"));
             }
         }

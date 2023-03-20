@@ -20,7 +20,7 @@ use rustc_middle::mir::{
     RETURN_PLACE,
 };
 use rustc_middle::ty::layout::{LayoutError, LayoutOf, LayoutOfHelpers, TyAndLayout};
-use rustc_middle::ty::InternalSubsts;
+use rustc_middle::ty::{HKTSubstType, InternalSubsts};
 use rustc_middle::ty::{self, ConstKind, Instance, ParamEnv, Ty, TyCtxt, TypeVisitable};
 use rustc_span::{def_id::DefId, Span};
 use rustc_target::abi::{self, Align, HasDataLayout, Size, TargetDataLayout};
@@ -393,7 +393,7 @@ impl<'mir, 'tcx> ConstPropagator<'mir, 'tcx> {
         );
 
         let ret_layout = ecx
-            .layout_of(body.bound_return_ty().subst(tcx, substs))
+            .layout_of(body.bound_return_ty().subst(tcx, substs, HKTSubstType::SubstHKTParamWithType))
             .ok()
             // Don't bother allocating memory for large values.
             // I don't know how return types can seem to be unsized but this happens in the

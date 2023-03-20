@@ -35,17 +35,17 @@ trait RegionExt {
 
 impl RegionExt for Region {
     fn early(param: &GenericParam<'_>) -> (LocalDefId, Region) {
-        debug!("Region::early: def_id={:?}", param.def_id);
-        (param.def_id, Region::EarlyBound(param.def_id.to_def_id()))
+        debug!("Region::early: def_id={:?}", param.local_def_id());
+        (param.local_def_id(), Region::EarlyBound(param.local_def_id().to_def_id()))
     }
 
     fn late(idx: u32, param: &GenericParam<'_>) -> (LocalDefId, Region) {
         let depth = ty::INNERMOST;
         debug!(
             "Region::late: idx={:?}, param={:?} depth={:?} def_id={:?}",
-            idx, param, depth, param.def_id,
+            idx, param, depth, param.local_def_id(),
         );
-        (param.def_id, Region::LateBound(depth, idx, param.def_id.to_def_id()))
+        (param.local_def_id(), Region::LateBound(depth, idx, param.local_def_id().to_def_id()))
     }
 
     fn id(&self) -> Option<DefId> {
@@ -258,6 +258,9 @@ fn resolve_lifetimes(tcx: TyCtxt<'_>, local_def_id: hir::OwnerId) -> ResolveLife
             visitor.visit_impl_item(item)
         }
         hir::OwnerNode::Crate(_) => {}
+        hir::OwnerNode::HKT(param) => {
+            visitor.visit_owned_hkt_param(param)
+        }
     }
 
     let mut rl = ResolveLifetimes::default();
@@ -857,14 +860,14 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                             this.visit_ty(&ty);
                         }
                     }
-                    GenericParamKind::Const { ref ty, default } => {
+                    GenericParamKind::Const { ref ty, default, .. } => {
                         this.visit_ty(&ty);
                         if let Some(default) = default {
                             this.visit_body(this.tcx.hir().body(default.body));
                         }
                     }
                     GenericParamKind::HKT(_) => {
-                        // TODO(hoch)
+                        // FIXMIG: what to do here?
                     }
                 }
             }
@@ -1033,7 +1036,7 @@ fn object_lifetime_default(tcx: TyCtxt<'_>, param_def_id: DefId) -> ObjectLifeti
     let parent_def_id = tcx.local_parent(param_def_id);
     let generics = tcx.hir().get_generics(parent_def_id).unwrap();
     let param_hir_id = tcx.local_def_id_to_hir_id(param_def_id);
-    let param = generics.params.iter().find(|p| p.hir_id == param_hir_id).unwrap();
+    let param = generics.params.iter().find(|p| p.expect_hir_id() == param_hir_id).unwrap();
 
     // Scan the bounds and where-clauses on parameters to extract bounds
     // of the form `T:'a` so as to determine the `ObjectLifetimeDefault`
@@ -1126,8 +1129,8 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
             .params
             .iter()
             .filter_map(|param| match param.kind {
-                GenericParamKind::Lifetime { .. } => {
-                    if self.tcx.is_late_bound(param.hir_id) {
+                GenericParamKind::Lifetime { hir_id, .. } => {
+                    if self.tcx.is_late_bound(hir_id) {
                         let late_bound_idx = named_late_bound_vars;
                         named_late_bound_vars += 1;
                         Some(Region::late(late_bound_idx, param))
@@ -1146,7 +1149,7 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
             .iter()
             .filter(|param| {
                 matches!(param.kind, GenericParamKind::Lifetime { .. })
-                    && self.tcx.is_late_bound(param.hir_id)
+                    && self.tcx.is_late_bound(param.expect_hir_id())
             })
             .enumerate()
             .map(|(late_bound_idx, param)| {
@@ -1208,7 +1211,7 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
                     if let Some(hir::PredicateOrigin::ImplTrait) = where_bound_origin
                         && let hir::LifetimeName::Param(param_id) = lifetime_ref.res
                         && let Some(generics) = self.tcx.hir().get_generics(self.tcx.local_parent(param_id))
-                        && let Some(param) = generics.params.iter().find(|p| p.def_id == param_id)
+                        && let Some(param) = generics.params.iter().find(|p| p.local_def_id() == param_id)
                         && param.is_elided_lifetime()
                         && let hir::IsAsync::NotAsync = self.tcx.asyncness(lifetime_ref.hir_id.owner.def_id)
                         && !self.tcx.features().anonymous_lifetime_in_impl_trait
@@ -1706,7 +1709,7 @@ fn is_late_bound_map(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Option<&FxIndexSet<
             hir::GenericParamKind::HKT { .. } | hir::GenericParamKind::Type { .. } | hir::GenericParamKind::Const { .. } => continue,
         }
 
-        let param_def_id = tcx.hir().local_def_id(param.hir_id);
+        let param_def_id = tcx.hir().local_def_id(param.expect_hir_id());
 
         // appears in the where clauses? early-bound.
         if appears_in_where_clause.regions.contains(&param_def_id) {
@@ -1720,10 +1723,10 @@ fn is_late_bound_map(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Option<&FxIndexSet<
             continue;
         }
 
-        debug!("lifetime {:?} with id {:?} is late-bound", param.name.ident(), param.hir_id);
+        debug!("lifetime {:?} with id {:?} is late-bound", param.name.ident(), param.expect_hir_id());
 
         let inserted = late_bound.insert(param_def_id);
-        assert!(inserted, "visited lifetime {:?} twice", param.hir_id);
+        assert!(inserted, "visited lifetime {:?} twice", param.expect_hir_id());
     }
 
     debug!(?late_bound);

@@ -13,9 +13,7 @@ use rustc_infer::infer::{self, InferCtxt, TyCtxtInferExt};
 use rustc_infer::traits::util;
 use rustc_middle::ty::error::{ExpectedFound, TypeError};
 use rustc_middle::ty::util::ExplicitSelf;
-use rustc_middle::ty::{
-    self, DefIdTree, InternalSubsts, Ty, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable,
-};
+use rustc_middle::ty::{self, DefIdTree, HKTSubstType, InternalSubsts, Ty, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable};
 use rustc_middle::ty::{GenericParamDefKind, ToPredicate, TyCtxt};
 use rustc_span::Span;
 use rustc_trait_selection::traits::error_reporting::TypeErrCtxtExt;
@@ -273,7 +271,7 @@ fn compare_method_predicate_entailment<'tcx>(
     let impl_fty = ocx.normalize(&norm_cause, param_env, unnormalized_impl_fty);
     debug!("compare_impl_method: impl_fty={:?}", impl_fty);
 
-    let trait_sig = tcx.bound_fn_sig(trait_m.def_id).subst(tcx, trait_to_placeholder_substs);
+    let trait_sig = tcx.bound_fn_sig(trait_m.def_id).subst(tcx, trait_to_placeholder_substs, HKTSubstType::SubstHKTParamWithType);
     let trait_sig = tcx.liberate_late_bound_regions(impl_m.def_id, trait_sig);
 
     // Next, add all inputs and output as well-formed tys. Importantly,
@@ -535,7 +533,7 @@ pub(super) fn collect_return_position_impl_trait_in_trait_tys<'tcx>(
     let unnormalized_trait_sig = tcx
         .liberate_late_bound_regions(
             impl_m.def_id,
-            tcx.bound_fn_sig(trait_m.def_id).subst(tcx, trait_to_placeholder_substs),
+            tcx.bound_fn_sig(trait_m.def_id).subst(tcx, trait_to_placeholder_substs, HKTSubstType::SubstHKTParamWithType),
         )
         .fold_with(&mut collector);
     let trait_sig = ocx.normalize(&norm_cause, param_env, unnormalized_trait_sig);
@@ -1132,6 +1130,7 @@ fn compare_number_of_generics<'tcx>(
                     .filter(|p| match p.kind {
                         hir::GenericParamKind::Lifetime {
                             kind: hir::LifetimeParamKind::Elided,
+                            ..
                         } => {
                             // A fn can have an arbitrary number of extra elided lifetimes for the
                             // same signature.
@@ -1582,7 +1581,7 @@ pub(super) fn compare_impl_const_raw(
 
     // Compute placeholder form of impl and trait const tys.
     let impl_ty = tcx.type_of(impl_const_item_def.to_def_id());
-    let trait_ty = tcx.bound_type_of(trait_const_item_def).subst(tcx, trait_to_impl_substs);
+    let trait_ty = tcx.bound_type_of(trait_const_item_def).subst(tcx, trait_to_impl_substs, HKTSubstType::SubstHKTParamWithType);
     let mut cause = ObligationCause::new(
         impl_c_span,
         impl_c_hir_id,

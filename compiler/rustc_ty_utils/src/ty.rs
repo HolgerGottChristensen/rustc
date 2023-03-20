@@ -1,7 +1,7 @@
 use rustc_data_structures::fx::FxIndexSet;
 use rustc_hir as hir;
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, Binder, Predicate, PredicateKind, ToPredicate, Ty, TyCtxt};
+use rustc_middle::ty::{self, Binder, GenericParamDefKind, Generics, HKTSubstType, ParamTy, Predicate, PredicateKind, ToPredicate, Ty, TyCtxt};
 use rustc_session::config::TraitSolver;
 use rustc_trait_selection::traits;
 
@@ -13,9 +13,6 @@ fn sized_constraint_for_ty<'tcx>(
     use rustc_type_ir::sty::TyKind::*;
 
     let result = match ty.kind() {
-        Argument(..) => {
-            todo!("hoch") // FIXMIG: what to do here?
-        }
         Bool | Char | Int(..) | Uint(..) | Float(..) | RawPtr(..) | Ref(..) | FnDef(..)
         | FnPtr(_) | Array(..) | Closure(..) | Generator(..) | Never => vec![],
 
@@ -36,7 +33,7 @@ fn sized_constraint_for_ty<'tcx>(
             adt_tys
                 .0
                 .iter()
-                .map(|ty| adt_tys.rebind(*ty).subst(tcx, substs))
+                .map(|ty| adt_tys.rebind(*ty).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType))
                 .flat_map(|ty| sized_constraint_for_ty(tcx, adtdef, ty))
                 .collect()
         }
@@ -50,15 +47,20 @@ fn sized_constraint_for_ty<'tcx>(
             todo!("hoch") // FIXMIG: what to do here?
         }
 
+        Argument(..) => {
+            todo!("hoch") // FIXMIG: what to do here?
+        }
         Param(..) => {
             // perf hack: if there is a `T: Sized` bound, then
             // we know that `T` is Sized and do not need to check
             // it on the impl.
 
             let Some(sized_trait) = tcx.lang_items().sized_trait() else { return vec![ty] };
+
             let sized_predicate = ty::Binder::dummy(tcx.mk_trait_ref(sized_trait, [ty]))
                 .without_const()
                 .to_predicate(tcx);
+
             let predicates = tcx.predicates_of(adtdef.did()).predicates;
             if predicates.iter().any(|(p, _)| *p == sized_predicate) { vec![] } else { vec![ty] }
         }
@@ -108,7 +110,40 @@ fn adt_sized_constraint(tcx: TyCtxt<'_>, def_id: DefId) -> &[Ty<'_>] {
             .flat_map(|f| sized_constraint_for_ty(tcx, def, tcx.type_of(f.did))),
     );
 
-    debug!("adt_sized_constraint: {:?} => {:?}", def, result);
+    info!("adt_sized_constraint: {:?} => {:?}", def, result);
+
+    result
+}
+
+
+/// Calculates the Sized constraints for a given HKT.
+/// see: [mental model for general trait selection.md]
+fn hkt_sized_constraint(tcx: TyCtxt<'_>, def_id: DefId) -> &[Ty<'_>] {
+    let generics: &Generics = tcx.generics_of(def_id);
+
+    let result: &[Ty<'_>] = tcx.mk_type_list(
+        generics.params
+            .iter()
+            .enumerate()
+            .filter_map(|(index, a)| {
+                match a.kind {
+                    GenericParamDefKind::Type { .. } => {
+                        Some(tcx.mk_ty(ty::Param(ParamTy::Param {
+                            index: index as u32,
+                            name: a.name,
+                        })))
+                        /*Some(tcx.mk_ty(ty::Argument(ArgumentDef {
+                            def_id,
+                            index: index as u32,
+                            name: a.name,
+                        })))*/
+                    }
+                    _ => None
+                }
+            })
+    );
+
+    info!("hkt_sized_constraint: {:?} => {:?}", def_id, result);
 
     result
 }
@@ -421,6 +456,7 @@ pub fn provide(providers: &mut ty::query::Providers) {
     *providers = ty::query::Providers {
         asyncness,
         adt_sized_constraint,
+        hkt_sized_constraint,
         param_env,
         param_env_reveal_all_normalized,
         instance_def_size_estimate,

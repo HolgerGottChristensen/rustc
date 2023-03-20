@@ -11,10 +11,7 @@ use rustc_hir::lang_items::LangItem;
 use rustc_index::bit_set::GrowableBitSet;
 use rustc_infer::infer::InferOk;
 use rustc_infer::infer::LateBoundRegionConversionTime::HigherRankedType;
-use rustc_middle::ty::{
-    self, Binder, GenericArg, GenericArgKind, GenericParamDefKind, InternalSubsts, SubstsRef,
-    ToPolyTraitRef, ToPredicate, TraitRef, Ty, TyCtxt,
-};
+use rustc_middle::ty::{self, Binder, EarlyBinder, GenericArg, GenericArgKind, GenericParamDefKind, HKTSubstType, InternalSubsts, SubstsRef, ToPolyTraitRef, ToPredicate, TraitRef, Ty, TyCtxt};
 use rustc_session::config::TraitSolver;
 use rustc_span::def_id::DefId;
 
@@ -42,7 +39,7 @@ use std::iter;
 use std::ops::ControlFlow;
 
 impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     pub(super) fn confirm_candidate(
         &mut self,
         obligation: &TraitObligation<'tcx>,
@@ -65,6 +62,10 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 ImplSource::Param(obligations, param.skip_binder().constness)
             }
 
+            HKTCandidate(did, trait_ref) => {
+                let obligations = self.confirm_hkt_candidate(did, trait_ref, obligation);
+                ImplSource::HKT(obligations)
+            }
             ImplCandidate(impl_def_id) => {
                 ImplSource::UserDefined(self.confirm_impl_candidate(obligation, impl_def_id))
             }
@@ -161,7 +162,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         };
 
         let candidate_predicate =
-            tcx.bound_item_bounds(def_id).map_bound(|i| i[idx]).subst(tcx, substs);
+            tcx.bound_item_bounds(def_id).map_bound(|i| i[idx]).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
         let candidate = candidate_predicate
             .to_opt_poly_trait_pred()
             .expect("projection candidate is not a trait predicate")
@@ -367,17 +368,32 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         })
     }
 
+    fn confirm_hkt_candidate(
+        &mut self,
+        def_id: DefId,
+        trait_ref: TraitRef<'tcx>,
+        obligation: &TraitObligation<'tcx>,
+    ) -> Vec<PredicateObligation<'tcx>> {
+        info!(?obligation, ?def_id, "confirm_hkt_candidate");
+
+        // First, create the substitutions by matching the impl again,
+        // this time not in a probe.
+        let substs = self.rematch_hkt(def_id, EarlyBinder(trait_ref), obligation);
+        //todo!("hkt substs: {:#?}", substs);
+        substs.obligations
+    }
+
     fn confirm_impl_candidate(
         &mut self,
         obligation: &TraitObligation<'tcx>,
         impl_def_id: DefId,
     ) -> ImplSourceUserDefinedData<'tcx, PredicateObligation<'tcx>> {
-        debug!(?obligation, ?impl_def_id, "confirm_impl_candidate");
+        info!(?obligation, ?impl_def_id, "confirm_impl_candidate");
 
         // First, create the substitutions by matching the impl again,
         // this time not in a probe.
         let substs = self.rematch_impl(impl_def_id, obligation);
-        debug!(?substs, "impl substs");
+        info!(?substs, "impl substs");
         ensure_sufficient_stack(|| {
             self.vtable_impl(
                 impl_def_id,
@@ -399,7 +415,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         param_env: ty::ParamEnv<'tcx>,
         parent_trait_pred: ty::Binder<'tcx, ty::TraitPredicate<'tcx>>,
     ) -> ImplSourceUserDefinedData<'tcx, PredicateObligation<'tcx>> {
-        debug!(?impl_def_id, ?substs, ?recursion_depth, "vtable_impl");
+        info!(?impl_def_id, ?substs, ?recursion_depth, "vtable_impl");
 
         let mut impl_obligations = self.impl_or_trait_obligations(
             cause,
@@ -410,7 +426,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             parent_trait_pred,
         );
 
-        debug!(?impl_obligations, "vtable_impl");
+        info!(?impl_obligations, "vtable_impl");
 
         // Because of RFC447, the impl-trait-ref and obligations
         // are sufficient to determine the impl substs, without
@@ -514,7 +530,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             for bound in self.tcx().bound_item_bounds(assoc_type).transpose_iter() {
                 let subst_bound =
                     if defs.count() == 0 {
-                        bound.subst(tcx, trait_predicate.trait_ref.substs)
+                        bound.subst(tcx, trait_predicate.trait_ref.substs, HKTSubstType::SubstHKTParamWithType)
                     } else {
                         let mut substs = smallvec::SmallVec::with_capacity(defs.count());
                         substs.extend(trait_predicate.trait_ref.substs.iter());
@@ -571,7 +587,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
                         let bound_vars = tcx.mk_bound_variable_kinds(bound_vars.into_iter());
                         let bound =
-                            bound.map_bound(|b| b.kind().skip_binder()).subst(tcx, assoc_ty_substs);
+                            bound.map_bound(|b| b.kind().skip_binder()).subst(tcx, assoc_ty_substs, HKTSubstType::SubstHKTParamWithType);
                         tcx.mk_predicate(ty::Binder::bind_with_vars(bound, bound_vars))
                     };
                 let normalized_bound = normalize_with_depth_to(
@@ -1121,7 +1137,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                     obligation.param_env,
                     obligation.cause.clone(),
                     obligation.recursion_depth + 1,
-                    tail_field_ty.subst(tcx, substs_a),
+                    tail_field_ty.subst(tcx, substs_a, HKTSubstType::SubstHKTParamWithType),
                     &mut nested,
                 );
                 let target_tail = normalize_with_depth_to(
@@ -1129,7 +1145,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                     obligation.param_env,
                     obligation.cause.clone(),
                     obligation.recursion_depth + 1,
-                    tail_field_ty.subst(tcx, substs_b),
+                    tail_field_ty.subst(tcx, substs_b, HKTSubstType::SubstHKTParamWithType),
                     &mut nested,
                 );
 

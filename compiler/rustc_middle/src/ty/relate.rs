@@ -5,7 +5,7 @@
 //! subtyping, type equality, etc.
 
 use crate::ty::error::{ExpectedFound, TypeError};
-use crate::ty::{self, Expr, ImplSubject, Term, TermKind, Ty, TyCtxt, TypeFoldable};
+use crate::ty::{self, Expr, HKTSubstType, ImplSubject, Term, TermKind, Ty, TyCtxt, TypeFoldable};
 use crate::ty::{GenericArg, GenericArgKind, SubstsRef};
 use rustc_hir as ast;
 use rustc_hir::def_id::DefId;
@@ -58,7 +58,7 @@ pub trait TypeRelation<'tcx>: Sized {
         a_subst: SubstsRef<'tcx>,
         b_subst: SubstsRef<'tcx>,
     ) -> RelateResult<'tcx, SubstsRef<'tcx>> {
-        debug!(
+        info!(
             "relate_item_substs(item_def_id={:?}, a_subst={:?}, b_subst={:?})",
             item_def_id, a_subst, b_subst
         );
@@ -165,7 +165,7 @@ pub fn relate_substs_with_variances<'tcx, R: TypeRelation<'tcx>>(
         let variance = variances[i];
         let variance_info = if variance == ty::Invariant && fetch_ty_for_diag {
             let ty =
-                *cached_ty.get_or_insert_with(|| tcx.bound_type_of(ty_def_id).subst(tcx, a_subst));
+                *cached_ty.get_or_insert_with(|| tcx.bound_type_of(ty_def_id).subst(tcx, a_subst, HKTSubstType::SubstHKTParamWithType));
             ty::VarianceDiagInfo::Invariant { ty, param_index: i.try_into().unwrap() }
         } else {
             ty::VarianceDiagInfo::default()
@@ -426,9 +426,28 @@ pub fn super_relate_tys<'tcx, R: TypeRelation<'tcx>>(
             Ok(a)
         }
 
+        (&ty::Argument(..), &ty::Argument(..)) if a == b => {
+            Ok(a)
+        }
+        (&ty::Argument(..), &ty::Argument(..)) if a != b => {
+            Err(TypeError::Sorts(expected_found(relation, a, b)))
+        }
+
+        /*(&ty::Argument(..), _) => {
+            Ok(b)
+        }
+        (_, &ty::Argument(..)) => {
+            Ok(a)
+        }*/
+
         (ty::Param(a_p), ty::Param(b_p)) if a_p.index() == b_p.index() => Ok(a),
 
-        (ty::HKT(_, a_p, ..), ty::HKT(_, b_p, ..)) if a_p.index() == b_p.index() => Ok(a), // FIXMIG(hoch): Handle substs like adt
+        (ty::HKT(a_did, a_p, a_substs), ty::HKT(_, b_p, b_substs)) if a_p.index() == b_p.index() => {
+            info!("Trying to relate HKTs. a: {:#?}, b: {:#?}", a.kind(), b.kind());
+            // FIXMIG(hoch): Handle substs like adt
+            let substs = relation.relate_item_substs(*a_did, a_substs, b_substs)?;
+            Ok(tcx.mk_hkt_param(*a_did, a_p.index(), a_p.name(), substs))
+        },
 
         (ty::Placeholder(p1), ty::Placeholder(p2)) if p1 == p2 => Ok(a),
 

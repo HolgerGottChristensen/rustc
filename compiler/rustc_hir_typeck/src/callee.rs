@@ -19,7 +19,7 @@ use rustc_infer::{
 use rustc_middle::ty::adjustment::{
     Adjust, Adjustment, AllowTwoPhase, AutoBorrow, AutoBorrowMutability,
 };
-use rustc_middle::ty::{SubstsRef, ty_slice_as_generic_args};
+use rustc_middle::ty::{HKTSubstType, SubstsRef, ty_slice_as_generic_args};
 use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitable};
 use rustc_span::def_id::LocalDefId;
 use rustc_span::symbol::{sym, Ident};
@@ -85,7 +85,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// specified type.
     ///
     /// returns: The return type of the function call.
-    #[instrument(level = "info", skip(self, call_expr, callee_expr, arg_exprs), ret)]
+    #[instrument(level = "info", skip(self, call_expr, callee_expr, arg_exprs), fields(id = ?call_expr.hir_id)ret)]
     pub fn check_call(
         &self,
         call_expr: &'tcx hir::Expr<'tcx>,
@@ -419,13 +419,14 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             ty::FnDef(def_id, subst) => {
                 let new_ty = self.tcx.mk_ty(ty::Bool);
                 let new_gen_arg = ty_slice_as_generic_args(self.tcx.arena.alloc_from_iter([new_ty]));
-                let new_subst = self.tcx.intern_substs(new_gen_arg);
+                let _new_subst = self.tcx.intern_substs(new_gen_arg);
 
                 // Retrieve the function signature
                 let fn_sig = self.tcx.bound_fn_sig(def_id);
-                info!("Sig before substs: {:#?}, substs: {:#?}", fn_sig, new_subst);
-                let fn_sig = fn_sig.subst(self.tcx, new_subst);
-                info!("Sig after substs: {:#?}", fn_sig);
+                info!("Sig before substs: {:?}, substs: {:#?}", fn_sig, subst);
+                //let fn_sig = fn_sig.subst(self.tcx, new_subst);
+                let fn_sig = fn_sig.subst(self.tcx, subst, HKTSubstType::SubstHKTParamWithType);
+                info!("Sig after substs: {:?}", fn_sig);
 
                 // Unit testing: function items annotated with
                 // `#[rustc_evaluate_where_clauses]` trigger special output

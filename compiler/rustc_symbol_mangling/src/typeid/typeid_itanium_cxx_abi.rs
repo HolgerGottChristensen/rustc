@@ -11,10 +11,7 @@ use rustc_data_structures::base_n;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir as hir;
 use rustc_middle::ty::subst::{GenericArg, GenericArgKind, SubstsRef};
-use rustc_middle::ty::{
-    self, Const, ExistentialPredicate, FloatTy, FnSig, IntTy, List, Region, RegionKind, TermKind,
-    Ty, TyCtxt, UintTy,
-};
+use rustc_middle::ty::{self, Const, ExistentialPredicate, FloatTy, FnSig, HKTSubstType, IntTy, List, Region, RegionKind, TermKind, Ty, TyCtxt, UintTy};
 use rustc_span::def_id::DefId;
 use rustc_span::symbol::sym;
 use rustc_target::abi::call::{Conv, FnAbi};
@@ -707,7 +704,7 @@ fn transform_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, options: TransformTyOptio
                     !is_zst
                 });
                 if let Some(field) = field {
-                    let ty0 = tcx.bound_type_of(field.did).subst(tcx, substs);
+                    let ty0 = tcx.bound_type_of(field.did).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
                     // Generalize any repr(transparent) user-defined type that is either a pointer
                     // or reference, and either references itself or any other type that contains or
                     // references itself, to avoid a reference cycle.

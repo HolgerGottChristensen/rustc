@@ -63,7 +63,7 @@ use rustc_index::vec::{Idx, IndexVec};
 use rustc_middle::mir::dump_mir;
 use rustc_middle::mir::visit::{MutVisitor, PlaceContext, Visitor};
 use rustc_middle::mir::*;
-use rustc_middle::ty::{self, AdtDef, Ty, TyCtxt};
+use rustc_middle::ty::{self, AdtDef, HKTSubstType, Ty, TyCtxt};
 use rustc_middle::ty::{GeneratorSubsts, SubstsRef};
 use rustc_mir_dataflow::impls::{
     MaybeBorrowedLocals, MaybeLiveLocals, MaybeRequiresStorage, MaybeStorageLive,
@@ -284,7 +284,7 @@ impl<'tcx> TransformVisitor<'tcx> {
         let ty = self
             .tcx
             .bound_type_of(self.state_adt_ref.variant(idx).fields[0].did)
-            .subst(self.tcx, self.state_substs);
+            .subst(self.tcx, self.state_substs, HKTSubstType::SubstHKTParamWithType);
 
         statements.extend(expand_aggregate(
             Place::return_place(),

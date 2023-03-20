@@ -624,6 +624,10 @@ rustc_queries! {
         desc { |tcx| "computing `Sized` constraints for `{}`", tcx.def_path_str(key) }
     }
 
+    query hkt_sized_constraint(key: DefId) -> &'tcx [Ty<'tcx>] {
+        desc { |tcx| "computing `Sized` constraints for `{}`", tcx.def_path_str(key) }
+    }
+
     query adt_dtorck_constraint(
         key: DefId
     ) -> Result<&'tcx DropckConstraint<'tcx>, NoSolution> {

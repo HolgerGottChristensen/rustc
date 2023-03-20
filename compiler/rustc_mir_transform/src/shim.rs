@@ -3,7 +3,7 @@ use rustc_hir::def_id::DefId;
 use rustc_hir::lang_items::LangItem;
 use rustc_middle::mir::*;
 use rustc_middle::ty::query::Providers;
-use rustc_middle::ty::InternalSubsts;
+use rustc_middle::ty::{HKTSubstType, InternalSubsts};
 use rustc_middle::ty::{self, EarlyBinder, GeneratorSubsts, Ty, TyCtxt};
 use rustc_target::abi::VariantIdx;
 
@@ -70,7 +70,7 @@ fn make_shim<'tcx>(tcx: TyCtxt<'tcx>, instance: ty::InstanceDef<'tcx>) -> Body<'
             // of this function. Is this intentional?
             if let Some(ty::Generator(gen_def_id, substs, _)) = ty.map(Ty::kind) {
                 let body = tcx.optimized_mir(*gen_def_id).generator_drop().unwrap();
-                let body = EarlyBinder(body.clone()).subst(tcx, substs);
+                let body = EarlyBinder(body.clone()).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
                 debug!("make_shim({:?}) = {:?}", instance, body);
                 return body;
             }
@@ -152,7 +152,7 @@ fn build_drop_shim<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, ty: Option<Ty<'tcx>>)
     } else {
         InternalSubsts::identity_for_item(tcx, def_id)
     };
-    let sig = tcx.bound_fn_sig(def_id).subst(tcx, substs);
+    let sig = tcx.bound_fn_sig(def_id).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
     let sig = tcx.erase_late_bound_regions(sig);
     let span = tcx.def_span(def_id);
 
@@ -363,7 +363,7 @@ impl<'tcx> CloneShimBuilder<'tcx> {
         // we must subst the self_ty because it's
         // otherwise going to be TySelf and we can't index
         // or access fields of a Place of type TySelf.
-        let sig = tcx.bound_fn_sig(def_id).subst(tcx, &[self_ty.into()]);
+        let sig = tcx.bound_fn_sig(def_id).subst(tcx, &[self_ty.into()], HKTSubstType::SubstHKTParamWithType);
         let sig = tcx.erase_late_bound_regions(sig);
         let span = tcx.def_span(def_id);
 
@@ -611,7 +611,7 @@ fn build_call_shim<'tcx>(
 
     assert_eq!(sig_substs.is_some(), !instance.has_polymorphic_mir_body());
     let mut sig =
-        if let Some(sig_substs) = sig_substs { sig.subst(tcx, &sig_substs) } else { sig.0 };
+        if let Some(sig_substs) = sig_substs { sig.subst(tcx, &sig_substs, HKTSubstType::SubstHKTParamWithType) } else { sig.0 };
 
     if let CallKind::Indirect(fnty) = call_kind {
         // `sig` determines our local decls, and thus the callee type in the `Call` terminator. This

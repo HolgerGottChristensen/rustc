@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, ImplSubject, ToPredicate, Ty, TyCtxt, TypeVisitable};
+use rustc_middle::ty::{self, HKTSubstType, ImplSubject, ToPredicate, Ty, TyCtxt, TypeVisitable};
 use rustc_middle::ty::{GenericArg, SubstsRef};
 
 use super::NormalizeExt;
@@ -200,7 +200,7 @@ pub fn impl_subject_and_oblig<'a, 'tcx>(
     impl_substs: SubstsRef<'tcx>,
 ) -> (ImplSubject<'tcx>, impl Iterator<Item = PredicateObligation<'tcx>>) {
     let subject = selcx.tcx().bound_impl_subject(impl_def_id);
-    let subject = subject.subst(selcx.tcx(), impl_substs);
+    let subject = subject.subst(selcx.tcx(), impl_substs, HKTSubstType::SubstHKTParamWithType);
     let InferOk { value: subject, obligations: normalization_obligations1 } =
         selcx.infcx.at(&ObligationCause::dummy(), param_env).normalize(subject);
 

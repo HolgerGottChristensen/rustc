@@ -10,7 +10,7 @@ impl<'tcx> FnCtxt<'_, 'tcx> {
     /// Performs type inference fallback, setting `FnCtxt::fallback_has_occurred`
     /// if fallback has occurred.
     pub(super) fn type_inference_fallback(&self) {
-        debug!(
+        info!(
             "type-inference-fallback start obligations: {:#?}",
             self.fulfillment_cx.borrow_mut().pending_obligations()
         );

@@ -28,7 +28,7 @@ struct DefCollector<'a, 'b> {
 impl<'a, 'b> DefCollector<'a, 'b> {
     fn create_def(&mut self, node_id: NodeId, data: DefPathData, span: Span) -> LocalDefId {
         let parent_def = self.parent_def;
-        debug!("create_def(node_id={:?}, data={:?}, parent_def={:?})", node_id, data, parent_def);
+        info!("create_def(node_id={:?}, data={:?}, parent_def={:?})", node_id, data, parent_def);
         self.resolver.create_def(
             parent_def,
             node_id,
@@ -211,18 +211,30 @@ impl<'a, 'b> visit::Visitor<'a> for DefCollector<'a, 'b> {
             GenericParamKind::Const { .. } => DefPathData::ValueNs(name),
             GenericParamKind::HKT(_) => DefPathData::TypeNs(name),
         };
-        self.create_def(param.id, def_path_data, param.ident.span);
+        let local_id = self.create_def(param.id, def_path_data, param.ident.span);
 
 
-        // impl-Trait can happen inside generic parameters, like
-        // ```
-        // fn foo<U: Iterator<Item = impl Clone>>() {}
-        // ```
-        //
-        // In that case, the impl-trait is lowered as an additional generic parameter.
-        self.with_impl_trait(ImplTraitContext::Universal(self.parent_def), |this| {
-            visit::walk_generic_param(this, param)
-        });
+        match param.kind {
+            GenericParamKind::Lifetime
+            | GenericParamKind::Type { .. }
+            | GenericParamKind::Const { .. } => {
+                // impl-Trait can happen inside generic parameters, like
+                // ```
+                // fn foo<U: Iterator<Item = impl Clone>>() {}
+                // ```
+                //
+                // In that case, the impl-trait is lowered as an additional generic parameter.
+                self.with_impl_trait(ImplTraitContext::Universal(self.parent_def), |this| {
+                    visit::walk_generic_param(this, param)
+                });
+            }
+            GenericParamKind::HKT(_) => {
+                self.with_parent(local_id, |this| {
+                    visit::walk_generic_param(this, param)
+                })
+            }
+        }
+
     }
 
     fn visit_assoc_item(&mut self, i: &'a AssocItem, ctxt: visit::AssocCtxt) {

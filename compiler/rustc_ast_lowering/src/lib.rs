@@ -55,9 +55,9 @@ use rustc_data_structures::sync::Lrc;
 use rustc_errors::{DiagnosticArgFromDisplay, Handler, StashKey};
 use rustc_hir as hir;
 use rustc_hir::def::{DefKind, LifetimeRes, Namespace, PartialRes, PerNS, Res};
-use rustc_hir::def_id::{LocalDefId, CRATE_DEF_ID};
+use rustc_hir::def_id::{LocalDefId};
 use rustc_hir::definitions::DefPathData;
-use rustc_hir::{ConstArg, GenericArg, ItemLocalId, ParamName, TraitCandidate};
+use rustc_hir::{ConstArg, GenericArg, ItemLocalId, OwnerId, ParamName, TraitCandidate};
 use rustc_index::vec::{Idx, IndexVec};
 use rustc_middle::span_bug;
 use rustc_middle::ty::{ResolverAstLowering, TyCtxt};
@@ -67,8 +67,10 @@ use rustc_span::source_map::DesugaringKind;
 use rustc_span::symbol::{kw, sym, Ident, Symbol};
 use rustc_span::{Span, DUMMY_SP};
 
-use smallvec::{SmallVec, smallvec};
+use smallvec::SmallVec;
 use std::collections::hash_map::Entry;
+use std::fmt::{Debug, Formatter};
+use rustc_span::def_id::CRATE_DEF_ID;
 
 macro_rules! arena_vec {
     ($this:expr; $($x:expr),*) => (
@@ -345,51 +347,81 @@ enum AstOwner<'a> {
     Item(&'a ast::Item),
     AssocItem(&'a ast::AssocItem, visit::AssocCtxt),
     ForeignItem(&'a ast::ForeignItem),
+    HKT(&'a ast::GenericParam),
 }
 
-fn index_crate<'a>(
-    node_id_to_def_id: &FxHashMap<NodeId, LocalDefId>,
-    krate: &'a Crate,
-) -> IndexVec<LocalDefId, AstOwner<'a>> {
-    let mut indexer = Indexer { node_id_to_def_id, index: IndexVec::new() };
-    indexer.index.ensure_contains_elem(CRATE_DEF_ID, || AstOwner::NonOwner);
-    indexer.index[CRATE_DEF_ID] = AstOwner::Crate(krate);
-    visit::walk_crate(&mut indexer, krate);
-    return indexer.index;
-
-    struct Indexer<'s, 'a> {
-        node_id_to_def_id: &'s FxHashMap<NodeId, LocalDefId>,
-        index: IndexVec<LocalDefId, AstOwner<'a>>,
-    }
-
-    impl<'a> visit::Visitor<'a> for Indexer<'_, 'a> {
-        fn visit_attribute(&mut self, _: &'a Attribute) {
-            // We do not want to lower expressions that appear in attributes,
-            // as they are not accessible to the rest of the HIR.
-        }
-
-        fn visit_item(&mut self, item: &'a ast::Item) {
-            let def_id = self.node_id_to_def_id[&item.id];
-            self.index.ensure_contains_elem(def_id, || AstOwner::NonOwner);
-            self.index[def_id] = AstOwner::Item(item);
-            visit::walk_item(self, item)
-        }
-
-        fn visit_assoc_item(&mut self, item: &'a ast::AssocItem, ctxt: visit::AssocCtxt) {
-            let def_id = self.node_id_to_def_id[&item.id];
-            self.index.ensure_contains_elem(def_id, || AstOwner::NonOwner);
-            self.index[def_id] = AstOwner::AssocItem(item, ctxt);
-            visit::walk_assoc_item(self, item, ctxt);
-        }
-
-        fn visit_foreign_item(&mut self, item: &'a ast::ForeignItem) {
-            let def_id = self.node_id_to_def_id[&item.id];
-            self.index.ensure_contains_elem(def_id, || AstOwner::NonOwner);
-            self.index[def_id] = AstOwner::ForeignItem(item);
-            visit::walk_foreign_item(self, item);
+impl Debug for AstOwner<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AstOwner::NonOwner => f.debug_struct("NonOwner").finish(),
+            AstOwner::Crate(c) => f.debug_struct("Crate").field("id", &c.id).finish(),
+            AstOwner::Item(i) => f.debug_struct("Item").field("id", &i.id).field("ident", &i.ident).finish(),
+            AstOwner::AssocItem(_, _) => f.debug_struct("AssocItem").finish(),
+            AstOwner::ForeignItem(_) => f.debug_struct("ForeignItem").finish(),
+            AstOwner::HKT(p) => f.debug_struct("HKT").field("id", &p.id).field("ident", &p.ident).finish(),
         }
     }
 }
+
+struct Indexer<'s, 'a> {
+    node_id_to_def_id: &'s FxHashMap<NodeId, LocalDefId>,
+    index: IndexVec<LocalDefId, AstOwner<'a>>,
+}
+
+impl<'s, 'a> Indexer<'s, 'a> {
+    fn index_crate(node_id_to_def_id: &'s FxHashMap<NodeId, LocalDefId>, krate: &'a Crate) -> IndexVec<LocalDefId, AstOwner<'a>> {
+        let mut indexer = Indexer { node_id_to_def_id, index: IndexVec::new() };
+
+        indexer.index.ensure_contains_elem(CRATE_DEF_ID, || AstOwner::NonOwner);
+        indexer.index[CRATE_DEF_ID] = AstOwner::Crate(krate);
+
+        visit::walk_crate(&mut indexer, krate);
+
+        return indexer.index;
+    }
+}
+
+impl<'a> visit::Visitor<'a> for Indexer<'_, 'a> {
+    fn visit_attribute(&mut self, _: &'a Attribute) {
+        // We do not want to lower expressions that appear in attributes,
+        // as they are not accessible to the rest of the HIR.
+    }
+
+    fn visit_item(&mut self, item: &'a ast::Item) {
+        let def_id = self.node_id_to_def_id[&item.id];
+        self.index.ensure_contains_elem(def_id, || AstOwner::NonOwner);
+        self.index[def_id] = AstOwner::Item(item);
+        visit::walk_item(self, item)
+    }
+
+    fn visit_assoc_item(&mut self, item: &'a ast::AssocItem, ctxt: visit::AssocCtxt) {
+        let def_id = self.node_id_to_def_id[&item.id];
+        self.index.ensure_contains_elem(def_id, || AstOwner::NonOwner);
+        self.index[def_id] = AstOwner::AssocItem(item, ctxt);
+        visit::walk_assoc_item(self, item, ctxt);
+    }
+
+    fn visit_foreign_item(&mut self, item: &'a ast::ForeignItem) {
+        let def_id = self.node_id_to_def_id[&item.id];
+        self.index.ensure_contains_elem(def_id, || AstOwner::NonOwner);
+        self.index[def_id] = AstOwner::ForeignItem(item);
+        visit::walk_foreign_item(self, item);
+    }
+
+    fn visit_generic_param(&mut self, param: &'a GenericParam) {
+        let def_id = self.node_id_to_def_id[&param.id];
+        match param.kind {
+            GenericParamKind::HKT(_) => {
+                self.index.ensure_contains_elem(def_id, || AstOwner::NonOwner);
+                self.index[def_id] = AstOwner::HKT(param);
+            }
+            _ => {}
+        }
+        visit::walk_generic_param(self, param);
+    }
+}
+
+
 
 /// Compute the hash for the HIR of the full crate.
 /// This hash will then be part of the crate_hash which is stored in the metadata.
@@ -414,16 +446,24 @@ fn compute_hir_hash(
     })
 }
 
+#[instrument(skip(tcx), level = "info")]
 pub fn lower_to_hir(tcx: TyCtxt<'_>, (): ()) -> hir::Crate<'_> {
     let sess = tcx.sess;
     let krate = tcx.untracked_crate.steal();
-    let mut resolver = tcx.resolver_for_lowering(()).steal();
+    let mut resolver: ResolverAstLowering = tcx.resolver_for_lowering(()).steal();
 
-    let ast_index = index_crate(&resolver.node_id_to_def_id, &krate);
+    info!("Resolver: {:#?}", resolver);
+
+    let ast_index = Indexer::index_crate(&resolver.node_id_to_def_id, &krate);
+
+    info!("index: {:#?}", ast_index);
+
     let mut owners = IndexVec::from_fn_n(
         |_| hir::MaybeOwner::Phantom,
         tcx.definitions_untracked().def_index_count(),
     );
+
+    //println!("owners: {:#?}", owners);
 
     for def_id in ast_index.indices() {
         item::ItemLowerer {
@@ -555,7 +595,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     ///
     /// This function sets up `HirId` lowering infrastructure,
     /// and stashes the shared mutable state to avoid pollution by the closure.
-    #[instrument(level = "debug", skip(self, f))]
+    #[instrument(level = "info", skip(self, f))]
     fn with_hir_id_owner(
         &mut self,
         owner: NodeId,
@@ -821,12 +861,10 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         let hir_id = self.lower_node_id(node_id);
         let def_id = self.local_def_id(node_id);
         Some(hir::GenericParam {
-            hir_id,
-            def_id,
             name,
             span: self.lower_span(ident.span),
             pure_wrt_drop: false,
-            kind: hir::GenericParamKind::Lifetime { kind },
+            kind: hir::GenericParamKind::Lifetime { hir_id, def_id, kind },
             colon_span: None,
         })
     }
@@ -1176,10 +1214,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             ast::GenericArg::Const(ct) => GenericArg::Const(ConstArg {
                 value: self.lower_anon_const(&ct),
                 span: self.lower_span(ct.value.span),
-            }),
-            ast::GenericArg::HKTVar(v) => GenericArg::Type(
-                self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(v.ident), span: self.lower_span(v.ident.span), hir_id: self.lower_node_id(v.id) })
-            )
+            })
         }
     }
 
@@ -1237,6 +1272,9 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
     fn lower_ty_direct(&mut self, t: &Ty, itctx: &ImplTraitContext) -> hir::Ty<'hir> {
         let kind = match &t.kind {
+            TyKind::Argument(ident) => {
+                hir::TyKind::Argument(*ident, None)
+            }
             TyKind::Infer => hir::TyKind::Infer,
             TyKind::Err => hir::TyKind::Err,
             TyKind::Slice(ty) => hir::TyKind::Slice(self.lower_ty(ty, itctx)),
@@ -1502,12 +1540,14 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                         };
 
                         hir::GenericParam {
-                            hir_id,
-                            def_id: lctx.local_def_id(new_node_id),
                             name,
                             span: lifetime.ident.span,
                             pure_wrt_drop: false,
-                            kind: hir::GenericParamKind::Lifetime { kind },
+                            kind: hir::GenericParamKind::Lifetime {
+                                hir_id,
+                                def_id: lctx.local_def_id(new_node_id),
+                                kind
+                            },
                             colon_span: None,
                         }
                     },
@@ -1959,12 +1999,14 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                         };
 
                         hir::GenericParam {
-                            hir_id,
-                            def_id: this.local_def_id(new_node_id),
                             name,
                             span: lifetime.ident.span,
                             pure_wrt_drop: false,
-                            kind: hir::GenericParamKind::Lifetime { kind },
+                            kind: hir::GenericParamKind::Lifetime {
+                                hir_id,
+                                def_id: this.local_def_id(new_node_id),
+                                kind
+                            },
                             colon_span: None,
                         }
                     },
@@ -2132,7 +2174,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         &'s mut self,
         params: &'s [GenericParam],
     ) -> impl Iterator<Item = hir::GenericParam<'hir>> + Captures<'a> + Captures<'s> {
-        params.iter().flat_map(move |param| self.lower_generic_param(param))
+        params.iter().map(move |param| self.lower_generic_param(param))
     }
 
     fn lower_generic_params(&mut self, params: &[GenericParam]) -> &'hir [hir::GenericParam<'hir>] {
@@ -2140,22 +2182,16 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     }
 
     #[instrument(level = "trace", skip(self))]
-    fn lower_generic_param(&mut self, param: &GenericParam) -> SmallVec<[hir::GenericParam<'hir>; 4]> {
+    fn lower_generic_param(&mut self, param: &GenericParam) -> hir::GenericParam<'hir> {
         let (name, kind) = self.lower_generic_param_kind(param);
 
-        let hir_id = self.lower_node_id(param.id());
-
-        self.lower_attrs(hir_id, &param.attrs);
-        smallvec![hir::GenericParam {
-            hir_id,
-            def_id: self.local_def_id(param.id),
+        hir::GenericParam {
             name,
             span: self.lower_span(param.span()),
             pure_wrt_drop: self.tcx.sess.contains_name(&param.attrs, sym::may_dangle),
             kind,
             colon_span: param.colon_span.map(|s| self.lower_span(s)),
-        }]
-
+        }
     }
 
     fn lower_generic_param_kind(
@@ -2164,6 +2200,10 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     ) -> (hir::ParamName, hir::GenericParamKind<'hir>) {
         match &param.kind {
             GenericParamKind::Lifetime => {
+                let hir_id = self.lower_node_id(param.id());
+                self.lower_attrs(hir_id, &param.attrs);
+                let def_id = self.local_def_id(param.id);
+
                 // AST resolution emitted an error on those parameters, so we lower them using
                 // `ParamName::Error`.
                 let param_name =
@@ -2174,12 +2214,19 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                         ParamName::Plain(ident)
                     };
                 let kind =
-                    hir::GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit };
+                    hir::GenericParamKind::Lifetime { hir_id, def_id, kind: hir::LifetimeParamKind::Explicit };
 
                 (param_name, kind)
             }
             GenericParamKind::Type { default, .. } => {
+                info!("We are lowering a GenericParamKind: {:#?}", self.resolver.node_id_to_def_id);
+                let hir_id = self.lower_node_id(param.id());
+                self.lower_attrs(hir_id, &param.attrs);
+                let def_id = self.local_def_id(param.id);
+
                 let kind = hir::GenericParamKind::Type {
+                    hir_id,
+                    def_id,
                     default: default.as_ref().map(|x| {
                         self.lower_ty(x, &ImplTraitContext::Disallowed(ImplTraitPosition::Type))
                     }),
@@ -2189,23 +2236,21 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 (hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
             }
             GenericParamKind::Const { ty, kw_span: _, default } => {
+                let hir_id = self.lower_node_id(param.id());
+                self.lower_attrs(hir_id, &param.attrs);
+                let def_id = self.local_def_id(param.id);
+
                 let ty = self.lower_ty(&ty, &ImplTraitContext::Disallowed(ImplTraitPosition::Type));
                 let default = default.as_ref().map(|def| self.lower_anon_const(def));
                 (
                     hir::ParamName::Plain(self.lower_ident(param.ident)),
-                    hir::GenericParamKind::Const { ty, default },
+                    hir::GenericParamKind::Const { hir_id, def_id, ty, default },
                 )
             }
-            GenericParamKind::HKT(kinds) => {
-                // FIXMIG (hoch)
-
-                let itctx = ImplTraitContext::Disallowed(ImplTraitPosition::Type);
-
-                let kind = hir::GenericParamKind::HKT (
-                    self.lower_generics(kinds, param.id, &itctx, |_| {()}).0
-                );
-
-                (hir::ParamName::Plain(self.lower_ident(param.ident)), kind)
+            GenericParamKind::HKT(_) => {
+                (hir::ParamName::Plain(self.lower_ident(param.ident)), hir::GenericParamKind::HKT(
+                    OwnerId { def_id: self.local_def_id(param.id) }
+                ))
             }
         }
     }
@@ -2234,7 +2279,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         hir::MutTy { ty: self.lower_ty(&mt.ty, itctx), mutbl: mt.mutbl }
     }
 
-    #[instrument(level = "debug", skip(self), ret)]
+    #[instrument(level = "info", skip(self), ret)]
     fn lower_param_bounds(
         &mut self,
         bounds: &[GenericBound],
@@ -2265,12 +2310,10 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
         // Set the name to `impl Bound1 + Bound2`.
         let param = hir::GenericParam {
-            hir_id: self.lower_node_id(node_id),
-            def_id,
             name: ParamName::Plain(self.lower_ident(ident)),
             pure_wrt_drop: false,
             span,
-            kind: hir::GenericParamKind::Type { default: None, synthetic: true },
+            kind: hir::GenericParamKind::Type { hir_id: self.lower_node_id(node_id), def_id, default: None, synthetic: true },
             colon_span: None,
         };
 

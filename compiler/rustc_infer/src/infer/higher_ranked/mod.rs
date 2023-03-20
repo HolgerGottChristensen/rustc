@@ -69,7 +69,7 @@ impl<'tcx> InferCtxt<'tcx> {
     /// For more details visit the relevant sections of the [rustc dev guide].
     ///
     /// [rustc dev guide]: https://rustc-dev-guide.rust-lang.org/traits/hrtb.html
-    #[instrument(level = "debug", skip(self), ret)]
+    #[instrument(level = "info", skip(self), ret)]
     pub fn replace_bound_vars_with_placeholders<T>(&self, binder: ty::Binder<'tcx, T>) -> T
     where
         T: TypeFoldable<'tcx> + Copy,

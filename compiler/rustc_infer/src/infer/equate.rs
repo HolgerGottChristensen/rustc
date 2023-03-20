@@ -80,6 +80,8 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
             return Ok(a);
         }
 
+        info!(a = ?a.kind(), b = ?b.kind());
+
         let infcx = self.fields.infcx;
 
         let a = infcx.inner.borrow_mut().type_variables().replace_if_possible(a);
@@ -88,19 +90,15 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
 
         match (a.kind(), b.kind()) {
             (&ty::Infer(TyVar(a_id)), &ty::Infer(TyVar(b_id))) => {
-                info!("numero 1");
                 infcx.inner.borrow_mut().type_variables().equate(a_id, b_id);
             }
 
             (&ty::Infer(TyVar(a_id)), _) => {
-                info!("numero 2");
-                info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
                 self.fields.instantiate(b, RelationDir::EqTo, a_id, self.a_is_expected)?;
             }
 
             (_, &ty::Infer(TyVar(b_id))) => {
-                info!("numero 3");
-                info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
+                debug!("(_, &ty::Infer(TyVar(b_id)))");
                 self.fields.instantiate(a, RelationDir::EqTo, b_id, self.a_is_expected)?;
             }
 
@@ -108,14 +106,12 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
                 &ty::Alias(ty::Opaque, ty::AliasTy { def_id: a_def_id, .. }),
                 &ty::Alias(ty::Opaque, ty::AliasTy { def_id: b_def_id, .. }),
             ) if a_def_id == b_def_id => {
-                info!("numero 4");
                 self.fields.infcx.super_combine_tys(self, a, b)?;
             }
             (&ty::Alias(ty::Opaque, ty::AliasTy { def_id, .. }), _)
             | (_, &ty::Alias(ty::Opaque, ty::AliasTy { def_id, .. }))
                 if self.fields.define_opaque_types && def_id.is_local() =>
             {
-                info!("numero 5");
                 self.fields.obligations.extend(
                     infcx
                         .handle_opaque_type(
@@ -132,7 +128,6 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
             // free regions are replaced with bound regions during construction.
             // This greatly speeds up equating of GeneratorWitness.
             (&ty::GeneratorWitness(a_types), &ty::GeneratorWitness(b_types)) => {
-                info!("numero 6");
                 let a_types = infcx.tcx.anonymize_bound_vars(a_types);
                 let b_types = infcx.tcx.anonymize_bound_vars(b_types);
                 if a_types.bound_vars() == b_types.bound_vars() {
@@ -150,8 +145,6 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
             }
 
             _ => {
-                info!("numero 7");
-                info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
                 self.fields.infcx.super_combine_tys(self, a, b)?;
             }
         }

@@ -7,7 +7,7 @@ use rustc_index::vec::Idx;
 use rustc_middle::middle::codegen_fn_attrs::{CodegenFnAttrFlags, CodegenFnAttrs};
 use rustc_middle::mir::visit::*;
 use rustc_middle::mir::*;
-use rustc_middle::ty::{self, Instance, InstanceDef, ParamEnv, Ty, TyCtxt};
+use rustc_middle::ty::{self, HKTSubstType, Instance, InstanceDef, ParamEnv, Ty, TyCtxt};
 use rustc_session::config::OptLevel;
 use rustc_span::{hygiene::ExpnKind, ExpnData, LocalExpnId, Span};
 use rustc_target::abi::VariantIdx;
@@ -331,7 +331,7 @@ impl<'tcx> Inliner<'tcx> {
                     return None;
                 }
 
-                let fn_sig = self.tcx.bound_fn_sig(def_id).subst(self.tcx, substs);
+                let fn_sig = self.tcx.bound_fn_sig(def_id).subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType);
                 let source_info = SourceInfo { span: fn_span, ..terminator.source_info };
 
                 return Some(CallSite { callee, fn_sig, block: bb, target, source_info });
@@ -875,7 +875,7 @@ impl<'tcx> Visitor<'tcx> for CostChecker<'_, 'tcx> {
 
             let kind = match parent_ty.ty.kind() {
                 &ty::Alias(ty::Opaque, ty::AliasTy { def_id, substs, .. }) => {
-                    self.tcx.bound_type_of(def_id).subst(self.tcx, substs).kind()
+                    self.tcx.bound_type_of(def_id).subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType).kind()
                 }
                 kind => kind,
             };

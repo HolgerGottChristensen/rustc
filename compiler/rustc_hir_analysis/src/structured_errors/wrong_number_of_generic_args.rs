@@ -360,7 +360,7 @@ impl<'a, 'tcx> WrongNumberOfGenericArgs<'a, 'tcx> {
                 &[]
             };
             ret.extend(params.iter().filter_map(|p| {
-                let hir::GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit }
+                let hir::GenericParamKind::Lifetime { kind: hir::LifetimeParamKind::Explicit, .. }
                     = p.kind
                 else { return None };
                 let hir::ParamName::Plain(name) = p.name else { return None };

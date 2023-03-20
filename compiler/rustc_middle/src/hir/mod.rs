@@ -107,37 +107,56 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 }
 
+#[instrument(skip(tcx), level = "info")]
+fn hir_owner(tcx: TyCtxt<'_>, owner_id: OwnerId) -> Option<Owner<'_>> {
+    let krate: &Crate<'_> = tcx.hir_crate(());
+    //info!("crate: {:#?}", krate);
+    let owner = krate.owners.get(owner_id.def_id)?.as_owner()?;
+    let node = owner.node();
+    Some(Owner { node, hash_without_bodies: owner.nodes.hash_without_bodies })
+}
+
+#[instrument(skip(tcx), level = "info")]
+fn hir_owner_nodes(tcx: TyCtxt<'_>, owner_id: OwnerId) -> MaybeOwner<&OwnerNodes<'_>> {
+    let krate: &Crate<'_> = tcx.hir_crate(());
+    //info!("crate: {:#?}", krate);
+    krate.owners[owner_id.def_id].map(|i| &i.nodes)
+}
+
+fn local_def_id_to_hir_id(tcx: TyCtxt<'_>, local_def_id: LocalDefId) -> HirId {
+    let krate: &Crate<'_> = tcx.hir_crate(());
+    let owner = krate.owners[local_def_id].map(|_| ());
+    match owner {
+        MaybeOwner::Owner(_) => HirId::make_owner(local_def_id),
+        MaybeOwner::Phantom => bug!("No HirId for {:?}", local_def_id),
+        MaybeOwner::NonOwner(hir_id) => hir_id,
+    }
+}
+
+fn parent_module_from_def_id(tcx: TyCtxt<'_>, local_def_id: LocalDefId) -> LocalDefId {
+    let hir = tcx.hir();
+    hir.get_module_parent_node(hir.local_def_id_to_hir_id(local_def_id)).def_id
+}
+
+fn hir_owner_parent(tcx: TyCtxt<'_>, owner_id: OwnerId) -> HirId {
+    // Accessing the local_parent is ok since its value is hashed as part of `id`'s DefPathHash.
+    tcx.opt_local_parent(owner_id.def_id).map_or(CRATE_HIR_ID, |parent| {
+        let mut parent_hir_id = tcx.hir().local_def_id_to_hir_id(parent);
+        parent_hir_id.local_id =
+            tcx.hir_crate(()).owners[parent_hir_id.owner.def_id].unwrap().parenting[&owner_id.def_id];
+        parent_hir_id
+    })
+}
+
 pub fn provide(providers: &mut Providers) {
-    providers.parent_module_from_def_id = |tcx, id| {
-        let hir = tcx.hir();
-        hir.get_module_parent_node(hir.local_def_id_to_hir_id(id)).def_id
-    };
+    providers.parent_module_from_def_id = parent_module_from_def_id;
     providers.hir_crate_items = map::hir_crate_items;
     providers.crate_hash = map::crate_hash;
     providers.hir_module_items = map::hir_module_items;
-    providers.hir_owner = |tcx, id| {
-        let owner = tcx.hir_crate(()).owners.get(id.def_id)?.as_owner()?;
-        let node = owner.node();
-        Some(Owner { node, hash_without_bodies: owner.nodes.hash_without_bodies })
-    };
-    providers.local_def_id_to_hir_id = |tcx, id| {
-        let owner = tcx.hir_crate(()).owners[id].map(|_| ());
-        match owner {
-            MaybeOwner::Owner(_) => HirId::make_owner(id),
-            MaybeOwner::Phantom => bug!("No HirId for {:?}", id),
-            MaybeOwner::NonOwner(hir_id) => hir_id,
-        }
-    };
-    providers.hir_owner_nodes = |tcx, id| tcx.hir_crate(()).owners[id.def_id].map(|i| &i.nodes);
-    providers.hir_owner_parent = |tcx, id| {
-        // Accessing the local_parent is ok since its value is hashed as part of `id`'s DefPathHash.
-        tcx.opt_local_parent(id.def_id).map_or(CRATE_HIR_ID, |parent| {
-            let mut parent_hir_id = tcx.hir().local_def_id_to_hir_id(parent);
-            parent_hir_id.local_id =
-                tcx.hir_crate(()).owners[parent_hir_id.owner.def_id].unwrap().parenting[&id.def_id];
-            parent_hir_id
-        })
-    };
+    providers.hir_owner = hir_owner;
+    providers.local_def_id_to_hir_id = local_def_id_to_hir_id;
+    providers.hir_owner_nodes = hir_owner_nodes;
+    providers.hir_owner_parent = hir_owner_parent;
     providers.hir_attrs = |tcx, id| {
         tcx.hir_crate(()).owners[id.def_id].as_owner().map_or(AttributeMap::EMPTY, |o| &o.attrs)
     };

@@ -23,7 +23,7 @@ use rustc_infer::traits::util;
 use rustc_middle::traits::specialization_graph::OverlapMode;
 use rustc_middle::ty::fast_reject::{DeepRejectCtxt, TreatParams};
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, ImplSubject, Ty, TyCtxt, TypeVisitor};
+use rustc_middle::ty::{self, HKTSubstType, ImplSubject, Ty, TyCtxt, TypeVisitor};
 use rustc_span::symbol::sym;
 use rustc_span::DUMMY_SP;
 use std::fmt::Debug;
@@ -125,8 +125,8 @@ fn with_fresh_ty_vars<'cx, 'tcx>(
 
     let header = ty::ImplHeader {
         impl_def_id,
-        self_ty: tcx.bound_type_of(impl_def_id).subst(tcx, impl_substs),
-        trait_ref: tcx.bound_impl_trait_ref(impl_def_id).map(|i| i.subst(tcx, impl_substs)),
+        self_ty: tcx.bound_type_of(impl_def_id).subst(tcx, impl_substs, HKTSubstType::SubstHKTParamWithType),
+        trait_ref: tcx.bound_impl_trait_ref(impl_def_id).map(|i| i.subst(tcx, impl_substs, HKTSubstType::SubstHKTParamWithType)),
         predicates: tcx.predicates_of(impl_def_id).instantiate(tcx, impl_substs).predicates,
     };
 

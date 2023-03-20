@@ -754,7 +754,7 @@ impl<'tcx> Predicate<'tcx> {
         let shifted_pred =
             tcx.shift_bound_var_indices(trait_bound_vars.len(), bound_pred.skip_binder());
         // 2) Self: Bar1<'a, '^0.1> -> T: Bar1<'^0.0, '^0.1>
-        let new = EarlyBinder(shifted_pred).subst(tcx, trait_ref.skip_binder().substs);
+        let new = EarlyBinder(shifted_pred).subst(tcx, trait_ref.skip_binder().substs, HKTSubstType::SubstHKTParamWithType);
         // 3) ['x] + ['b] -> ['x, 'b]
         let bound_vars =
             tcx.mk_bound_variable_kinds(trait_bound_vars.iter().chain(pred_bound_vars));
@@ -1982,7 +1982,7 @@ impl<'tcx> FieldDef {
     /// Returns the type of this field. The resulting type is not normalized. The `subst` is
     /// typically obtained via the second field of [`TyKind::Adt`].
     pub fn ty(&self, tcx: TyCtxt<'tcx>, subst: SubstsRef<'tcx>) -> Ty<'tcx> {
-        tcx.bound_type_of(self.did).subst(tcx, subst)
+        tcx.bound_type_of(self.did).subst(tcx, subst, HKTSubstType::SubstHKTParamWithType)
     }
 
     /// Computes the `Ident` of this variant by looking up the `Span`

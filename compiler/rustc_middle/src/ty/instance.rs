@@ -1,6 +1,6 @@
 use crate::middle::codegen_fn_attrs::CodegenFnAttrFlags;
 use crate::ty::print::{FmtPrinter, Printer};
-use crate::ty::{self, GenericParamDefKind, Ty, TyCtxt, TypeFoldable, TypeSuperFoldable, TypeVisitable};
+use crate::ty::{self, GenericParamDefKind, HKTSubstType, Ty, TyCtxt, TypeFoldable, TypeSuperFoldable, TypeVisitable};
 use crate::ty::{EarlyBinder, InternalSubsts, SubstsRef};
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir::def::Namespace;
@@ -594,7 +594,7 @@ impl<'tcx> Instance<'tcx> {
         T: TypeFoldable<'tcx> + Copy,
     {
         if let Some(substs) = self.substs_for_mir_body() {
-            EarlyBinder(*v).subst(tcx, substs)
+            EarlyBinder(*v).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType)
         } else {
             *v
         }

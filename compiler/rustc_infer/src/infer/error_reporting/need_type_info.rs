@@ -17,7 +17,7 @@ use rustc_middle::hir::nested_filter;
 use rustc_middle::infer::unify_key::{ConstVariableOrigin, ConstVariableOriginKind};
 use rustc_middle::ty::adjustment::{Adjust, Adjustment, AutoBorrow};
 use rustc_middle::ty::print::{FmtPrinter, PrettyPrinter, Print, Printer};
-use rustc_middle::ty::{self, DefIdTree, InferConst};
+use rustc_middle::ty::{self, DefIdTree, HKTSubstType, InferConst};
 use rustc_middle::ty::{GenericArg, GenericArgKind, SubstsRef};
 use rustc_middle::ty::{IsSuggestable, Ty, TyCtxt, TypeckResults};
 use rustc_span::symbol::{kw, sym, Ident};
@@ -1058,7 +1058,7 @@ impl<'a, 'tcx> FindInferSourceVisitor<'a, 'tcx> {
 
                 let parent_def_id = generics.parent.unwrap();
                 if tcx.def_kind(parent_def_id) == DefKind::Impl {
-                    let parent_ty = tcx.bound_type_of(parent_def_id).subst(tcx, substs);
+                    let parent_ty = tcx.bound_type_of(parent_def_id).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
                     match (parent_ty.kind(), &ty.kind) {
                         (
                             ty::Adt(def, substs),

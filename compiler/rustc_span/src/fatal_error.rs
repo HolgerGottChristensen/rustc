@@ -13,6 +13,7 @@ impl !Send for FatalError {}
 
 impl FatalError {
     pub fn raise(self) -> ! {
+        println!("FATAL ERROR RAISED: {}", std::backtrace::Backtrace::force_capture());
         std::panic::resume_unwind(Box::new(FatalErrorMarker))
     }
 }

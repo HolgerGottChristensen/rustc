@@ -59,6 +59,7 @@ pub(super) fn index_hir<'hir>(
         OwnerNode::TraitItem(item) => collector.visit_trait_item(item),
         OwnerNode::ImplItem(item) => collector.visit_impl_item(item),
         OwnerNode::ForeignItem(item) => collector.visit_foreign_item(item),
+        OwnerNode::HKT(param) => collector.visit_owned_hkt_param(param)
     };
 
     (collector.nodes, collector.parenting)
@@ -164,8 +165,25 @@ impl<'a, 'hir> Visitor<'hir> for NodeCollector<'a, 'hir> {
     }
 
     fn visit_generic_param(&mut self, param: &'hir GenericParam<'hir>) {
-        self.insert(param.span, param.hir_id, Node::GenericParam(param));
-        intravisit::walk_generic_param(self, param);
+        match param.kind {
+            GenericParamKind::Lifetime { hir_id, .. }
+            | GenericParamKind::Type { hir_id, .. }
+            | GenericParamKind::Const { hir_id, .. } => {
+                self.insert(param.span, hir_id, Node::GenericParam(param));
+                intravisit::walk_generic_param(self, param);
+            }
+            GenericParamKind::HKT(owner_id) => {
+                self.insert_nested(owner_id.def_id)
+            }
+        }
+    }
+
+    #[instrument(level = "debug", skip(self))]
+    fn visit_owned_hkt_param(&mut self, param: &'hir OwnedHKTParam<'hir>) {
+        debug_assert_eq!(param.owner_id, self.owner);
+        self.with_parent(param.hir_id, |this| {
+            intravisit::walk_owned_hkt_param(this, param);
+        });
     }
 
     fn visit_const_param_default(&mut self, param: HirId, ct: &'hir AnonConst) {

@@ -634,6 +634,8 @@ pub enum ImplSource<'tcx, N> {
     /// any).
     Param(Vec<N>, ty::BoundConstness),
 
+    HKT(Vec<N>),
+
     /// Virtual calls through an object.
     Object(ImplSourceObjectData<'tcx, N>),
 
@@ -669,6 +671,7 @@ impl<'tcx, N> ImplSource<'tcx, N> {
         match self {
             ImplSource::UserDefined(i) => i.nested,
             ImplSource::Param(n, _) => n,
+            ImplSource::HKT(n) => n,
             ImplSource::Builtin(i) => i.nested,
             ImplSource::AutoImpl(d) => d.nested,
             ImplSource::Closure(c) => c.nested,
@@ -686,6 +689,7 @@ impl<'tcx, N> ImplSource<'tcx, N> {
         match &self {
             ImplSource::UserDefined(i) => &i.nested[..],
             ImplSource::Param(n, _) => &n,
+            ImplSource::HKT(n) => &n,
             ImplSource::Builtin(i) => &i.nested,
             ImplSource::AutoImpl(d) => &d.nested,
             ImplSource::Closure(c) => &c.nested,
@@ -710,6 +714,7 @@ impl<'tcx, N> ImplSource<'tcx, N> {
                 nested: i.nested.into_iter().map(f).collect(),
             }),
             ImplSource::Param(n, ct) => ImplSource::Param(n.into_iter().map(f).collect(), ct),
+            ImplSource::HKT(n) => ImplSource::HKT(n.into_iter().map(f).collect()),
             ImplSource::Builtin(i) => ImplSource::Builtin(ImplSourceBuiltinData {
                 nested: i.nested.into_iter().map(f).collect(),
             }),

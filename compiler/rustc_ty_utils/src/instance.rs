@@ -275,6 +275,7 @@ fn resolve_associated_item<'tcx>(
         }
         traits::ImplSource::AutoImpl(..)
         | traits::ImplSource::Param(..)
+        | traits::ImplSource::HKT(..)
         | traits::ImplSource::TraitAlias(..)
         | traits::ImplSource::TraitUpcasting(_)
         | traits::ImplSource::ConstDestruct(_) => None,

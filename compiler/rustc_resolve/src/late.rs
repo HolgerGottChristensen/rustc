@@ -1017,18 +1017,8 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
             }
             GenericArg::Lifetime(lt) => self.visit_lifetime(lt, visit::LifetimeCtxt::GenericArg),
             GenericArg::Const(ct) => self.visit_anon_const(ct),
-            GenericArg::HKTVar(v) => {
-                self.visit_hkt_var(v)
-            }
         }
         self.diagnostic_metadata.currently_processing_generics = prev;
-    }
-
-    fn visit_hkt_var(&mut self, _: &'ast HKTVar) {
-        // We dont resolve the name here, since we dont have any reference to what it should refer to
-
-        // We would also argue that checking and validating %j should happen when we type check the generics
-        // as for example is done when checking the number of generic parameters given to a function call
     }
 
     fn visit_assoc_constraint(&mut self, constraint: &'ast AssocConstraint) {
@@ -1391,10 +1381,20 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
                             .bindings
                             .remove(&Ident::with_dummy_span(param.ident.name));
                     }
-                    GenericParamKind::HKT(_) => {
+                    GenericParamKind::HKT(ref generics) => {
                         for bound in &param.bounds {
                             this.visit_param_bound(bound, BoundKind::Bound);
                         }
+
+                        // Push to ban
+                        this.ribs[TypeNS].push(forward_ty_ban_rib);
+                        this.ribs[ValueNS].push(forward_const_ban_rib);
+
+                        this.visit_generics(generics);
+
+                        // Pop to unban
+                        forward_const_ban_rib = this.ribs[ValueNS].pop().unwrap();
+                        forward_ty_ban_rib = this.ribs[TypeNS].pop().unwrap();
 
                         forward_ty_ban_rib
                             .bindings
@@ -4195,13 +4195,18 @@ impl<'ast> Visitor<'ast> for LifetimeCountVisitor<'_, '_> {
 }
 
 impl<'a> Resolver<'a> {
-    #[instrument(level = "debug", skip(self, krate))]
+    #[instrument(level = "info", skip(self, krate))]
     pub(crate) fn late_resolve_crate(&mut self, krate: &Crate) {
         visit::walk_crate(&mut LifetimeCountVisitor { r: self }, krate);
+
+        info!("before: {:#?}", self.use_injections.len());
         let mut late_resolution_visitor = LateResolutionVisitor::new(self);
         visit::walk_crate(&mut late_resolution_visitor, krate);
+
         for (id, span) in late_resolution_visitor.diagnostic_metadata.unused_labels.iter() {
             self.lint_buffer.buffer_lint(lint::builtin::UNUSED_LABELS, *id, *span, "unused label");
         }
+
+        info!("after: {:#?}", self.use_injections.len());
     }
 }

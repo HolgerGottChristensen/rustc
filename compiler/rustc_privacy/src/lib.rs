@@ -1189,7 +1189,7 @@ impl<'tcx> Visitor<'tcx> for TypePrivacyVisitor<'tcx> {
 
     fn visit_ty(&mut self, hir_ty: &'tcx hir::Ty<'tcx>) {
         // FIXMIG: Why the heck is this needed?
-        if matches!(hir_ty.kind, hir::TyKind::Argument(_)) {
+        if matches!(hir_ty.kind, hir::TyKind::Argument(_, _)) {
             return;
         }
         self.span = hir_ty.span;

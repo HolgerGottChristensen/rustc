@@ -1,0 +1,17 @@
+error[E0277]: the size for values of type `[u32]` cannot be known at compilation time
+  --> $DIR/unsized_parameter.rs:4:16
+   |
+LL | fn test<I<%J>>(_input: I<[u32]>) { }
+   |                ^^^^^^ doesn't have a size known at compile-time
+   |
+   = help: within `I<[u32]>`, the trait `Sized` is not implemented for `[u32]`
+   = note: required because it appears within the type `I<[u32]>`
+   = help: unsized fn params are gated as an unstable feature
+help: function arguments must have a statically known size, borrowed types always have a known size
+   |
+LL | fn test<I<%J>>(_input: &I<[u32]>) { }
+   |                        +
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0277`.

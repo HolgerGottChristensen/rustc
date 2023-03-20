@@ -6,7 +6,7 @@ use crate::infer::canonical::Canonical;
 use crate::ty::subst::{GenericArg, InternalSubsts, SubstsRef};
 use crate::ty::visit::ValidateBoundVars;
 use crate::ty::InferTy::*;
-use crate::ty::{self, AdtDef, DefIdTree, Discr, GenericParamDefKind, Term, Ty, TyCtxt, TypeFlags, TypeSuperVisitable, TypeVisitable, TypeVisitor};
+use crate::ty::{self, AdtDef, DefIdTree, Discr, GenericParamDefKind, HKTSubstType, Term, Ty, TyCtxt, TypeFlags, TypeSuperVisitable, TypeVisitable, TypeVisitor};
 use crate::ty::{List, ParamEnv};
 use hir::def::DefKind;
 use polonius_engine::Atom;
@@ -563,7 +563,7 @@ impl<'tcx> GeneratorSubsts<'tcx> {
         layout.variant_fields.iter().map(move |variant| {
             variant
                 .iter()
-                .map(move |field| ty::EarlyBinder(layout.field_tys[*field]).subst(tcx, self.substs))
+                .map(move |field| ty::EarlyBinder(layout.field_tys[*field]).subst(tcx, self.substs, HKTSubstType::SubstHKTParamWithType))
         })
     }
 
@@ -2052,7 +2052,7 @@ impl<'tcx> Ty<'tcx> {
     pub fn fn_sig(self, tcx: TyCtxt<'tcx>) -> PolyFnSig<'tcx> {
         match self.kind() {
             FnDef(def_id, substs) => {
-                tcx.bound_fn_sig(*def_id).subst(tcx, substs)
+                tcx.bound_fn_sig(*def_id).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType)
             },
             FnPtr(f) => *f,
             Error(_) => {
@@ -2236,7 +2236,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Str | ty::Slice(_) => (tcx.types.usize, false),
             ty::Dynamic(..) => {
                 let dyn_metadata = tcx.require_lang_item(LangItem::DynMetadata, None);
-                (tcx.bound_type_of(dyn_metadata).subst(tcx, &[tail.into()]), false)
+                (tcx.bound_type_of(dyn_metadata).subst(tcx, &[tail.into()], HKTSubstType::SubstHKTParamWithType), false)
             },
 
             // type parameters only have unit metadata if they're sized, so return true

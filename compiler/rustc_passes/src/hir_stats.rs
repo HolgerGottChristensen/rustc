@@ -341,7 +341,7 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
     }
 
     fn visit_generic_param(&mut self, p: &'v hir::GenericParam<'v>) {
-        self.record("GenericParam", Id::Node(p.hir_id), p);
+        self.record("GenericParam", Id::Node(p.expect_hir_id()), p);
         hir_visit::walk_generic_param(self, p)
     }
 
@@ -578,6 +578,7 @@ impl<'v> ast_visit::Visitor<'v> for StatCollector<'v> {
         record_variants!(
             (self, t, t.kind, Id::None, ast, Ty, TyKind),
             [
+                Argument,
                 Slice,
                 Array,
                 Ptr,

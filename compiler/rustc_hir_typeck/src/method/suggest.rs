@@ -26,7 +26,7 @@ use rustc_middle::traits::util::supertraits;
 use rustc_middle::ty::fast_reject::DeepRejectCtxt;
 use rustc_middle::ty::fast_reject::{simplify_type, TreatParams};
 use rustc_middle::ty::print::{with_crate_prefix, with_forced_trimmed_paths};
-use rustc_middle::ty::{self, DefIdTree, GenericArgKind, Ty, TyCtxt, TypeVisitable};
+use rustc_middle::ty::{self, DefIdTree, GenericArgKind, HKTSubstType, Ty, TyCtxt, TypeVisitable};
 use rustc_middle::ty::{IsSuggestable, ToPolyTraitRef};
 use rustc_span::symbol::{kw, sym, Ident};
 use rustc_span::Symbol;
@@ -1340,7 +1340,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
                     let range_def_id = self.tcx.require_lang_item(lang_item.unwrap(), None);
                     let range_ty =
-                        self.tcx.bound_type_of(range_def_id).subst(self.tcx, &[actual.into()]);
+                        self.tcx.bound_type_of(range_def_id).subst(self.tcx, &[actual.into()], HKTSubstType::SubstHKTParamWithType);
 
                     let pick = self.probe_for_name(
                         Mode::MethodCall,

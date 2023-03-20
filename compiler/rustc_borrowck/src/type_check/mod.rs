@@ -430,7 +430,7 @@ impl<'a, 'b, 'tcx> Visitor<'tcx> for TypeVerifier<'a, 'b, 'tcx> {
                 // impls for trait bounds.
                 let instantiated_predicates = tcx.predicates_of(def_id).instantiate(tcx, substs);
                 let prev = self.cx.param_env;
-                self.cx.param_env = prev.without_const();
+                self.cx.param_env = tcx.param_env_with_hkt((def_id, prev.without_const()));
                 self.cx.normalize_and_prove_instantiated_predicates(
                     def_id,
                     instantiated_predicates,

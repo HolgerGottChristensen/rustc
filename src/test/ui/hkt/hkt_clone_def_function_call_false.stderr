@@ -1,0 +1,16 @@
+error[E0277]: the trait bound `I<u32>: Clone` is not satisfied
+  --> $DIR/hkt_clone_def_function_call_false.rs:5:18
+   |
+LL |     Clone::clone(&input)
+   |     ------------ ^^^^^^ the trait `Clone` is not implemented for `I<u32>`
+   |     |
+   |     required by a bound introduced by this call
+   |
+help: consider introducing a `where` clause, but there might be an alternative better way to express this requirement
+   |
+LL | fn test<I<%J>>(input: I<u32>) -> I<u32> where I<u32>: Clone {
+   |                                         +++++++++++++++++++
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0277`.

@@ -3,7 +3,7 @@ use rustc_infer::infer::canonical::{Canonical, QueryResponse};
 use rustc_infer::infer::{DefiningAnchor, TyCtxtInferExt};
 use rustc_infer::traits::ObligationCauseCode;
 use rustc_middle::ty::query::Providers;
-use rustc_middle::ty::{self, FnSig, Lift, PolyFnSig, Ty, TyCtxt, TypeFoldable};
+use rustc_middle::ty::{self, FnSig, HKTSubstType, Lift, PolyFnSig, Ty, TyCtxt, TypeFoldable};
 use rustc_middle::ty::{ParamEnvAnd, Predicate, ToPredicate};
 use rustc_middle::ty::{UserSelfTy, UserSubsts};
 use rustc_span::{Span, DUMMY_SP};
@@ -65,7 +65,7 @@ pub fn type_op_ascribe_user_type_with_span<'tcx>(
     info!("Get type of: {:?}", def_id);
     let ty = tcx.bound_type_of(def_id);
     info!("bound_type_of: {:?}", ty.skip_binder().kind());
-    let ty = ty.subst(tcx, substs);
+    let ty = ty.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
     info!("subst: {:?}", ty);
     let ty = ocx.normalize(&cause, param_env, ty);
     info!("relate_type_and_user_type: ty of def-id is {:?}", ty);
@@ -104,7 +104,7 @@ pub fn type_op_ascribe_user_type_with_span<'tcx>(
     info!("After: for (instantiated_predicate, predicate_span) in");
 
     if let Some(UserSelfTy { impl_def_id, self_ty }) = user_self_ty {
-        let impl_self_ty = tcx.bound_type_of(impl_def_id).subst(tcx, substs);
+        let impl_self_ty = tcx.bound_type_of(impl_def_id).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
         let impl_self_ty = ocx.normalize(&cause, param_env, impl_self_ty);
 
         info!("user_self_type_eq, expected={:?} actual={:?}", self_ty, impl_self_ty);

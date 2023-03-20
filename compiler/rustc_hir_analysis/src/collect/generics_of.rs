@@ -16,6 +16,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
     let hir_id = tcx.hir().local_def_id_to_hir_id(def_id.expect_local());
 
     let node = tcx.hir().get(hir_id);
+
     let parent_def_id = match node {
         Node::ImplItem(_)
         | Node::TraitItem(_)
@@ -226,7 +227,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
     params.extend(early_lifetimes.enumerate().map(|(i, param)| ty::GenericParamDef {
         name: param.name.ident().name,
         index: own_start + i as u32,
-        def_id: param.def_id.to_def_id(),
+        def_id: param.local_def_id().to_def_id(),
         pure_wrt_drop: param.pure_wrt_drop,
         kind: ty::GenericParamDefKind::Lifetime,
     }));
@@ -254,7 +255,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
                     Defaults::FutureCompatDisallowed => {
                         tcx.struct_span_lint_hir(
                             lint::builtin::INVALID_TYPE_PARAM_DEFAULT,
-                            param.hir_id,
+                            param.expect_hir_id(),
                             param.span,
                             TYPE_DEFAULT_NOT_ALLOWED,
                             |lint| lint,
@@ -271,7 +272,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
             Some(ty::GenericParamDef {
                 index: next_index(),
                 name: param.name.ident().name,
-                def_id: param.def_id.to_def_id(),
+                def_id: param.local_def_id().to_def_id(),
                 pure_wrt_drop: param.pure_wrt_drop,
                 kind,
             })
@@ -288,7 +289,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
             Some(ty::GenericParamDef {
                 index: next_index(),
                 name: param.name.ident().name,
-                def_id: param.def_id.to_def_id(),
+                def_id: param.local_def_id().to_def_id(),
                 pure_wrt_drop: param.pure_wrt_drop,
                 kind: ty::GenericParamDefKind::Const { has_default: default.is_some() },
             })
@@ -299,7 +300,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
             Some(ty::GenericParamDef {
                 index: next_index(),
                 name: param.name.ident().name,
-                def_id: param.def_id.to_def_id(),
+                def_id: param.local_def_id().to_def_id(),
                 pure_wrt_drop: param.pure_wrt_drop,
                 kind,
             })
@@ -412,8 +413,8 @@ fn has_late_bound_regions<'tcx>(tcx: TyCtxt<'tcx>, node: Node<'tcx>) -> Option<S
             has_late_bound_regions: None,
         };
         for param in generics.params {
-            if let GenericParamKind::Lifetime { .. } = param.kind {
-                if tcx.is_late_bound(param.hir_id) {
+            if let GenericParamKind::Lifetime { hir_id, .. } = param.kind {
+                if tcx.is_late_bound(hir_id) {
                     return Some(param.span);
                 }
             }
@@ -459,7 +460,7 @@ struct AnonConstInParamTyDetector {
 
 impl<'v> Visitor<'v> for AnonConstInParamTyDetector {
     fn visit_generic_param(&mut self, p: &'v hir::GenericParam<'v>) {
-        if let GenericParamKind::Const { ty, default: _ } = p.kind {
+        if let GenericParamKind::Const { ty, default: _, .. } = p.kind {
             let prev = self.in_param_ty;
             self.in_param_ty = true;
             self.visit_ty(ty);

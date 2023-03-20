@@ -586,7 +586,10 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         root_obligation: &PredicateObligation<'tcx>,
         error: &SelectionError<'tcx>,
     ) {
+        info!("Error for obligation: {:#?}", obligation.predicate);
+        info!("Error for obligation cause: {:#?}", obligation.cause);
         info!("Error when selecting in env: {:#?}", obligation.param_env);
+        info!("Stacktrace: \n{}", std::backtrace::Backtrace::capture());
         let tcx = self.tcx;
         let mut span = obligation.cause.span;
         // FIXME: statically guarantee this by tainting after the diagnostic is emitted
@@ -1573,7 +1576,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         false
     }
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     fn report_fulfillment_error(
         &self,
         error: &FulfillmentError<'tcx>,
@@ -1837,6 +1840,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                 ty::Generator(..) => Some(16),
                 ty::Foreign(..) => Some(17),
                 ty::GeneratorWitness(..) => Some(18),
+                ty::Argument(..) => Some(19), // FIXMIG: is this correct?
                 ty::Placeholder(..) | ty::Bound(..) | ty::Infer(..) | ty::Error(_) => None,
                 ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
                 ty::HKTInfer => todo!("hoch"), // FIXMIG: what to do here?
@@ -2674,7 +2678,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         // Check that none of the explicit trait bounds is `Sized`. Assume that an explicit
         // `Sized` bound is there intentionally and we don't need to suggest relaxing it.
         let explicitly_sized = generics
-            .bounds_for_param(param.def_id)
+            .bounds_for_param(param.local_def_id())
             .flat_map(|bp| bp.bounds)
             .any(|bound| bound.trait_ref().and_then(|tr| tr.trait_def_id()) == sized_trait);
         if explicitly_sized {
@@ -2697,7 +2701,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
             _ => {}
         };
         // Didn't add an indirection suggestion, so add a general suggestion to relax `Sized`.
-        let (span, separator) = if let Some(s) = generics.bounds_span_for_suggestions(param.def_id)
+        let (span, separator) = if let Some(s) = generics.bounds_span_for_suggestions(param.local_def_id())
         {
             (s, " +")
         } else {

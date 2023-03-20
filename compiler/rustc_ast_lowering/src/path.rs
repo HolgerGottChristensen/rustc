@@ -315,7 +315,6 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             AngleBracketedArg::Arg(ast::GenericArg::Lifetime(_))
             | AngleBracketedArg::Constraint(_) => false,
             AngleBracketedArg::Arg(ast::GenericArg::Type(_)
-            | ast::GenericArg::HKTVar(_)
             | ast::GenericArg::Const(_)) => true,
         });
         let args = data

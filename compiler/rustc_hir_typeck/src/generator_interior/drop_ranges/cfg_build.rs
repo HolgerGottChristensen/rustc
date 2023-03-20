@@ -283,6 +283,7 @@ impl<'a, 'tcx> DropRangeVisitor<'a, 'tcx> {
                 | hir::Node::Ctor(..)
                 | hir::Node::Lifetime(..)
                 | hir::Node::GenericParam(..)
+                | hir::Node::OwnedHKTParam(..)
                 | hir::Node::Crate(..)
                 | hir::Node::Infer(..) => bug!("Unsupported branch target: {:?}", node),
             }

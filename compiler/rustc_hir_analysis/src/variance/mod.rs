@@ -7,7 +7,7 @@ use rustc_arena::DroplessArena;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_middle::ty::query::Providers;
-use rustc_middle::ty::{self, CrateVariancesMap, SubstsRef, Ty, TyCtxt};
+use rustc_middle::ty::{self, CrateVariancesMap, HKTSubstType, SubstsRef, Ty, TyCtxt};
 use rustc_middle::ty::{DefIdTree, TypeSuperVisitable, TypeVisitable};
 use std::ops::ControlFlow;
 
@@ -31,6 +31,7 @@ pub fn provide(providers: &mut Providers) {
     *providers = Providers { variances_of, crate_variances, ..*providers };
 }
 
+#[instrument(skip_all)]
 fn crate_variances(tcx: TyCtxt<'_>, (): ()) -> CrateVariancesMap<'_> {
     let arena = DroplessArena::default();
     let terms_cx = terms::determine_parameters_to_be_inferred(tcx, &arena);
@@ -52,6 +53,9 @@ fn variances_of(tcx: TyCtxt<'_>, item_def_id: DefId) -> &[ty::Variance] {
         | DefKind::Union
         | DefKind::Variant
         | DefKind::Ctor(..) => {}
+        DefKind::HKTParam => {
+            info!("Get variances of: {:?}", item_def_id);
+        }
         DefKind::OpaqueTy | DefKind::ImplTraitPlaceholder => {
             return variance_of_opaque(tcx, item_def_id.expect_local());
         }
@@ -63,7 +67,7 @@ fn variances_of(tcx: TyCtxt<'_>, item_def_id: DefId) -> &[ty::Variance] {
 
     // Everything else must be inferred.
 
-    let crate_map = tcx.crate_variances(());
+    let crate_map: &CrateVariancesMap<'_> = tcx.crate_variances(());
     crate_map.variances.get(&item_def_id).copied().unwrap_or(&[])
 }
 
@@ -153,7 +157,7 @@ fn variance_of_opaque(tcx: TyCtxt<'_>, item_def_id: LocalDefId) -> &[ty::Varianc
         OpaqueTypeLifetimeCollector { tcx, root_def_id: item_def_id.to_def_id(), variances };
     let id_substs = ty::InternalSubsts::identity_for_item(tcx, item_def_id.to_def_id());
     for pred in tcx.bound_explicit_item_bounds(item_def_id.to_def_id()).transpose_iter() {
-        let pred = pred.map_bound(|(pred, _)| *pred).subst(tcx, id_substs);
+        let pred = pred.map_bound(|(pred, _)| *pred).subst(tcx, id_substs, HKTSubstType::SubstHKTParamWithType);
         debug!(?pred);
 
         // We only ignore opaque type substs if the opaque type is the outermost type.
