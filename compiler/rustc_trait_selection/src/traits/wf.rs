@@ -732,7 +732,7 @@ impl<'tcx> WfPredicates<'tcx> {
                     ));
                 }
 
-                ty::HKTInfer => todo!("hoch"), // FIXMIG: what to do here?
+                ty::HKTInfer => {} // FIXMIG: what to do here?
             }
 
             debug!(?self.out);

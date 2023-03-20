@@ -892,7 +892,8 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             | ty::TyKind::Uint(_)
             | ty::TyKind::Error(_)
             | ty::TyKind::Argument(_)
-            | ty::TyKind::Infer(_)
+            | ty::TyKind::Infer(_) // FIXMIG: do this right
+            | ty::TyKind::HKTInfer // FIXMIG: do this right
             | ty::TyKind::Float(_) => {
                 ty
             }
@@ -933,10 +934,6 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                 }).collect::<Vec<_>>();
 
                 self.tcx.mk_ty(ty::TyKind::HKT(*did, *a, self.tcx.mk_substs(new_substs.into_iter())))
-            }
-            ty::TyKind::Infer(..) => {
-                // FIXMIG: do this right
-                ty
             }
             _ => {
                 todo!("here: {:#?} with {:#?}, def_id: {:?}:{:?}", ty.kind(), with.kind(), def_id, index)

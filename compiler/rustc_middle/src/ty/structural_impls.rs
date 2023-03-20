@@ -651,7 +651,10 @@ impl<'tcx> TypeSuperFoldable<'tcx> for Ty<'tcx> {
                 representation,
             ),
             ty::Tuple(ts) => ty::Tuple(ts.try_fold_with(folder)?),
-            ty::FnDef(def_id, substs) => ty::FnDef(def_id, substs.try_fold_with(folder)?),
+            ty::FnDef(def_id, substs) => {
+                info!("substs when visiting type: {:#?}", substs);
+                ty::FnDef(def_id, substs.try_fold_with(folder)?)
+            },
             ty::FnPtr(f) => ty::FnPtr(f.try_fold_with(folder)?),
             ty::Ref(r, ty, mutbl) => {
                 ty::Ref(r.try_fold_with(folder)?, ty.try_fold_with(folder)?, mutbl)

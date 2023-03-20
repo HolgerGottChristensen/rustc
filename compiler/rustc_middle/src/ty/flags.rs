@@ -89,7 +89,7 @@ impl FlagComputation {
             | &ty::Foreign(..) => {}
 
             &ty::HKTInfer => {
-                todo!("hoch") // FIXMIG: what to do here?
+                self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE); // FIXMIG: what to do here?
             }
 
             &ty::Error(_) => self.add_flags(TypeFlags::HAS_ERROR),
