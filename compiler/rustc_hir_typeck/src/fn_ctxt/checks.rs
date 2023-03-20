@@ -167,11 +167,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         fn_def_id: Option<DefId>,
     ) {
         // info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
-        // debug!("fn_def_id={:#?}", fn_def_id);
-        // debug!("{:#?}", call_expr);
-        // debug!("formal_input_tys={:#?}", formal_input_tys);
-        // debug!("expected_input_tys={:#?}", expected_input_tys);
-        // debug!("provided_args={:#?}", provided_args);
+        info!("fn_def_id={:#?}", fn_def_id);
+        info!("{:#?}", call_expr);
+        info!("formal_input_tys={:#?}", formal_input_tys);
+        info!("expected_input_tys={:#?}", expected_input_tys);
+        info!("provided_args={:#?}", provided_args);
         let tcx = self.tcx;
 
         // Conceptually, we've got some number of expected inputs, and some number of provided arguments
@@ -1814,7 +1814,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         && let ty::HKT(_, param_ty, ..) = ty.kind()
                         && matches(param_ty)
                     {
-                        todo!("hoch") // FIXMIG: what to do here?
+                        Some(arg)
                     } else {
                         None
                     }

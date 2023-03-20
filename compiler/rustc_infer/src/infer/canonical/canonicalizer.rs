@@ -457,6 +457,7 @@ impl<'cx, 'tcx> TypeFolder<'tcx> for Canonicalizer<'cx, 'tcx> {
             | ty::Foreign(..)
             | ty::HKT(..)
             | ty::Argument(..)
+            | ty::HKTInfer
             | ty::Param(..) => {
                 if t.flags().intersects(self.needs_canonical_flags) {
                     t.super_fold_with(self)

@@ -1160,6 +1160,7 @@ impl<'a, 'tcx> ImproperCTypesVisitor<'a, 'tcx> {
             ty::Param(..)
             | ty::Alias(ty::Projection, ..)
             | ty::Infer(..)
+            | ty::HKTInfer // FIXMIG: what to do here?
             | ty::Bound(..)
             | ty::Error(_)
             | ty::Closure(..)

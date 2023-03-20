@@ -748,6 +748,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 // not structurally... so don't push a candidate.
             }
 
+            ty::HKTInfer => todo!("hoch"), // FIXMIG: what to do here?
+
             ty::Bool
             | ty::Char
             | ty::Int(_)
@@ -836,6 +838,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Bound(_, _)
             | ty::Error(_)
             | ty::Infer(_)
+            | ty::HKTInfer
             | ty::Placeholder(_) => {}
         }
     }

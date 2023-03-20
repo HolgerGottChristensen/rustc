@@ -280,6 +280,7 @@ fn characteristic_def_id_of_type_cached<'a>(
         | ty::Param(_)
         | ty::HKT(..)
         | ty::Infer(_)
+        | ty::HKTInfer
         | ty::Bound(..)
         | ty::Error(_)
         | ty::GeneratorWitness(..)

@@ -35,6 +35,7 @@ pub enum SimplifiedType {
     FunctionSimplifiedType(usize),
     PlaceholderSimplifiedType,
     TyArgumentSimplifiedType,
+    HKTInferSimplifiedType,
 }
 
 /// Generic parameters are pretty much just bound variables, e.g.
@@ -124,7 +125,8 @@ pub fn simplify_type<'tcx>(
         },
         ty::Argument(..) => {
             Some(TyArgumentSimplifiedType)
-        }
+        },
+        ty::HKTInfer => Some(HKTInferSimplifiedType),
         ty::Alias(..) => match treat_params {
             // When treating `ty::Param` as a placeholder, projections also
             // don't unify with anything else as long as they are fully normalized.
@@ -221,6 +223,9 @@ impl DeepRejectCtxt {
             | ty::Bound(..)
             | ty::Infer(_) => bug!("unexpected impl_ty: {impl_ty}"),
             ty::Argument(..) => {
+                todo!("hoch") // FIXMIG: what to do here?
+            },
+            ty::HKTInfer => {
                 todo!("hoch") // FIXMIG: what to do here?
             }
         }
@@ -328,6 +333,10 @@ impl DeepRejectCtxt {
             }
 
             ty::Argument(..) => {
+                todo!("hoch") // FIXMIG: what to do here?
+            },
+
+            ty::HKTInfer => {
                 todo!("hoch") // FIXMIG: what to do here?
             }
         }

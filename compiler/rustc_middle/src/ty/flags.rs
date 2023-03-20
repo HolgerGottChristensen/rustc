@@ -88,6 +88,10 @@ impl FlagComputation {
             | &ty::Str
             | &ty::Foreign(..) => {}
 
+            &ty::HKTInfer => {
+                todo!("hoch") // FIXMIG: what to do here?
+            }
+
             &ty::Error(_) => self.add_flags(TypeFlags::HAS_ERROR),
 
             &ty::Param(_) => {

@@ -206,6 +206,8 @@ pub enum TyKind<I: Interner> {
     /// inside of the type.
     Infer(I::InferTy),
 
+    HKTInfer,
+
     /// A placeholder for a type which could not be computed; this is
     /// propagated to avoid useless error messages.
     Error(I::ErrorGuaranteed),
@@ -250,7 +252,8 @@ const fn tykind_discriminant<I: Interner>(value: &TyKind<I>) -> usize {
         Infer(_) => 24,
         Error(_) => 25,
         HKT(..) => 26,
-        Argument(..) => 27
+        Argument(..) => 27,
+        HKTInfer => 28,
     }
 }
 
@@ -285,7 +288,8 @@ impl<I: Interner> Clone for TyKind<I> {
             Infer(t) => Infer(t.clone()),
             Error(e) => Error(e.clone()),
             HKT(did, p, s) => HKT(did.clone(), p.clone(), s.clone()),
-            Argument(s) => Argument(s.clone())
+            Argument(s) => Argument(s.clone()),
+            HKTInfer => HKTInfer,
         }
     }
 }
@@ -458,7 +462,7 @@ impl<I: Interner> hash::Hash for TyKind<I> {
             Argument(v) => {
                 v.hash(state)
             }
-            Bool | Char | Str | Never => (),
+            Bool | Char | Str | Never | HKTInfer => (),
         }
     }
 }
@@ -492,6 +496,7 @@ impl<I: Interner> fmt::Debug for TyKind<I> {
             Bound(d, b) => f.debug_tuple_field2_finish("Bound", d, b),
             Placeholder(p) => f.debug_tuple_field1_finish("Placeholder", p),
             Infer(t) => f.debug_tuple_field1_finish("Infer", t),
+            HKTInfer => f.write_str("HKTInfer"),
             HKT(did, d, s) => f.debug_tuple_field3_finish("HKT", did, d, s),
             Argument(v) => f.debug_tuple_field1_finish("Argument", v),
             TyKind::Error(e) => f.debug_tuple_field1_finish("Error", e),
@@ -617,7 +622,8 @@ where
             }),
             Argument(v) => e.emit_enum_variant(disc, |e| {
                 v.encode(e);
-            })
+            }),
+            HKTInfer => e.emit_enum_variant(disc, |_| {}),
         }
     }
 }
@@ -679,6 +685,7 @@ where
             25 => Error(Decodable::decode(d)),
             26 => HKT(Decodable::decode(d), Decodable::decode(d), Decodable::decode(d)),
             27 => Argument(Decodable::decode(d)),
+            28 => HKTInfer,
             _ => panic!(
                 "{}",
                 format!(
@@ -812,7 +819,8 @@ where
             }
             Argument(v) => {
                 v.hash_stable(__hcx, __hasher);
-            }
+            },
+            HKTInfer => {}
         }
     }
 }

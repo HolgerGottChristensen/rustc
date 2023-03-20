@@ -48,6 +48,7 @@ impl<'tcx> Printer<'tcx> for AbsolutePathPrinter<'tcx> {
             | ty::Never
             | ty::Tuple(_)
             | ty::Argument(..)
+            | ty::HKTInfer
             | ty::Dynamic(_, _, _) => self.pretty_print_type(ty),
 
             ty::HKT(..) => {

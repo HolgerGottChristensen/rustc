@@ -2093,6 +2093,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             },
             ty::Alias(..) | ty::Param(_) | ty::HKT(..) => None,
             ty::Infer(ty::TyVar(_)) => Ambiguous,
+            ty::HKTInfer => Ambiguous, // FIXMIG: what to do here?
 
             ty::Placeholder(..)
             | ty::Bound(..)
@@ -2207,6 +2208,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 Ambiguous
             }
 
+            ty::HKTInfer => Ambiguous, // FIXMIG: what to do here?
+
             ty::Placeholder(..)
             | ty::Bound(..)
             | ty::Infer(ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
@@ -2255,7 +2258,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Foreign(..)
             | ty::Alias(ty::Projection, ..)
             | ty::Bound(..)
-            | ty::Infer(ty::TyVar(_) | ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
+            | ty::Infer(ty::TyVar(_) | ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_))
+            | ty::HKTInfer => {
                 bug!("asked to assemble constituent types of unexpected type: {:?}", t);
             }
 

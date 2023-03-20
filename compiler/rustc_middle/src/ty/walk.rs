@@ -144,6 +144,7 @@ fn push_inner<'tcx>(stack: &mut TypeWalkerStack<'tcx>, parent: GenericArg<'tcx>)
             | ty::Float(_)
             | ty::Str
             | ty::Infer(_)
+            | ty::HKTInfer
             | ty::Param(_)
             | ty::Never
             | ty::Error(_)

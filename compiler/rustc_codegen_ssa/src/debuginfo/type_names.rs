@@ -416,6 +416,7 @@ fn push_debuginfo_type_name<'tcx>(
         }
         ty::Error(_)
         | ty::Infer(_)
+        | ty::HKTInfer
         | ty::Placeholder(..)
         | ty::Alias(..)
         | ty::Bound(..)

@@ -124,7 +124,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 todo!("hoch") // FIXMIG: what to do here?
             },
             // Insufficient type information.
-            ty::Placeholder(..) | ty::Bound(..) | ty::Infer(_) => None,
+            ty::Placeholder(..)
+            | ty::Bound(..)
+            | ty::HKTInfer
+            | ty::Infer(_) => None,
 
             ty::Bool
             | ty::Char

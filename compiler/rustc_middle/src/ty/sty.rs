@@ -2156,6 +2156,10 @@ impl<'tcx> Ty<'tcx> {
                 todo!("hoch") // FIXMIG: what to do here?
             }
 
+            ty::HKTInfer => {
+                todo!("hoch") // FIXMIG: what to do here?
+            }
+
             ty::Bool
             | ty::Char
             | ty::Int(_)
@@ -2222,6 +2226,10 @@ impl<'tcx> Ty<'tcx> {
             | ty::Tuple(..) => (tcx.types.unit, false),
 
             ty::Argument(..) => {
+                todo!("hoch") // FIXMIG: what to do here?
+            }
+
+            ty::HKTInfer => {
                 todo!("hoch") // FIXMIG: what to do here?
             }
 
@@ -2313,6 +2321,10 @@ impl<'tcx> Ty<'tcx> {
 
             ty::Infer(ty::TyVar(_)) => false,
 
+            ty::HKTInfer => {
+                todo!("hoch") // FIXMIG: what to do here?
+            }
+
             ty::Argument(..) => {
                 todo!("hoch") // FIXMIG: what to do here?
             }
@@ -2372,6 +2384,10 @@ impl<'tcx> Ty<'tcx> {
             ty::Adt(..) | ty::Closure(..) => false,
 
             ty::Argument(..) => {
+                todo!("hoch") // FIXMIG: what to do here?
+            }
+
+            ty::HKTInfer => {
                 todo!("hoch") // FIXMIG: what to do here?
             }
 

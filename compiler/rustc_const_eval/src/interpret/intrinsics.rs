@@ -79,6 +79,7 @@ pub(crate) fn eval_nullary_intrinsic<'tcx>(
         }
         sym::variant_count => match tp_ty.kind() {
             ty::Argument(..) => todo!("hoch"),
+            ty::HKTInfer => todo!("hoch"),
             // Correctly handles non-monomorphic calls, so there is no need for ensure_monomorphic_enough.
             ty::Adt(ref adt, _) => {
                 ConstValue::from_machine_usize(adt.variants().len() as u64, &tcx)

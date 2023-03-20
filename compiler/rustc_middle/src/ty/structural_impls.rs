@@ -670,6 +670,7 @@ impl<'tcx> TypeSuperFoldable<'tcx> for Ty<'tcx> {
             | ty::Float(_)
             | ty::Error(_)
             | ty::Infer(_)
+            | ty::HKTInfer
             | ty::Param(..)
             | ty::HKT(..) // FIXMIG: is this correct?
             | ty::Argument(..) // FIXMIG: is this correct?
@@ -717,6 +718,7 @@ impl<'tcx> TypeSuperVisitable<'tcx> for Ty<'tcx> {
             | ty::Float(_)
             | ty::Error(_)
             | ty::Infer(_)
+            | ty::HKTInfer
             | ty::Bound(..)
             | ty::Placeholder(..)
             | ty::Param(..)

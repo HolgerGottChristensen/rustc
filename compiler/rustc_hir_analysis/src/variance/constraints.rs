@@ -298,7 +298,11 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
                 // types, where we use Error as the Self type
             }
 
-            ty::Placeholder(..) | ty::GeneratorWitness(..) | ty::Bound(..) | ty::Infer(..) => {
+            ty::Placeholder(..)
+            | ty::GeneratorWitness(..)
+            | ty::Bound(..)
+            | ty::Infer(..)
+            | ty::HKTInfer => {
                 bug!(
                     "unexpected type encountered in \
                       variance inference: {}",

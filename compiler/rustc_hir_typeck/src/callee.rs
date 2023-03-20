@@ -19,7 +19,7 @@ use rustc_infer::{
 use rustc_middle::ty::adjustment::{
     Adjust, Adjustment, AllowTwoPhase, AutoBorrow, AutoBorrowMutability,
 };
-use rustc_middle::ty::SubstsRef;
+use rustc_middle::ty::{SubstsRef, ty_slice_as_generic_args};
 use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitable};
 use rustc_span::def_id::LocalDefId;
 use rustc_span::symbol::{sym, Ident};
@@ -417,12 +417,15 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let (fn_sig, def_id) = match *callee_ty.kind() {
             // We are calling a function that is defines somewhere
             ty::FnDef(def_id, subst) => {
+                let new_ty = self.tcx.mk_ty(ty::Bool);
+                let new_gen_arg = ty_slice_as_generic_args(self.tcx.arena.alloc_from_iter([new_ty]));
+                let new_subst = self.tcx.intern_substs(new_gen_arg);
 
                 // Retrieve the function signature
                 let fn_sig = self.tcx.bound_fn_sig(def_id);
-                info!("Sig before substs: {:?}, substs: {:#?}", fn_sig, subst);
-                let fn_sig = fn_sig.subst(self.tcx, subst);
-                info!("Sig after substs: {:?}", fn_sig);
+                info!("Sig before substs: {:#?}, substs: {:#?}", fn_sig, new_subst);
+                let fn_sig = fn_sig.subst(self.tcx, new_subst);
+                info!("Sig after substs: {:#?}", fn_sig);
 
                 // Unit testing: function items annotated with
                 // `#[rustc_evaluate_where_clauses]` trigger special output
@@ -493,6 +496,18 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         };
 
+        /*
+        let fn_sig_new = if self.is_function_hkt(callee_ty) {
+            if let Some(f) = self.get_constraints_if_hkt(callee_ty, arg_exprs, fn_sig, &expected_arg_tys) {
+                f
+            } else {
+                fn_sig
+            }
+        } else {
+            fn_sig
+        };
+        */
+
         // Replace any late-bound regions that appear in the function
         // signature with region variables. We also have to
         // re-normalize the associated types at this point, since they
@@ -509,50 +524,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             fn_sig.inputs(),
         );
 
-        if fn_sig.inputs().len() > 1 {
-            info!("expect before function call: {:#?}", expected_arg_tys);
-            info!("function signature: {:#?}", fn_sig);
-            info!("callee ty: {:#?}", callee_ty);
-            // Figure out whether this function have HKT parameters.
-            // If so, infer the type I<%J> of the first argument.
-            // When we infer the type of I - Infer_I - we will call 'check_argument_types', however, we have now changed formal_input_tys
-            // by substituting the type parameters of the function signature of the called function with substitution containing Infer_I<%J>.
-            // This will be analogous to calling the function with type annotation. This method only works when using %J of I
 
-            match *callee_ty.kind() {
-                ty::FnDef(def_id, _) => {
-                    let fn_signature = self.tcx.bound_fn_sig(def_id);
-                    let is_hkt = fn_signature.skip_binder().skip_binder().inputs().to_vec().iter().any(|inp| {
-                        if let ty::HKT(_, _, _) = inp.kind() {
-                            true
-                        } else {
-                            false
-                        }
-                    });
-                    info!("is hkt: {:#?}", is_hkt);
-                    let expected_input_tys = if let Some(expect) = expected_arg_tys.clone() {
-                        expect
-                    } else {
-                        (*fn_sig.inputs()).to_vec()
-                    };
-                    if let (Some(args), Some(expect)) = (arg_exprs.first(), expected_input_tys.first()) {
-                        let resolved = self.check_expr_with_expectation(args, Expectation::rvalue_hint(self,*expect));
-                        info!("first arg resolved: {:#?}", resolved.kind());
-                        match resolved.kind() {
-                            ty::Adt(_adt, _) => {
-
-                            }
-                            _ => {
-                                //FIXMIG: andre cases
-                            }
-                        }
-                    }
-
-                }
-                _ => {}
-            }
-
-        }
         info!("fn_sig inputs {:#?}, with fun_id {:#?}", fn_sig.inputs(), def_id);
         self.check_argument_types(
             call_expr.span,
@@ -583,6 +555,90 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         fn_sig.output()
     }
+
+
+    #[allow(dead_code)]
+    fn is_function_hkt(&self, callee_ty: Ty<'tcx>) -> bool {
+        match *callee_ty.kind() {
+            ty::FnDef(def_id, _) => {
+                let fn_signature = self.tcx.bound_fn_sig(def_id);
+                let is_hkt = fn_signature.skip_binder().skip_binder().inputs().to_vec().iter().any(|inp| {
+                    if let ty::HKT(_, _, _) = inp.kind() {
+                        true
+                    } else {
+                        false
+                    }
+                });
+                is_hkt
+            },
+            _ => false
+        }
+    }
+
+    /*
+    #[allow(dead_code)]
+    fn get_constraints_if_hkt(&self, callee_ty: Ty<'tcx>, _arg_exprs: &[Expr<'tcx>], fn_sig: FnSig<'tcx>, expected_arg_tys: &Option<Vec<Ty<'tcx>>>) -> Option<PolyFnSig<'tcx>> {
+        if fn_sig.inputs().len() > 1 {
+            return None
+        }
+        info!("expect before function call: {:#?}", expected_arg_tys);
+        info!("function signature: {:#?}", fn_sig);
+        info!("callee ty: {:#?}", callee_ty);
+        // Figure out whether this function have HKT parameters.
+        // If so, infer the type I<%J> of the first argument.
+        // When we infer the type of I - Infer_I - we will call 'check_argument_types', however, we have now changed formal_input_tys
+        // by substituting the type parameters of the function signature of the called function with substitution containing Infer_I<%J>.
+        // This will be analogous to calling the function with type annotation. This method only works when using %J of I
+
+        match *callee_ty.kind() {
+            ty::FnDef(def_id, _) => {
+                let fn_signature = self.tcx.bound_fn_sig(def_id);
+
+                let mut lefties = Vec::new();
+                let mut righties = Vec::new();
+                let mut constraints = Vec::new();
+
+                for (l, i) in fn_signature.skip_binder().inputs().skip_binder().iter().zip(0..fn_signature.skip_binder().inputs().skip_binder().len()) {
+                    // if l is HKT push to lefties
+                    if let ty::HKT(_, _, _) = l.kind() {
+                        lefties.push((l.clone(), i));
+                    }
+                }
+
+                let expected_input_tys = if let Some(expect) = expected_arg_tys.clone() {
+                    expect
+                } else {
+                    (*fn_sig.inputs()).to_vec()
+                };
+
+                let args_expect = _arg_exprs.iter().zip(expected_input_tys).collect::<Vec<(&Expr<'tcx>, Ty<'tcx>)>>();
+
+                for (_, i) in &lefties {
+                    let (arg, expect) = &args_expect[*i];
+                    let r = self.check_expr_with_expectation(&arg, Expectation::rvalue_hint(self, *expect));
+                    righties.push((r, i));
+                }
+
+                for i in 0..lefties.len() {
+                    let (l_ty, _) = lefties[i];
+                    let (r_ty, _) = righties[i];
+                    //create constraint with l_ty and r_ty
+                    constraints.push((l_ty, r_ty));
+                }
+
+                let solutions = Self::huets(HashMap::new(), constraints);
+                let new_ty = solutions[0];
+                Some(fn_signature.subst(self.tcx, &[GenericArg::from(new_ty)]))
+            },
+            _ => None
+        }
+    }
+
+    fn huets(_context: HashMap<String, usize>, _problem: Vec<(Ty<'tcx>, Ty<'tcx>)>) -> Vec<Ty<'tcx>> {
+        todo!()
+    }
+     */
+
 
     /// Attempts to reinterpret `method(rcvr, args...)` as `rcvr.method(args...)`
     /// and suggesting the fix if the method probe is successful.

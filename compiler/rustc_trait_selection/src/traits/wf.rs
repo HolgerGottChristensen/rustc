@@ -724,6 +724,8 @@ impl<'tcx> WfPredicates<'tcx> {
                         ty::Binder::dummy(ty::PredicateKind::WellFormed(ty.into())),
                     ));
                 }
+
+                ty::HKTInfer => todo!("hoch"), // FIXMIG: what to do here?
             }
 
             debug!(?self.out);

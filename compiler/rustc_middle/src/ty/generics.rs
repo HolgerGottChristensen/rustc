@@ -271,7 +271,8 @@ impl<'tcx> Generics {
         let param = self.param_at(param.index() as usize, tcx);
         match param.kind {
             GenericParamDefKind::Type { .. } => param,
-            _ => bug!("expected type parameter, but found another generic parameter"),
+            GenericParamDefKind::HKT { .. } => param,
+            _ => bug!("expected type parameter, but found another generic parameter {:#?} with stacktrace: {}", param, std::backtrace::Backtrace::capture()),
         }
     }
 
