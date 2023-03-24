@@ -232,8 +232,8 @@ impl FlagComputation {
             ty::PredicateKind::Clause(ty::Clause::Trait(trait_pred)) => {
                 self.add_substs(trait_pred.trait_ref.substs);
             }
-            ty::PredicateKind::Clause(ty::Clause::SelfConstraint(_)) => {
-                todo!() // FIXMIG: what to do here
+            ty::PredicateKind::Clause(ty::Clause::SelfConstraint(self_ty)) => {
+                self.add_ty(self_ty); // FIXMIG: what to do here
             }
             ty::PredicateKind::Clause(ty::Clause::RegionOutlives(ty::OutlivesPredicate(a, b))) => {
                 self.add_region(a);

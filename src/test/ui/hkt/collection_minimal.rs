@@ -1,20 +1,28 @@
 // HKT inspect method
 // check-pass
 
-trait Collection where Self<%A> {
-    fn empty() -> Self<%A>;
+trait Collection<R, I<%A>> {
+    //fn empty() -> I<R>;
+
+    //fn add(&mut self, value: R);
 }
 
-impl Collection for Option<%A> {
-    fn empty() -> Option<%A> {
+/*fn collection<R, I<%A>>() {
+
+}*/
+
+/*impl<T> Collection<T, Option<%A>> for Option<T> {
+    fn empty() -> Option<T> {
         None
+    }
+
+    fn add(&mut self, value: T) {
+        *self = Some(value);
     }
 }
 
-/*impl Collection for Option<%A> {
-    fn empty() -> Self<%A> {
-        None
-    }
+fn test<I<%J>: Collection<%J, I<%A>>>(h: I<u32>) {
+    ...
 }*/
 
 fn main() {

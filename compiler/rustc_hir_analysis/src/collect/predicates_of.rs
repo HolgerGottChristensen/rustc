@@ -61,7 +61,7 @@ pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredic
 }
 
 pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
-    if tcx.def_kind(def_id) == DefKind::Fn {
+    if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::Trait {
         let outer_generics: &ty::Generics = tcx.generics_of(def_id);
         let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
