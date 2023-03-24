@@ -1,12 +1,17 @@
 // HKT inspect method
 // check-pass
 
+//use std::fmt::Debug;
+
 trait Collection<R, I<%A>> {
-    //fn empty() -> I<R>;
+    fn empty() -> I<R>;
 
     //fn add(&mut self, value: R);
 }
 
+/*trait Test<R: Debug> {
+    fn hejsa(i: R);
+}*/
 /*fn collection<R, I<%A>>() {
 
 }*/

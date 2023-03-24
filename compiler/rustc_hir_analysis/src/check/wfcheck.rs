@@ -91,6 +91,7 @@ pub(super) fn enter_wf_checking_ctxt<'tcx, F>(
     F: for<'a> FnOnce(&WfCheckingCtxt<'a, 'tcx>),
 {
     let param_env = tcx.param_env(body_def_id);
+    info!("enter_wf_checking_ctxt param_env: {:?}, {:#?}", body_def_id, param_env);
     let body_id = tcx.hir().local_def_id_to_hir_id(body_def_id);
     let infcx = &tcx.infer_ctxt().build();
     let ocx = ObligationCtxt::new(infcx);
@@ -981,7 +982,7 @@ fn check_param_wf(tcx: TyCtxt<'_>, param: &hir::GenericParam<'_>) {
     }
 }
 
-#[instrument(level = "debug", skip(tcx, span, sig_if_method))]
+#[instrument(level = "info", skip(tcx, span, sig_if_method))]
 fn check_associated_item(
     tcx: TyCtxt<'_>,
     item_id: LocalDefId,
@@ -1296,11 +1297,9 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
     let infcx = wfcx.infcx;
     let tcx = wfcx.tcx();
 
-    debug!("Hejsa1");
     let predicates = tcx.bound_predicates_of(def_id.to_def_id());
     info!("post bound_predicates_of - {:#?}", predicates);
     let generics = tcx.generics_of(def_id);
-    debug!("Hejsa3");
 
     let is_our_default = |def: &ty::GenericParamDef| match def.kind {
         GenericParamDefKind::Type { has_default, .. }
@@ -1489,8 +1488,8 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
     assert_eq!(predicates.predicates.len(), predicates.spans.len());
     let wf_obligations =
         iter::zip(&predicates.predicates, &predicates.spans).flat_map(|(&p, &sp)| {
+            info!("HHHHHEHEEERERERR");
             let param_env = tcx.param_env_with_hkt((def_id.to_def_id(), wfcx.param_env.without_const()));
-            //let param_env = wfcx.param_env.without_const();
             traits::wf::predicate_obligations(
                 infcx,
                 param_env,
