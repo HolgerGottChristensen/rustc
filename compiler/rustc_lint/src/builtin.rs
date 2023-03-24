@@ -1752,6 +1752,9 @@ impl<'tcx> LateLintPass<'tcx> for TrivialConstraints {
             for &(predicate, span) in predicates.predicates {
                 let predicate_kind_name = match predicate.kind().skip_binder() {
                     Clause(Clause::Trait(..)) => "trait",
+                    Clause(Clause::SelfConstraint(..)) => {
+                        todo!() // FIXMIG: what to do here?
+                    },
                     Clause(Clause::TypeOutlives(..)) |
                     Clause(Clause::RegionOutlives(..)) => "lifetime",
 

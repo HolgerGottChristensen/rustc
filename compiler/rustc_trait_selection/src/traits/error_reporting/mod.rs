@@ -631,6 +631,9 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
 
                 let bound_predicate = obligation.predicate.kind();
                 match bound_predicate.skip_binder() {
+                    ty::PredicateKind::Clause(ty::Clause::SelfConstraint(_)) => {
+                        todo!() // FIXMIG: what to do here?
+                    }
                     ty::PredicateKind::Clause(ty::Clause::Trait(trait_predicate)) => {
                         let trait_predicate = bound_predicate.rebind(trait_predicate);
                         let mut trait_predicate = self.resolve_vars_if_possible(trait_predicate);

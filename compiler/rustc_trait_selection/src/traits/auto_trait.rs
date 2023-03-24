@@ -623,6 +623,9 @@ impl<'tcx> AutoTraitFinder<'tcx> {
 
             let bound_predicate = predicate.kind();
             match bound_predicate.skip_binder() {
+                ty::PredicateKind::Clause(ty::Clause::SelfConstraint(_)) => {
+                    todo!() // FIXMIG: what to do here?
+                }
                 ty::PredicateKind::Clause(ty::Clause::Trait(p)) => {
                     // Add this to `predicates` so that we end up calling `select`
                     // with it. If this predicate ends up being unimplemented,

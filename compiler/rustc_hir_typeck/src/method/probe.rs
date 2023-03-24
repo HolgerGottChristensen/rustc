@@ -826,6 +826,9 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         let bounds = self.param_env.caller_bounds().iter().filter_map(|predicate| {
             let bound_predicate = predicate.kind();
             match bound_predicate.skip_binder() {
+                ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                    todo!() // FIXMIG: what to do here?
+                }
                 ty::PredicateKind::Clause(ty::Clause::Trait(trait_predicate)) => {
                     match (trait_predicate.trait_ref.self_ty().kind(), ty.kind()) {
                         (ty::Param(ref p), _) if p.clone() == param_ty => {
@@ -900,6 +903,9 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         let bounds = self.param_env.caller_bounds().iter().filter_map(|predicate| {
             let bound_predicate = predicate.kind();
             match bound_predicate.skip_binder() {
+                ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                    todo!() // FIXMIG: what to do here?
+                }
                 ty::PredicateKind::Clause(ty::Clause::Trait(trait_predicate)) => {
                     match *trait_predicate.trait_ref.self_ty().kind() {
                         ty::Param(ref p) if p.clone() == param_ty => {

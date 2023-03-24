@@ -8,7 +8,7 @@ use rustc_ast_pretty::pp::Breaks::{Consistent, Inconsistent};
 use rustc_ast_pretty::pp::{self, Breaks};
 use rustc_ast_pretty::pprust::{Comments, PrintState};
 use rustc_hir as hir;
-use rustc_hir::{LifetimeParamKind, OwnedHKTParam};
+use rustc_hir::{LifetimeParamKind, OwnedHKTParam, WherePredicate};
 use rustc_hir::{
     BindingAnnotation, ByRef, GenericArg, GenericParam, GenericParamKind, Mutability, Node, Term,
 };
@@ -2224,6 +2224,9 @@ impl<'a> State<'a> {
                     self.space();
                     self.word_space("=");
                     self.print_type(rhs_ty);
+                }
+                WherePredicate::SelfConstraint { self_ty, .. } => {
+                    self.print_type(self_ty);
                 }
             }
         }

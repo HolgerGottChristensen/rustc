@@ -162,6 +162,7 @@ impl<'tcx> fmt::Debug for ty::Clause<'tcx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             ty::Clause::Trait(ref a) => a.fmt(f),
+            ty::Clause::SelfConstraint(ref a) => a.fmt(f),
             ty::Clause::RegionOutlives(ref pair) => pair.fmt(f),
             ty::Clause::TypeOutlives(ref pair) => pair.fmt(f),
             ty::Clause::Projection(ref pair) => pair.fmt(f),

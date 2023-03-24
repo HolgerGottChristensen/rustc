@@ -520,6 +520,9 @@ fn trait_predicate_kind<'tcx>(
             constness: _,
             polarity: _,
         })) => Some(tcx.trait_def(trait_ref.def_id).specialization_kind),
+        ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+            todo!() // FIXMIG: what to do here?
+        }
         ty::PredicateKind::Clause(ty::Clause::RegionOutlives(_))
         | ty::PredicateKind::Clause(ty::Clause::TypeOutlives(_))
         | ty::PredicateKind::Clause(ty::Clause::Projection(_))

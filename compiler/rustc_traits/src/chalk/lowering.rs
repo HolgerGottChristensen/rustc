@@ -80,6 +80,9 @@ impl<'tcx> LowerInto<'tcx, chalk_ir::InEnvironment<chalk_ir::Goal<RustInterner<'
                 ty::PredicateKind::TypeWellFormedFromEnv(ty) => {
                     chalk_ir::DomainGoal::FromEnv(chalk_ir::FromEnv::Ty(ty.lower_into(interner)))
                 }
+                ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                    todo!() // FIXMIG: what to do here?
+                }
                 ty::PredicateKind::Clause(ty::Clause::Trait(predicate)) => {
                     chalk_ir::DomainGoal::FromEnv(chalk_ir::FromEnv::Trait(
                         predicate.trait_ref.lower_into(interner),
@@ -148,6 +151,9 @@ impl<'tcx> LowerInto<'tcx, chalk_ir::GoalData<RustInterner<'tcx>>> for ty::Predi
             collect_bound_vars(interner, interner.tcx, self.kind());
 
         let value = match predicate {
+            ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                todo!() // FIXMIG: What to do here?
+            }
             ty::PredicateKind::Clause(ty::Clause::Trait(predicate)) => {
                 chalk_ir::GoalData::DomainGoal(chalk_ir::DomainGoal::Holds(
                     chalk_ir::WhereClause::Implemented(predicate.trait_ref.lower_into(interner)),
@@ -622,6 +628,9 @@ impl<'tcx> LowerInto<'tcx, Option<chalk_ir::QuantifiedWhereClause<RustInterner<'
         let (predicate, binders, _named_regions) =
             collect_bound_vars(interner, interner.tcx, self.kind());
         let value = match predicate {
+            ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                todo!() // FIXMIG: what to do here?
+            }
             ty::PredicateKind::Clause(ty::Clause::Trait(predicate)) => {
                 Some(chalk_ir::WhereClause::Implemented(predicate.trait_ref.lower_into(interner)))
             }
@@ -758,6 +767,9 @@ impl<'tcx> LowerInto<'tcx, Option<chalk_solve::rust_ir::QuantifiedInlineBound<Ru
         let (predicate, binders, _named_regions) =
             collect_bound_vars(interner, interner.tcx, self.kind());
         match predicate {
+            ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                todo!() // FIXMIG: what to do here?
+            }
             ty::PredicateKind::Clause(ty::Clause::Trait(predicate)) => {
                 Some(chalk_ir::Binders::new(
                     binders,

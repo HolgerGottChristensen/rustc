@@ -1598,8 +1598,11 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     span: self.lower_span(*span),
                 })
             }
-            WherePredicate::SelfConstraint { .. } => {
-                todo!() // FIXMIG: What to do here?
+            WherePredicate::SelfConstraint { span, self_ty } => {
+                hir::WherePredicate::SelfConstraint {
+                    span: self.lower_span(*span),
+                    self_ty: self.lower_ty(self_ty, &ImplTraitContext::Disallowed(ImplTraitPosition::Type)),
+                }
             }
         };
 

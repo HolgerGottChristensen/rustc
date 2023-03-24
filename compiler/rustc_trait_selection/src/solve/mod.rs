@@ -210,6 +210,9 @@ impl<'tcx> EvalCtxt<'tcx> {
         let Goal { param_env, predicate } = canonical_goal.value;
         if let Some(kind) = predicate.kind().no_bound_vars() {
             match kind {
+                ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                    todo!()
+                }
                 ty::PredicateKind::Clause(ty::Clause::Trait(predicate)) => self.compute_trait_goal(
                     canonical_goal.unchecked_rebind(Goal { param_env, predicate }),
                 ),

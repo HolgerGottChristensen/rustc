@@ -353,7 +353,7 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
     fn visit_where_predicate(&mut self, p: &'v hir::WherePredicate<'v>) {
         record_variants!(
             (self, p, p, Id::None, hir, WherePredicate, WherePredicate),
-            [BoundPredicate, RegionPredicate, EqPredicate]
+            [BoundPredicate, RegionPredicate, EqPredicate, SelfConstraint]
         );
         hir_visit::walk_where_predicate(self, p)
     }

@@ -285,6 +285,9 @@ fn predicate_references_self<'tcx>(
     let self_ty = tcx.types.self_param;
     let has_self_ty = |arg: &GenericArg<'tcx>| arg.walk().any(|arg| arg == self_ty.into());
     match predicate.kind().skip_binder() {
+        ty::PredicateKind::Clause(ty::Clause::SelfConstraint(_)) => {
+            todo!() // FIXMIG: what to do here?
+        }
         ty::PredicateKind::Clause(ty::Clause::Trait(ref data)) => {
             // In the case of a trait predicate, we can skip the "self" type.
             if data.trait_ref.substs[1..].iter().any(has_self_ty) { Some(sp) } else { None }
@@ -335,6 +338,9 @@ fn generics_require_sized_self(tcx: TyCtxt<'_>, def_id: DefId) -> bool {
     let predicates = predicates.instantiate_identity(tcx).predicates;
     elaborate_predicates(tcx, predicates.into_iter()).any(|obligation| {
         match obligation.predicate.kind().skip_binder() {
+            ty::PredicateKind::Clause(ty::Clause::SelfConstraint(_)) => {
+                todo!() // FIXMIG: what to do here?
+            }
             ty::PredicateKind::Clause(ty::Clause::Trait(ref trait_pred)) => {
                 trait_pred.def_id() == sized_def_id && trait_pred.self_ty().is_param(0)
             }

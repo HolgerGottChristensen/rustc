@@ -13,7 +13,7 @@ use rustc_hir as hir;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::LocalDefId;
 use rustc_hir::intravisit::{self, Visitor};
-use rustc_hir::{GenericArg, GenericParam, GenericParamKind, HirIdMap, LifetimeName, Node};
+use rustc_hir::{GenericArg, GenericParam, GenericParamKind, HirIdMap, LifetimeName, Node, WherePredicate};
 use rustc_middle::bug;
 use rustc_middle::hir::nested_filter;
 use rustc_middle::middle::resolve_lifetime::*;
@@ -957,6 +957,9 @@ impl<'a, 'tcx> Visitor<'tcx> for LifetimeContext<'a, 'tcx> {
                     }) => {
                         this.visit_ty(lhs_ty);
                         this.visit_ty(rhs_ty);
+                    }
+                    &WherePredicate::SelfConstraint { .. } => {
+                        todo!() // FIXMIG: what to do here?
                     }
                 }
             }

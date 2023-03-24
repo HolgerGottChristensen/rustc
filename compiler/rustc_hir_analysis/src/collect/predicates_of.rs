@@ -154,6 +154,9 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
                                 WherePredicate::EqPredicate(_) => {
                                     todo!("hoch")
                                 }
+                                WherePredicate::SelfConstraint { .. } => {
+                                    todo!("hoch") // FIXMIG: What to do here?
+                                }
                             }
                         }
                     }
@@ -389,6 +392,11 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
 
             hir::WherePredicate::EqPredicate(..) => {
                 // FIXME(#20041)
+            }
+
+            hir::WherePredicate::SelfConstraint { self_ty, span } => {
+                let new_predicate = ty::Clause::SelfConstraint(icx.to_ty(self_ty));
+                predicates.insert((new_predicate.to_predicate(tcx), *span));
             }
         }
     }

@@ -86,6 +86,9 @@ fn compute_implied_outlives_bounds<'tcx>(
             match obligation.predicate.kind().no_bound_vars() {
                 None => None,
                 Some(pred) => match pred {
+                    ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                        todo!() // FIXMIG: What to do here?
+                    }
                     ty::PredicateKind::Clause(ty::Clause::Trait(..))
                     | ty::PredicateKind::Subtype(..)
                     | ty::PredicateKind::Coerce(..)

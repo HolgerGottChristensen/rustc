@@ -555,6 +555,9 @@ impl<'tcx> Predicate<'tcx> {
     pub fn allow_normalization(self) -> bool {
         match self.kind().skip_binder() {
             PredicateKind::WellFormed(_) => false,
+            PredicateKind::Clause(Clause::SelfConstraint(_)) => {
+                todo!() // FIXMIG: what to do here?
+            }
             PredicateKind::Clause(Clause::Trait(_))
             | PredicateKind::Clause(Clause::RegionOutlives(_))
             | PredicateKind::Clause(Clause::TypeOutlives(_))
@@ -587,6 +590,8 @@ pub enum Clause<'tcx> {
     /// would be the type parameters.
     Trait(TraitPredicate<'tcx>),
 
+    SelfConstraint(Ty<'tcx>),
+
     /// `where 'a: 'b`
     RegionOutlives(RegionOutlivesPredicate<'tcx>),
 
@@ -606,6 +611,8 @@ pub enum PredicateKind<'tcx> {
 
     /// No syntax: `T` well-formed.
     WellFormed(GenericArg<'tcx>),
+
+
 
     /// Trait must be object-safe.
     ObjectSafe(DefId),
@@ -1169,6 +1176,7 @@ impl<'tcx> Predicate<'tcx> {
             | PredicateKind::Subtype(..)
             | PredicateKind::Coerce(..)
             | PredicateKind::Clause(Clause::RegionOutlives(..))
+            | PredicateKind::Clause(Clause::SelfConstraint(..))
             | PredicateKind::WellFormed(..)
             | PredicateKind::ObjectSafe(..)
             | PredicateKind::ClosureKind(..)
@@ -1188,6 +1196,7 @@ impl<'tcx> Predicate<'tcx> {
             | PredicateKind::Subtype(..)
             | PredicateKind::Coerce(..)
             | PredicateKind::Clause(Clause::RegionOutlives(..))
+            | PredicateKind::Clause(Clause::SelfConstraint(..))
             | PredicateKind::WellFormed(..)
             | PredicateKind::ObjectSafe(..)
             | PredicateKind::ClosureKind(..)
@@ -1208,6 +1217,7 @@ impl<'tcx> Predicate<'tcx> {
             | PredicateKind::Subtype(..)
             | PredicateKind::Coerce(..)
             | PredicateKind::Clause(Clause::RegionOutlives(..))
+            | PredicateKind::Clause(Clause::SelfConstraint(..))
             | PredicateKind::WellFormed(..)
             | PredicateKind::ObjectSafe(..)
             | PredicateKind::ClosureKind(..)

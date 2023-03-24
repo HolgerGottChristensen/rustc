@@ -932,6 +932,9 @@ pub fn walk_where_predicate<'v, V: Visitor<'v>>(
             visitor.visit_ty(lhs_ty);
             visitor.visit_ty(rhs_ty);
         }
+        WherePredicate::SelfConstraint { self_ty, .. } => {
+            visitor.visit_ty(self_ty);
+        }
     }
 }
 

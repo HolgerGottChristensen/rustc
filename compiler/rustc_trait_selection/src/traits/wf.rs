@@ -127,6 +127,9 @@ pub fn predicate_obligations<'tcx>(
 
     // It's ok to skip the binder here because wf code is prepared for it
     match predicate.kind().skip_binder() {
+        ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+            todo!() // FIXMIG: what to do here?
+        }
         ty::PredicateKind::Clause(ty::Clause::Trait(t)) => {
             wf.compute_trait_pred(&t, Elaborate::None);
         }
@@ -914,6 +917,7 @@ pub(crate) fn required_region_bounds<'tcx>(
             match obligation.predicate.kind().skip_binder() {
                 ty::PredicateKind::Clause(ty::Clause::Projection(..))
                 | ty::PredicateKind::Clause(ty::Clause::Trait(..))
+                | ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..))
                 | ty::PredicateKind::Subtype(..)
                 | ty::PredicateKind::Coerce(..)
                 | ty::PredicateKind::WellFormed(..)

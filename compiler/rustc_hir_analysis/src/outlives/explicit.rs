@@ -52,6 +52,9 @@ impl<'tcx> ExplicitPredicatesMap<'tcx> {
                         &mut required_predicates,
                     ),
 
+                    ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                        todo!() // FIXMIG: what to do here?
+                    }
                     ty::PredicateKind::Clause(ty::Clause::Trait(..))
                     | ty::PredicateKind::Clause(ty::Clause::Projection(..))
                     | ty::PredicateKind::WellFormed(..)

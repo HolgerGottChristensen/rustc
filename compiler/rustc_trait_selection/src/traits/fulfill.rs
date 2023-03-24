@@ -279,6 +279,9 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                     // Evaluation will discard candidates using the leak check.
                     // This means we need to pass it the bound version of our
                     // predicate.
+                    ty::PredicateKind::Clause(ty::Clause::SelfConstraint(_)) => {
+                        todo!() // FIXMIG: what to do here?
+                    }
                     ty::PredicateKind::Clause(ty::Clause::Trait(trait_ref)) => {
                         let trait_obligation = obligation.with(infcx.tcx, binder.rebind(trait_ref));
 
@@ -319,6 +322,9 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
             Some(pred) => {
                 info!("Contains NO bound vars at all: SOME");
                 match pred {
+                    ty::PredicateKind::Clause(ty::Clause::SelfConstraint(_)) => {
+                        todo!() // FIXMIG: what to do here?
+                    }
                     ty::PredicateKind::Clause(ty::Clause::Trait(data)) => {
                         info!("Clause trait obligation: {:?}", data);
                         let trait_obligation = obligation.with(infcx.tcx, Binder::dummy(data));

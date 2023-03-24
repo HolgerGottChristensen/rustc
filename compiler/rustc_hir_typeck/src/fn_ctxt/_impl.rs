@@ -636,6 +636,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         self.fulfillment_cx.borrow().pending_obligations().into_iter().filter_map(
             move |obligation| match &obligation.predicate.kind().skip_binder() {
+                ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                    todo!() // FIXMIG: what to do here?
+                }
                 ty::PredicateKind::Clause(ty::Clause::Projection(data))
                     if self.self_type_matches_expected_vid(
                         data.projection_ty.self_ty(),

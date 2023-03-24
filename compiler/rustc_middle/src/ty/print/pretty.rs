@@ -2781,6 +2781,9 @@ define_print_and_forward_display! {
             ty::PredicateKind::Clause(ty::Clause::Trait(ref data)) => {
                 p!(print(data))
             }
+            ty::PredicateKind::Clause(ty::Clause::SelfConstraint(ref data)) => {
+                p!(print(data))
+            }
             ty::PredicateKind::Subtype(predicate) => p!(print(predicate)),
             ty::PredicateKind::Coerce(predicate) => p!(print(predicate)),
             ty::PredicateKind::Clause(ty::Clause::RegionOutlives(predicate)) => p!(print(predicate)),

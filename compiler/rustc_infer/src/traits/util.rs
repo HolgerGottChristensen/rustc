@@ -141,6 +141,9 @@ impl<'tcx> Elaborator<'tcx> {
 
         let bound_predicate = obligation.predicate.kind();
         match bound_predicate.skip_binder() {
+            ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                todo!() // FIXMIG: what to do here?
+            }
             ty::PredicateKind::Clause(ty::Clause::Trait(data)) => {
                 // Get predicates declared on the trait.
                 let predicates = tcx.super_predicates_of(data.def_id());

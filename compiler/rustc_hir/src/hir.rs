@@ -752,6 +752,11 @@ pub enum WherePredicate<'hir> {
     RegionPredicate(WhereRegionPredicate<'hir>),
     /// An equality predicate (unsupported).
     EqPredicate(WhereEqPredicate<'hir>),
+
+    SelfConstraint {
+        span: Span,
+        self_ty: &'hir Ty<'hir>,
+    },
 }
 
 impl<'hir> WherePredicate<'hir> {
@@ -760,6 +765,7 @@ impl<'hir> WherePredicate<'hir> {
             WherePredicate::BoundPredicate(p) => p.span,
             WherePredicate::RegionPredicate(p) => p.span,
             WherePredicate::EqPredicate(p) => p.span,
+            WherePredicate::SelfConstraint { span, .. } => *span
         }
     }
 
@@ -768,6 +774,7 @@ impl<'hir> WherePredicate<'hir> {
             WherePredicate::BoundPredicate(p) => p.origin == PredicateOrigin::WhereClause,
             WherePredicate::RegionPredicate(p) => p.in_where_clause,
             WherePredicate::EqPredicate(_) => false,
+            WherePredicate::SelfConstraint { .. } => true,
         }
     }
 
@@ -776,6 +783,7 @@ impl<'hir> WherePredicate<'hir> {
             WherePredicate::BoundPredicate(p) => p.bounds,
             WherePredicate::RegionPredicate(p) => p.bounds,
             WherePredicate::EqPredicate(_) => &[],
+            WherePredicate::SelfConstraint { .. } => &[],
         }
     }
 }

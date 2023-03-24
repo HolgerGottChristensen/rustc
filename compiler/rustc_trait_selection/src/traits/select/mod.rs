@@ -670,6 +670,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         ensure_sufficient_stack(|| {
             let bound_predicate = obligation.predicate.kind();
             match bound_predicate.skip_binder() {
+                ty::PredicateKind::Clause(ty::Clause::SelfConstraint(..)) => {
+                    todo!() // FIXMIG: what to do here?
+                }
                 ty::PredicateKind::Clause(ty::Clause::Trait(t)) => {
                     let t = bound_predicate.rebind(t);
                     debug_assert!(!t.has_escaping_bound_vars());
