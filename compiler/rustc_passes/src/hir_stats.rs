@@ -610,7 +610,7 @@ impl<'v> ast_visit::Visitor<'v> for StatCollector<'v> {
     fn visit_where_predicate(&mut self, p: &'v ast::WherePredicate) {
         record_variants!(
             (self, p, p, Id::None, ast, WherePredicate, WherePredicate),
-            [BoundPredicate, RegionPredicate, EqPredicate]
+            [BoundPredicate, RegionPredicate, EqPredicate, SelfConstraint]
         );
         ast_visit::walk_where_predicate(self, p)
     }

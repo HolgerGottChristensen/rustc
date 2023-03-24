@@ -16,7 +16,7 @@ use rustc_infer::infer::{self, InferOk, TyCtxtInferExt};
 use rustc_middle::infer::unify_key::{ConstVariableOrigin, ConstVariableOriginKind};
 use rustc_middle::middle::stability;
 use rustc_middle::ty::fast_reject::{simplify_type, TreatParams};
-use rustc_middle::ty::{AssocItem, HKTSubstType};
+use rustc_middle::ty::{AssocItem, EarlyBinder, HKTSubstType, TraitRef};
 use rustc_middle::ty::GenericParamDefKind;
 use rustc_middle::ty::ToPredicate;
 use rustc_middle::ty::{self, ParamEnvAnd, Ty, TyCtxt, TypeFoldable, TypeVisitable};
@@ -827,17 +827,26 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             let bound_predicate = predicate.kind();
             match bound_predicate.skip_binder() {
                 ty::PredicateKind::Clause(ty::Clause::Trait(trait_predicate)) => {
-                    match *trait_predicate.trait_ref.self_ty().kind() {
-                        ty::Param(ref p) if p.clone() == param_ty => {
-                            Some(bound_predicate.rebind(trait_predicate.trait_ref))
+                    match (trait_predicate.trait_ref.self_ty().kind(), ty.kind()) {
+                        (ty::Param(ref p), _) if p.clone() == param_ty => {
+                            todo!()
+                            //Some(bound_predicate.rebind(trait_predicate.trait_ref))
                         }
-                        ty::HKT(_, ref p, ..) if p.clone() == param_ty => {
+                        (ty::HKT(did1, ref p, ..), ty::HKT(did2, _, substs)) if p.clone() == param_ty && did1 == did2 => {
 
-                            let trait_ref = trait_predicate.trait_ref.with_self_ty(tcx, ty);
+                            let substituted_trait_ref: TraitRef<'tcx> = EarlyBinder(trait_predicate.trait_ref).subst(tcx, substs, HKTSubstType::SubstArgumentWithinHKTParam);
+                            info!("trait_predicate.trait_ref: {:?}", trait_predicate.trait_ref);
+                            info!("trait_predicate.trait_ref.with_self_ty: {:?}", trait_predicate.trait_ref.with_self_ty(tcx, ty));
+                            info!("trait_predicate.trait_ref.subst: {:?}", substituted_trait_ref);
+
+                            let trait_ref = substituted_trait_ref;
                             info!("bound predicate = {:?}", bound_predicate);
                             info!("bound predicate after = {:?}", bound_predicate.rebind(trait_ref));
                             // FIXMIG: is this correct?
                             Some(bound_predicate.rebind(trait_ref))
+                        }
+                        (ty::HKT(did1, ref p, ..), ty::HKT(did2, ..)) if p.clone() == param_ty && did1 != did2 => {
+                            todo!("Is this possible?")
                         }
                         _ => None,
                     }
@@ -1936,7 +1945,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                             self.var_for_def(self.span, param)
                         }
                         GenericParamDefKind::HKT => {
-                            todo!("hoch") // FIXMIG: what to do here?
+                            self.var_for_def(self.span, param) // FIXMIG: Is this correct?
                         }
                     }
                 }

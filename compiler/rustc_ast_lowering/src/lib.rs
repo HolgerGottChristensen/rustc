@@ -138,6 +138,8 @@ struct LoweringContext<'a, 'hir> {
     /// defined on the TAIT, so we have type Foo<'a1> = ... and we establish a mapping in this
     /// field from the original parameter 'a to the new parameter 'a1.
     generics_def_id_map: Vec<FxHashMap<LocalDefId, LocalDefId>>,
+
+    current_argument_scope_id: Option<LocalDefId>,
 }
 
 trait ResolverAstLoweringExt {
@@ -588,6 +590,17 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             .rev()
             .find_map(|map| map.get(&local_def_id).map(|local_def_id| *local_def_id))
             .unwrap_or(local_def_id)
+    }
+
+    fn with_current_argument_scope_id<R>(
+        &mut self,
+        id: LocalDefId,
+        f: impl FnOnce(&mut Self) -> R,
+    ) -> R {
+        self.current_argument_scope_id = Some(id);
+        let res = f(self);
+        self.current_argument_scope_id = None;
+        res
     }
 
     /// Freshen the `LoweringContext` and ready it to lower a nested item.
@@ -1144,7 +1157,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         self.tcx.sess.emit_err(AssocTyParentheses { span: data.span, sub });
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     fn lower_generic_arg(
         &mut self,
         arg: &ast::GenericArg,
@@ -1273,7 +1286,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     fn lower_ty_direct(&mut self, t: &Ty, itctx: &ImplTraitContext) -> hir::Ty<'hir> {
         let kind = match &t.kind {
             TyKind::Argument(ident) => {
-                hir::TyKind::Argument(*ident, None)
+                hir::TyKind::Argument(*ident, self.current_argument_scope_id)
             }
             TyKind::Infer => hir::TyKind::Infer,
             TyKind::Err => hir::TyKind::Err,
@@ -2104,7 +2117,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         )
     }
 
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "info", skip(self))]
     fn lower_param_bound(
         &mut self,
         tpb: &GenericBound,

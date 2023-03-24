@@ -506,6 +506,10 @@ pub enum WherePredicate {
     BoundPredicate(WhereBoundPredicate),
     /// A lifetime predicate (e.g., `'a: 'b + 'c`).
     RegionPredicate(WhereRegionPredicate),
+    SelfConstraint {
+        span: Span,
+        self_ty: P<Ty>,
+    },
     /// An equality predicate (unsupported).
     EqPredicate(WhereEqPredicate),
 }
@@ -516,6 +520,7 @@ impl WherePredicate {
             WherePredicate::BoundPredicate(p) => p.span,
             WherePredicate::RegionPredicate(p) => p.span,
             WherePredicate::EqPredicate(p) => p.span,
+            WherePredicate::SelfConstraint { span, .. } => *span
         }
     }
 }
@@ -2203,6 +2208,17 @@ impl TyKind {
             Some(segment.ident.name)
         } else {
             None
+        }
+    }
+
+    pub fn is_self_ty_with_arguments(&self) -> bool {
+        if let TyKind::Path(None, Path { segments, .. }) = &self
+            && let [segment] = &segments[..]
+            && segment.args.is_some()
+        {
+            &segment.ident.to_string() == "Self"
+        } else {
+            false
         }
     }
 }

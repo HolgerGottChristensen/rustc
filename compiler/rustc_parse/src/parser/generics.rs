@@ -556,6 +556,7 @@ impl<'a> Parser<'a> {
         // Parse type with mandatory colon and (possibly empty) bounds,
         // or with mandatory equality sign and the second type.
         let ty = self.parse_ty_for_where_clause()?;
+
         if self.eat(&token::Colon) {
             let bounds = self.parse_generic_bounds(Some(self.prev_token.span))?;
             Ok(ast::WherePredicate::BoundPredicate(ast::WhereBoundPredicate {
@@ -564,6 +565,12 @@ impl<'a> Parser<'a> {
                 bounded_ty: ty,
                 bounds,
             }))
+        } else if ty.kind.is_self_ty_with_arguments() {
+            Ok(ast::WherePredicate::SelfConstraint {
+                span: lo.to(self.prev_token.span),
+                self_ty: ty,
+            })
+
         // FIXME: Decide what should be used here, `=` or `==`.
         // FIXME: We are just dropping the binders in lifetime_defs on the floor here.
         } else if self.eat(&token::Eq) || self.eat(&token::EqEq) {

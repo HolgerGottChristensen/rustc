@@ -946,6 +946,9 @@ pub fn noop_visit_where_predicate<T: MutVisitor>(pred: &mut WherePredicate, vis:
             vis.visit_ty(lhs_ty);
             vis.visit_ty(rhs_ty);
         }
+        WherePredicate::SelfConstraint { .. } => {
+            todo!() // FIXMIG: What to do here?
+        }
     }
 }
 

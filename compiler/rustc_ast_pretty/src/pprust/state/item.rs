@@ -615,6 +615,9 @@ impl<'a> State<'a> {
 
     pub fn print_where_predicate(&mut self, predicate: &ast::WherePredicate) {
         match predicate {
+            ast::WherePredicate::SelfConstraint { self_ty, .. } => {
+                self.print_type(self_ty);
+            }
             ast::WherePredicate::BoundPredicate(ast::WhereBoundPredicate {
                 bound_generic_params,
                 bounded_ty,

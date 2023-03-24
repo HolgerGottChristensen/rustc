@@ -85,6 +85,7 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
             allow_gen_future: Some([sym::gen_future, sym::closure_track_caller][..].into()),
             allow_into_future: Some([sym::into_future][..].into()),
             generics_def_id_map: Default::default(),
+            current_argument_scope_id: None,
         };
         lctx.with_hir_id_owner(owner, |lctx| f(lctx));
 
@@ -1422,24 +1423,25 @@ impl<'hir> LoweringContext<'_, 'hir> {
             return None;
         }
 
-        let bounds = self.lower_param_bounds(bounds, itctx);
-
-        let ident = self.lower_ident(ident);
-        let param_span = ident.span;
-
-        // Reconstruct the span of the entire predicate from the individual generic bounds.
-        let span_start = colon_span.unwrap_or_else(|| param_span.shrink_to_hi());
-        let span = bounds.iter().fold(span_start, |span_accum, bound| {
-            match bound.span().find_ancestor_inside(parent_span) {
-                Some(bound_span) => span_accum.to(bound_span),
-                None => span_accum,
-            }
-        });
-        let span = self.lower_span(span);
-
         match kind {
             GenericParamKind::Const { .. } => None,
             GenericParamKind::Type { .. } => {
+                let bounds = self.lower_param_bounds(bounds, itctx);
+
+                let ident = self.lower_ident(ident);
+                let param_span = ident.span;
+
+                // Reconstruct the span of the entire predicate from the individual generic bounds.
+                let span_start = colon_span.unwrap_or_else(|| param_span.shrink_to_hi());
+                let span = bounds.iter().fold(span_start, |span_accum, bound| {
+                    match bound.span().find_ancestor_inside(parent_span) {
+                        Some(bound_span) => span_accum.to(bound_span),
+                        None => span_accum,
+                    }
+                });
+                let span = self.lower_span(span);
+
+
                 let def_id = self.local_def_id(id).to_def_id();
                 let hir_id = self.next_id();
                 let res = Res::Def(DefKind::TyParam, def_id);
@@ -1463,6 +1465,22 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 }))
             }
             GenericParamKind::Lifetime => {
+                let bounds = self.lower_param_bounds(bounds, itctx);
+
+                let ident = self.lower_ident(ident);
+                let param_span = ident.span;
+
+                // Reconstruct the span of the entire predicate from the individual generic bounds.
+                let span_start = colon_span.unwrap_or_else(|| param_span.shrink_to_hi());
+                let span = bounds.iter().fold(span_start, |span_accum, bound| {
+                    match bound.span().find_ancestor_inside(parent_span) {
+                        Some(bound_span) => span_accum.to(bound_span),
+                        None => span_accum,
+                    }
+                });
+                let span = self.lower_span(span);
+
+
                 let ident = self.lower_ident(ident);
                 let lt_id = self.next_node_id();
                 let lifetime = self.new_named_lifetime(id, lt_id, ident);
@@ -1474,10 +1492,27 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 }))
             }
             GenericParamKind::HKT(generics) => {
-                // TODO(hoch)
+                info!("Visiting HKT that has generics: {:#?}", generics);
+
                 let def_id = self.local_def_id(id);
                 let hir_id = self.next_id();
 
+                let bounds = self.with_current_argument_scope_id(def_id, |this| {
+                    this.lower_param_bounds(bounds, itctx)
+                });
+
+                let ident = self.lower_ident(ident);
+                let param_span = ident.span;
+
+                // Reconstruct the span of the entire predicate from the individual generic bounds.
+                let span_start = colon_span.unwrap_or_else(|| param_span.shrink_to_hi());
+                let span = bounds.iter().fold(span_start, |span_accum, bound| {
+                    match bound.span().find_ancestor_inside(parent_span) {
+                        Some(bound_span) => span_accum.to(bound_span),
+                        None => span_accum,
+                    }
+                });
+                let span = self.lower_span(span);
 
                 let res = Res::Def(DefKind::HKTParam, def_id.to_def_id());
 
@@ -1562,6 +1597,9 @@ impl<'hir> LoweringContext<'_, 'hir> {
                         .lower_ty(rhs_ty, &ImplTraitContext::Disallowed(ImplTraitPosition::Type)),
                     span: self.lower_span(*span),
                 })
+            }
+            WherePredicate::SelfConstraint { .. } => {
+                todo!() // FIXMIG: What to do here?
             }
         };
 

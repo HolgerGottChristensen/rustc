@@ -13,7 +13,7 @@ use rustc_infer::infer::{self, InferCtxt, TyCtxtInferExt};
 use rustc_infer::traits::util;
 use rustc_middle::ty::error::{ExpectedFound, TypeError};
 use rustc_middle::ty::util::ExplicitSelf;
-use rustc_middle::ty::{self, DefIdTree, HKTSubstType, InternalSubsts, Ty, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable};
+use rustc_middle::ty::{self, DefIdTree, Generics, HKTSubstType, InternalSubsts, Ty, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable};
 use rustc_middle::ty::{GenericParamDefKind, ToPredicate, TyCtxt};
 use rustc_span::Span;
 use rustc_trait_selection::traits::error_reporting::TypeErrCtxtExt;
@@ -1331,18 +1331,21 @@ fn compare_synthetic_generics<'tcx>(
     // If we get here, we already have the same number of generics, so the zip will
     // be okay.
     let mut error_found = None;
-    let impl_m_generics = tcx.generics_of(impl_m.def_id);
-    let trait_m_generics = tcx.generics_of(trait_m.def_id);
+    let impl_m_generics: &Generics = tcx.generics_of(impl_m.def_id);
+    let trait_m_generics: &Generics = tcx.generics_of(trait_m.def_id);
+
     let impl_m_type_params = impl_m_generics.params.iter().filter_map(|param| match param.kind {
         GenericParamDefKind::Type { synthetic, .. } => Some((param.def_id, synthetic)),
         GenericParamDefKind::Lifetime | GenericParamDefKind::Const { .. } => None,
-        GenericParamDefKind::HKT => todo!("hoch"),
+        GenericParamDefKind::HKT => Some((param.def_id, false)),
     });
+
     let trait_m_type_params = trait_m_generics.params.iter().filter_map(|param| match param.kind {
         GenericParamDefKind::Type { synthetic, .. } => Some((param.def_id, synthetic)),
         GenericParamDefKind::Lifetime | GenericParamDefKind::Const { .. } => None,
-        GenericParamDefKind::HKT => todo!("hoch"),
+        GenericParamDefKind::HKT => Some((param.def_id, false)),
     });
+
     for ((impl_def_id, impl_synthetic), (trait_def_id, trait_synthetic)) in
         iter::zip(impl_m_type_params, trait_m_type_params)
     {

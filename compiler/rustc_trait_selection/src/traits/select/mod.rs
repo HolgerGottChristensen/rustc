@@ -1862,8 +1862,16 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         // This is a fix for #53123 and prevents winnowing from accidentally extending the
         // lifetime of a variable.
         match (&other.candidate, &victim.candidate) {
-            (_, HKTCandidate(..)) | (HKTCandidate(..), _) => {
-                todo!("hoch");
+            (HKTCandidate(other_did, other_trait_ref), HKTCandidate(victim_did, victim_trait_ref)) => {
+                if other_trait_ref == victim_trait_ref && other_did == victim_did {
+                    true
+                } else {
+                    false
+                }
+            }
+            (_a, HKTCandidate(..)) | (HKTCandidate(..), _a) => {
+                false
+                //panic!("Multiple candidates with hkt and: {:#?}", a)
             }
             (_, AutoImplCandidate) | (AutoImplCandidate, _) => {
                 bug!(

@@ -164,7 +164,7 @@ pub use SubstructureFields::*;
 
 use crate::deriving;
 use rustc_ast::ptr::P;
-use rustc_ast::{self as ast, BindingAnnotation, ByRef, EnumDef, Expr, Generics, Mutability, PatKind};
+use rustc_ast::{self as ast, BindingAnnotation, ByRef, EnumDef, Expr, Generics, Mutability, PatKind, WherePredicate};
 use rustc_ast::{GenericArg, GenericParamKind, VariantData};
 use rustc_attr as attr;
 use rustc_expand::base::{Annotatable, ExtCtxt};
@@ -646,6 +646,9 @@ impl<'a> TraitDef<'a> {
                 ast::WherePredicate::EqPredicate(we) => {
                     let span = we.span.with_ctxt(ctxt);
                     ast::WherePredicate::EqPredicate(ast::WhereEqPredicate { span, ..we.clone() })
+                }
+                WherePredicate::SelfConstraint { .. } => {
+                    todo!() // FIXMIG: What to do here?
                 }
             }
         }));
