@@ -11,9 +11,7 @@ use rustc_hir as hir;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::DefId;
 use rustc_hir::GenericArg;
-use rustc_middle::ty::{
-    self, subst, subst::SubstsRef, GenericParamDef, GenericParamDefKind, IsSuggestable, Ty, TyCtxt,
-};
+use rustc_middle::ty::{self, subst, subst::SubstsRef, GenericParamDef, GenericParamDefKind, IsSuggestable, Ty, TyCtxt};
 use rustc_session::lint::builtin::LATE_BOUND_LIFETIME_ARGUMENTS;
 use rustc_span::{symbol::kw, Span};
 use smallvec::SmallVec;
@@ -365,9 +363,15 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                     }
 
                     (None, Some(&param)) => {
-                        // If there are fewer arguments than parameters, it means
-                        // we're inferring the remaining arguments.
-                        substs.push(ctx.inferred_kind(Some(&substs), param, infer_args));
+
+                        if let GenericParamDefKind::HKT = param.kind {
+                            // If the parameter is HKT, then we should insert HKTInfer instead of Infer
+                            substs.push(tcx.mk_ty(ty::HKTInfer).into());
+                        } else {
+                            // If there are fewer arguments than parameters, it means
+                            // we're inferring the remaining arguments.
+                            substs.push(ctx.inferred_kind(Some(&substs), param, infer_args));
+                        }
                         params.next();
                     }
 

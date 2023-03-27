@@ -424,7 +424,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 // Retrieve the function signature
                 let fn_sig = self.tcx.bound_fn_sig(def_id);
                 info!("Sig before substs: {:?}, substs: {:#?}", fn_sig, subst);
-                //let fn_sig = fn_sig.subst(self.tcx, new_subst);
+                //let fn_sig = fn_sig.subst(self.tcx, new_subst, HKTSubstType::SubstHKTParamWithType);
                 let fn_sig = fn_sig.subst(self.tcx, subst, HKTSubstType::SubstHKTParamWithType);
                 info!("Sig after substs: {:?}", fn_sig);
 
