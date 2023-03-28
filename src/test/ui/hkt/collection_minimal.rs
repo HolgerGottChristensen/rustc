@@ -28,5 +28,6 @@ impl<T> Collection<T, Option<%A>> for Option<T> {
 
 
 fn main() {
-
+    let test = Option::<u32>::empty();
+    println!("{:?}", test);
 }

@@ -739,11 +739,11 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             let (impl_ty, impl_substs) = self.impl_ty_and_substs(impl_def_id);
             let impl_ty = impl_ty.subst(self.tcx, impl_substs, HKTSubstType::SubstHKTParamWithType);
 
-            debug!("impl_ty: {:?}", impl_ty);
+            info!("impl_ty: {:?}", impl_ty);
 
             // Determine the receiver type that the method itself expects.
             let (xform_self_ty, xform_ret_ty) = self.xform_self_ty(&item, impl_ty, impl_substs);
-            debug!("xform_self_ty: {:?}, xform_ret_ty: {:?}", xform_self_ty, xform_ret_ty);
+            info!("xform_self_ty: {:?}, xform_ret_ty: {:?}", xform_self_ty, xform_ret_ty);
 
             // We can't use normalize_associated_types_in as it will pollute the
             // fcx's fulfillment context after this probe is over.
@@ -758,7 +758,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             let InferOk { value: xform_self_ty, obligations } =
                 self.fcx.at(&cause, self.param_env).normalize(xform_self_ty);
 
-            debug!(
+            info!(
                 "assemble_inherent_impl_probe after normalization: xform_self_ty = {:?}/{:?}",
                 xform_self_ty, xform_ret_ty
             );
@@ -985,6 +985,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
     fn assemble_extension_candidates_for_traits_in_scope(&mut self, expr_hir_id: hir::HirId) {
         let mut duplicates = FxHashSet::default();
         let opt_applicable_traits = self.tcx.in_scope_traits(expr_hir_id);
+
         if let Some(applicable_traits) = opt_applicable_traits {
             for trait_candidate in applicable_traits.iter() {
                 let trait_did = trait_candidate.def_id;
@@ -1988,7 +1989,11 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 self.next_const_var(self.tcx.type_of(param.def_id), origin).into()
             }
             GenericParamDefKind::HKT => {
-                todo!("hoch") // FIXMIG: what to do here?
+                // FIXMIG: what to do here?
+                self.next_ty_var(TypeVariableOrigin {
+                    kind: TypeVariableOriginKind::SubstitutionPlaceholder,
+                    span: self.tcx.def_span(def_id),
+                }).into()
             }
         })
     }
