@@ -11,7 +11,7 @@ use rustc_middle::ty::adjustment::{Adjust, Adjustment, PointerCast};
 use rustc_middle::ty::adjustment::{AllowTwoPhase, AutoBorrow, AutoBorrowMutability};
 use rustc_middle::ty::fold::TypeFoldable;
 use rustc_middle::ty::subst::{self, SubstsRef};
-use rustc_middle::ty::{self, GenericParamDefKind, HKTSubstType, Ty};
+use rustc_middle::ty::{self, GenericParamDefKind, HKTSubstType, ParamEnv, Ty};
 use rustc_span::Span;
 use rustc_trait_selection::traits;
 
@@ -48,7 +48,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         pick: &probe::Pick<'tcx>,
         segment: &hir::PathSegment<'_>,
     ) -> ConfirmResult<'tcx> {
-        debug!(
+        info!(
             "confirm(unadjusted_self_ty={:?}, pick={:?}, generic_args={:?})",
             unadjusted_self_ty, pick, segment.args,
         );
@@ -79,9 +79,10 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
 
         // Create substitutions for the method's type parameters.
         let rcvr_substs = self.fresh_receiver_substs(self_ty, &pick);
+
         let all_substs = self.instantiate_method_substs(&pick, segment, rcvr_substs);
 
-        debug!("rcvr_substs={rcvr_substs:?}, all_substs={all_substs:?}");
+        info!("rcvr_substs={rcvr_substs:?}, all_substs={all_substs:?}");
 
         // Create the final signature for the method, replacing late-bound regions.
         let (method_sig, method_predicates) = self.instantiate_method_sig(&pick, all_substs);
@@ -107,14 +108,20 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
         // could alter our Self-type, except for normalizing the receiver from the
         // signature (which is also done during probing).
         let method_sig_rcvr = self.normalize(self.span, method_sig.inputs()[0]);
-        debug!(
-            "confirm: self_ty={:?} method_sig_rcvr={:?} method_sig={:?} method_predicates={:?}",
+        info!(
+            "confirm: \nself_ty = {:?}\nmethod_sig_rcvr = {:?}\nmethod_sig = {:?}\nmethod_predicates = {:#?}",
             self_ty, method_sig_rcvr, method_sig, method_predicates
         );
+
         self.unify_receivers(self_ty, method_sig_rcvr, &pick, all_substs);
 
-        let (method_sig, method_predicates) =
-            self.normalize(self.span, (method_sig, method_predicates));
+        let (method_sig, method_predicates) = self.normalize(self.span, (method_sig, method_predicates));
+
+        info!(
+            "new method_predicates = {:#?}",
+            method_predicates
+        );
+
         let method_sig = ty::Binder::dummy(method_sig);
 
         // Make sure nobody calls `drop()` explicitly.
@@ -144,6 +151,7 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
     ///////////////////////////////////////////////////////////////////////////
     // ADJUSTMENTS
 
+    #[instrument(skip_all, ret)]
     fn adjust_self_ty(
         &mut self,
         unadjusted_self_ty: Ty<'tcx>,
@@ -429,6 +437,7 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
         );
         match self.at(&cause, self.param_env).sup(method_self_ty, self_ty) {
             Ok(InferOk { obligations, value: () }) => {
+                debug!("unify_receivers obligations: {:#?}", obligations);
                 self.register_predicates(obligations);
             }
             Err(_) => {
@@ -479,9 +488,11 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
         def_id: DefId,
     ) {
         info!(
-            "add_obligations: fty={:?} all_substs={:?} method_predicates={:?} def_id={:?}",
-            fty, all_substs, method_predicates, def_id
+            "add_obligations: \nfty = {:?}\nall_substs = {:?}\ndef_id = {:?}\nmethod_predicates = {:#?}",
+            fty, all_substs, def_id, method_predicates
         );
+
+        let param_env: ParamEnv<'_> = self.tcx.param_env_with_hkt((def_id, self.param_env));
 
         // FIXME: could replace with the following, but we already calculated `method_predicates`,
         // so we just call `predicates_for_generics` directly to avoid redoing work.
@@ -500,15 +511,18 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
                 };
                 traits::ObligationCause::new(self.span, self.body_id, code)
             },
-            self.param_env,
+            param_env,
             method_predicates,
         ) {
             self.register_predicate(obligation);
         }
 
+        info!("pre add_wf_bounds");
         // this is a projection from a trait reference, so we have to
         // make sure that the trait reference inputs are well-formed.
-        self.add_wf_bounds(all_substs, self.call_expr);
+        self.add_wf_bounds(all_substs, self.call_expr, param_env);
+
+        info!("pre register_wf_obligation");
 
         // the function type must also be well-formed (this is not
         // implied by the substs being well-formed because of inherent

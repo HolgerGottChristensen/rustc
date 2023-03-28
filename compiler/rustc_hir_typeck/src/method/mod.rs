@@ -204,7 +204,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.tcx.check_stability(pick.item.def_id, Some(call_expr.hir_id), span, None);
 
         let result = self.confirm_method(span, self_expr, call_expr, self_ty, &pick, segment);
-        debug!("confirm_result = {:?}", result);
+        info!("confirm_result = {:#?}", result);
 
         if let Some(span) = result.illegal_sized_bound {
             let mut needs_mut = false;

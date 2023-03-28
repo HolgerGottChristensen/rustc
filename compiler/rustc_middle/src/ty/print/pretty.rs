@@ -686,11 +686,11 @@ pub trait PrettyPrinter<'tcx>:
                         if verbose {
                             p!(write("{:?}", infer_ty))
                         } else {
-                            p!(write("{}", infer_ty))
+                            p!(write("{:?}", infer_ty))
                         }
                     }
                 } else {
-                    if verbose { p!(write("{:?}", infer_ty)) } else { p!(write("{}", infer_ty)) }
+                    if verbose { p!(write("{:?}", infer_ty)) } else { p!(write("{:?}", infer_ty)) }
                 }
             }
             ty::Error(_) => p!("[type error]"),

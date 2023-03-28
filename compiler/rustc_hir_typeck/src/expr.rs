@@ -687,7 +687,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             info!("deferred sized = {:#?}", self.deferred_sized_obligations);
             info!("param environment to add = {:#?}", self.param_env);
             info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
-            self.add_wf_bounds(substs, expr);
+            self.add_wf_bounds(substs, expr, self.param_env);
         }
 
 
@@ -1322,11 +1322,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let rcvr_t = self.structurally_resolved_type(rcvr.span, rcvr_t);
         let span = segment.ident.span;
 
+        info!("pre - lookup_method: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         let method = match self.lookup_method(rcvr_t, segment, span, expr, rcvr, args) {
             Ok(method) => {
                 // We could add a "consider `foo::<params>`" suggestion here, but I wasn't able to
                 // trigger this codepath causing `structurally_resolved_type` to emit an error.
 
+                info!("pre - write_method_call: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
                 self.write_method_call(expr.hir_id, method);
                 Ok(method)
             }
@@ -1347,8 +1349,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         };
 
+        info!("pre check_method_argument_types");
         // Call the generic checker.
-        self.check_method_argument_types(span, expr, method, &args, DontTupleArguments, expected)
+        let res = self.check_method_argument_types(span, expr, method, &args, DontTupleArguments, expected);
+        info!("post check_method_argument_types");
+        res
     }
 
     fn check_expr_cast(

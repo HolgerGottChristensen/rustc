@@ -1,3 +1,4 @@
+use std::fmt::{Debug};
 use rustc_infer::infer::type_variable::{TypeVariableOrigin, TypeVariableOriginKind};
 use rustc_middle::ty::{self, Ty};
 use rustc_span::{self, Span};

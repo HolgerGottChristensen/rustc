@@ -532,11 +532,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     }
 
     /// Registers obligations that all `substs` are well-formed.
-    pub fn add_wf_bounds(&self, substs: SubstsRef<'tcx>, expr: &hir::Expr<'_>) {
+    pub fn add_wf_bounds(&self, substs: SubstsRef<'tcx>, expr: &hir::Expr<'_>, param_env: ParamEnv<'tcx>) {
         for arg in substs.iter().filter(|arg| {
             matches!(arg.unpack(), GenericArgKind::Type(..) | GenericArgKind::Const(..))
         }) {
-            self.register_wf_obligation(arg, expr.span, traits::WellFormed(None));
+            self.register_wf_obligation_with_param_env(arg, expr.span, traits::WellFormed(None), param_env);
         }
     }
 
@@ -696,7 +696,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     /// Unifies the output type with the expected type early, for more coercions
     /// and forward type information on the input expressions.
-    #[instrument(skip(self, call_span), level = "debug")]
+    #[instrument(skip(self, call_span), level = "info")]
     pub(in super::super) fn expected_inputs_for_expected_output(
         &self,
         call_span: Span,
