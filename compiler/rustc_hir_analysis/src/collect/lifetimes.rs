@@ -1452,7 +1452,7 @@ impl<'a, 'tcx> LifetimeContext<'a, 'tcx> {
                         DefKind::TyParam => Some(self.tcx.object_lifetime_default(param.def_id)),
                         // We may also get a `Trait` or `TraitAlias` because of how generics `Self` parameter
                         // works.  Ignore it because it can't have a meaningful lifetime default.
-                        DefKind::LifetimeParam | DefKind::Trait | DefKind::TraitAlias => None,
+                        DefKind::LifetimeParam | DefKind::Trait | DefKind::TraitAlias | DefKind::HKTParam => None,
                         dk => bug!("unexpected def_kind {:?}", dk),
                     }
                 })

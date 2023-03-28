@@ -550,11 +550,13 @@ impl<'a, 'b> BuildReducedGraphVisitor<'a, 'b> {
                         type_ns: Cell::new(Err(Determinacy::Undetermined)),
                         value_ns: Cell::new(Err(Determinacy::Undetermined)),
                         macro_ns: Cell::new(Err(Determinacy::Undetermined)),
+                        argument_ns: Cell::new(Err(Determinacy::Undetermined)),
                     },
                     target_bindings: PerNS {
                         type_ns: Cell::new(None),
                         value_ns: Cell::new(None),
                         macro_ns: Cell::new(None),
+                        argument_ns: Cell::new(None),
                     },
                     type_ns_only,
                     nested,

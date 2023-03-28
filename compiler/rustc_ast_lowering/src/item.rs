@@ -85,7 +85,6 @@ impl<'a, 'hir> ItemLowerer<'a, 'hir> {
             allow_gen_future: Some([sym::gen_future, sym::closure_track_caller][..].into()),
             allow_into_future: Some([sym::into_future][..].into()),
             generics_def_id_map: Default::default(),
-            current_argument_scope_id: None,
         };
         lctx.with_hir_id_owner(owner, |lctx| f(lctx));
 
@@ -413,6 +412,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 // lifetime to be added, but rather a reference to a
                 // parent lifetime.
                 let itctx = ImplTraitContext::Universal;
+                info!("trait_ref trait_ref: {:#?}", trait_ref);
                 let (generics, (trait_ref, lowered_ty)) =
                     self.lower_generics(ast_generics, id, &itctx, |this| {
                         let trait_ref = trait_ref.as_ref().map(|trait_ref| {
@@ -1497,9 +1497,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 let def_id = self.local_def_id(id);
                 let hir_id = self.next_id();
 
-                let bounds = self.with_current_argument_scope_id(def_id, |this| {
-                    this.lower_param_bounds(bounds, itctx)
-                });
+                let bounds = self.lower_param_bounds(bounds, itctx);
 
                 let ident = self.lower_ident(ident);
                 let param_span = ident.span;
@@ -1520,7 +1518,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
                 let args = generics.params.iter().map(|param| {
                     hir::GenericArg::Type(
-                        self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(param.ident, Some(def_id)), span: self.lower_span(param.ident.span), hir_id: self.next_id()})
+                        self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(param.ident, def_id.to_def_id(), 25), span: self.lower_span(param.ident.span), hir_id: self.next_id()})
                     )
                 }).collect::<Vec<_>>();
 

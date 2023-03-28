@@ -127,7 +127,7 @@ impl fmt::Debug for ty::ParamTy {
 
 impl fmt::Debug for ty::ArgumentDef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/#{}", self.name, self.index)
+        write!(f, "{}/#{}({:?})", self.name, self.index, self.def_id.index)
     }
 }
 

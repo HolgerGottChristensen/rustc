@@ -2637,7 +2637,7 @@ pub enum OpaqueTyOrigin {
 #[derive(Debug, HashStable_Generic)]
 pub enum TyKind<'hir> {
     /// An HKT argument (i.e., `%J`). The option will be None from the function call.
-    Argument(Ident, Option<LocalDefId>),
+    Argument(Ident, DefId, usize),
     /// A variable length slice (i.e., `[T]`).
     Slice(&'hir Ty<'hir>),
     /// A fixed length array (i.e., `[T; n]`).

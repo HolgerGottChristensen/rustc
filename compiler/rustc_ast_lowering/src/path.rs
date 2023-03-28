@@ -15,7 +15,7 @@ use rustc_span::{BytePos, Span, DUMMY_SP};
 use smallvec::{smallvec, SmallVec};
 
 impl<'a, 'hir> LoweringContext<'a, 'hir> {
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "info", skip(self))]
     pub(crate) fn lower_qpath(
         &mut self,
         id: NodeId,
@@ -27,8 +27,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         let qself_position = qself.as_ref().map(|q| q.position);
         let qself = qself.as_ref().map(|q| self.lower_ty(&q.ty, itctx));
 
-        let partial_res =
-            self.resolver.get_partial_res(id).unwrap_or_else(|| PartialRes::new(Res::Err));
+        let partial_res = self.resolver.get_partial_res(id).unwrap_or_else(|| PartialRes::new(Res::Err));
         let base_res = partial_res.base_res();
         let unresolved_segments = partial_res.unresolved_segments();
 

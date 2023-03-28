@@ -213,6 +213,8 @@ pub struct ResolverAstLowering {
     pub builtin_macro_kinds: FxHashMap<LocalDefId, MacroKind>,
     /// List functions and methods for which lifetime elision was successful.
     pub lifetime_elision_allowed: FxHashSet<ast::NodeId>,
+
+    pub argument_to_provider: FxHashMap<ast::NodeId, (DefId, usize)>,
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -213,6 +213,7 @@ impl<'a> Resolver<'a> {
 
         let old_kind = match (ns, old_binding.module()) {
             (ValueNS, _) => "value",
+            (ArgumentNS, _) => "hkt argument",
             (MacroNS, _) => "macro",
             (TypeNS, _) if old_binding.is_extern_crate() => "extern crate",
             (TypeNS, Some(module)) if module.is_normal() => "module",

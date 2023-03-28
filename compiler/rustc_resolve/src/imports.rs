@@ -1086,9 +1086,9 @@ impl<'a, 'b> ImportResolver<'a, 'b> {
             return;
         }
 
-        let mut is_redundant = PerNS { value_ns: None, type_ns: None, macro_ns: None };
+        let mut is_redundant = PerNS { value_ns: None, type_ns: None, macro_ns: None, argument_ns: None };
 
-        let mut redundant_span = PerNS { value_ns: None, type_ns: None, macro_ns: None };
+        let mut redundant_span = PerNS { value_ns: None, type_ns: None, macro_ns: None, argument_ns: None };
 
         self.r.per_ns(|this, ns| {
             if let Ok(binding) = source_bindings[ns].get() {

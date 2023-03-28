@@ -491,6 +491,8 @@ pub enum Namespace {
     /// procedural macros, attribute macros, `derive` macros, and non-macro attributes
     /// like `#[inline]` and `#[rustfmt::skip]`.
     MacroNS,
+
+    ArgumentNS,
 }
 
 impl Namespace {
@@ -500,6 +502,7 @@ impl Namespace {
             Self::TypeNS => "type",
             Self::ValueNS => "value",
             Self::MacroNS => "macro",
+            Self::ArgumentNS => "hkt argument",
         }
     }
 }
@@ -510,19 +513,20 @@ pub struct PerNS<T> {
     pub value_ns: T,
     pub type_ns: T,
     pub macro_ns: T,
+    pub argument_ns: T,
 }
 
 impl<T> PerNS<T> {
     pub fn map<U, F: FnMut(T) -> U>(self, mut f: F) -> PerNS<U> {
-        PerNS { value_ns: f(self.value_ns), type_ns: f(self.type_ns), macro_ns: f(self.macro_ns) }
+        PerNS { value_ns: f(self.value_ns), type_ns: f(self.type_ns), macro_ns: f(self.macro_ns), argument_ns: f(self.argument_ns)}
     }
 
-    pub fn into_iter(self) -> IntoIter<T, 3> {
-        [self.value_ns, self.type_ns, self.macro_ns].into_iter()
+    pub fn into_iter(self) -> IntoIter<T, 4> {
+        [self.value_ns, self.type_ns, self.macro_ns, self.argument_ns].into_iter()
     }
 
-    pub fn iter(&self) -> IntoIter<&T, 3> {
-        [&self.value_ns, &self.type_ns, &self.macro_ns].into_iter()
+    pub fn iter(&self) -> IntoIter<&T, 4> {
+        [&self.value_ns, &self.type_ns, &self.macro_ns, &self.argument_ns].into_iter()
     }
 }
 
@@ -534,6 +538,7 @@ impl<T> ::std::ops::Index<Namespace> for PerNS<T> {
             Namespace::ValueNS => &self.value_ns,
             Namespace::TypeNS => &self.type_ns,
             Namespace::MacroNS => &self.macro_ns,
+            Namespace::ArgumentNS => &self.argument_ns,
         }
     }
 }
@@ -544,6 +549,7 @@ impl<T> ::std::ops::IndexMut<Namespace> for PerNS<T> {
             Namespace::ValueNS => &mut self.value_ns,
             Namespace::TypeNS => &mut self.type_ns,
             Namespace::MacroNS => &mut self.macro_ns,
+            Namespace::ArgumentNS => &mut self.argument_ns,
         }
     }
 }
@@ -551,12 +557,12 @@ impl<T> ::std::ops::IndexMut<Namespace> for PerNS<T> {
 impl<T> PerNS<Option<T>> {
     /// Returns `true` if all the items in this collection are `None`.
     pub fn is_empty(&self) -> bool {
-        self.type_ns.is_none() && self.value_ns.is_none() && self.macro_ns.is_none()
+        self.type_ns.is_none() && self.value_ns.is_none() && self.macro_ns.is_none() && self.argument_ns.is_none()
     }
 
     /// Returns an iterator over the items which are `Some`.
     pub fn present_items(self) -> impl Iterator<Item = T> {
-        [self.type_ns, self.value_ns, self.macro_ns].into_iter().flatten()
+        [self.type_ns, self.value_ns, self.macro_ns, self.argument_ns].into_iter().flatten()
     }
 }
 

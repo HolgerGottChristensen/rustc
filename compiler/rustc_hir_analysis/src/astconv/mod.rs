@@ -2752,34 +2752,29 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         let tcx = self.tcx();
 
         let result_ty = match ast_ty.kind {
-            hir::TyKind::Argument(i, def_id) => {
-                let did = if let Some(did) = def_id {
-                    did.to_def_id()
-                } else if let Some(did) = self.current_argument_env() {
-                    did
-                } else {
-                    todo!("hoch") // FIXMIG: Give a proper error message
-                };
+            hir::TyKind::Argument(i, def_id, index) => {
+                let outer_generics: &ty::Generics = self.tcx().generics_of(def_id);
 
-                let generics: &ty::Generics = self.tcx().generics_of(did);
+                let inner_id = outer_generics.params[index].def_id;
+                let inner_generics: &ty::Generics = self.tcx().generics_of(inner_id);
 
-                for param in &generics.params {
+                for param in &inner_generics.params {
                     if param.name == i.name {
                         return tcx.mk_ty(ty::Argument(ArgumentDef {
-                            def_id: did,
+                            def_id: inner_id,
                             index: param.index,
                             name: param.name,
                         }))
                     }
                 }
 
-                let possibilities = generics.params.iter().map(|param| {
+                let possibilities = inner_generics.params.iter().map(|param| {
                     format!("`%{}`", param.name)
                 }).collect::<Vec<_>>().join(", ");
 
                 // FIXMIG: Give a proper error code
                 struct_span_err!(tcx.sess, i.span, E9999, "hkt argument `%{}` could not be found in the definition", i.name)
-                    .span_note(tcx.def_span(did), &format!("expected one of the parameters {} inside the definition", possibilities))
+                    .span_note(tcx.def_span(inner_id), &format!("expected one of the parameters {} inside the definition", possibilities))
                     .emit();
 
                 tcx.ty_error()

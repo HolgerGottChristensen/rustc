@@ -377,6 +377,7 @@ impl<'a> PathSource<'a> {
                 TypeNS => "associated type",
                 ValueNS => "method or associated constant",
                 MacroNS => bug!("associated macro"),
+                ArgumentNS => todo!("hoch") // FIXMIG: what to do here?
             },
             PathSource::Expr(parent) => match parent.as_ref().map(|p| &p.kind) {
                 // "function" here means "anything callable" rather than `DefKind::Fn`,
@@ -589,6 +590,10 @@ struct LateResolutionVisitor<'a, 'b, 'ast> {
     /// The trait that the current context can refer to.
     current_trait_ref: Option<(Module<'a>, TraitRef)>,
 
+    current_argument_provider: Option<DefId>,
+    current_argument_provider_index: Option<usize>,
+    current_argument_provide_index: bool,
+
     /// Fields used to add information to diagnostic errors.
     diagnostic_metadata: Box<DiagnosticMetadata<'ast>>,
 
@@ -659,6 +664,24 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
                 let span = self.r.session.source_map().start_point(ty.span);
                 self.resolve_elided_lifetime(ty.id, span);
                 visit::walk_ty(self, ty);
+            }
+            TyKind::Argument(_ident) => {
+                if let Some(provider) = self.current_argument_provider && let Some(index) = self.current_argument_provider_index {
+                    if self.current_trait_ref.is_some() {
+                        self.r.argument_to_provider.insert(ty.id, (provider, index + 1));
+                    } else {
+                        self.r.argument_to_provider.insert(ty.id, (provider, index));
+                    }
+                }
+
+                /*println!("current_argument_provider: {:?}", self.current_argument_provider);
+                let test = self.resolve_ident_in_lexical_scope(
+                    ident,
+                    ArgumentNS,
+                    None,
+                    None,
+                );
+                todo!("{:#?}", test)*/
             }
             TyKind::Path(ref qself, ref path) => {
                 self.diagnostic_metadata.current_type_path = Some(ty);
@@ -1041,9 +1064,29 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
     }
 
     fn visit_path_segment(&mut self, path_segment: &'ast PathSegment) {
+
         if let Some(ref args) = path_segment.args {
             match &**args {
-                GenericArgs::AngleBracketed(..) => visit::walk_generic_args(self, args),
+                GenericArgs::AngleBracketed(data) => {
+                    let provide_index = self.current_argument_provide_index;
+                    self.current_argument_provide_index = false;
+
+                    for (index, arg) in data.args.iter().enumerate() {
+                        match arg {
+                            AngleBracketedArg::Arg(a) => {
+                                if provide_index {
+                                    self.current_argument_provider_index = Some(index);
+                                }
+
+                                info!("Visit arggg: {:?}, trait_ref: {:#?}", a, self.current_trait_ref);
+                                self.visit_generic_arg(a);
+                            },
+                            AngleBracketedArg::Constraint(c) => self.visit_assoc_constraint(c),
+                        }
+                    }
+
+                    self.current_argument_provide_index = provide_index;
+                },
                 GenericArgs::Parenthesized(p_args) => {
                     // Probe the lifetime ribs to know how to behave.
                     for rib in self.lifetime_ribs.iter().rev() {
@@ -1177,12 +1220,16 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
                 value_ns: vec![Rib::new(start_rib_kind)],
                 type_ns: vec![Rib::new(start_rib_kind)],
                 macro_ns: vec![Rib::new(start_rib_kind)],
+                argument_ns: vec![Rib::new(start_rib_kind)],
             },
             last_block_rib: None,
             label_ribs: Vec::new(),
             lifetime_ribs: Vec::new(),
             lifetime_elision_candidates: None,
             current_trait_ref: None,
+            current_argument_provider: None,
+            current_argument_provider_index: None,
+            current_argument_provide_index: false,
             diagnostic_metadata: Box::new(DiagnosticMetadata::default()),
             // errors at module scope should always be reported
             in_func_body: false,
@@ -2212,7 +2259,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
 
     fn resolve_item(&mut self, item: &'ast Item) {
         let name = item.ident.name;
-        debug!("(resolving item) resolving {} ({:?})", name, item.kind);
+        debug!("(resolving item) resolving {} ({:#?})", name, item.kind);
 
         match item.kind {
             ItemKind::TyAlias(box TyAlias { ref generics, .. }) => {
@@ -2622,26 +2669,42 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         f: impl FnOnce(&mut Self, Option<DefId>) -> T,
     ) -> T {
         let mut new_val = None;
+        let mut new_argument_provider = None;
+        let mut new_provide_index = false;
         let mut new_id = None;
+
         if let Some(trait_ref) = opt_trait_ref {
             let path: Vec<_> = Segment::from_path(&trait_ref.path);
-            self.diagnostic_metadata.currently_processing_impl_trait =
-                Some((trait_ref.clone(), self_type.clone()));
+            info!("HUI");
+            self.diagnostic_metadata.currently_processing_impl_trait = Some((trait_ref.clone(), self_type.clone()));
+
             let res = self.smart_resolve_path_fragment(
                 &None,
                 &path,
                 PathSource::Trait(AliasPossibility::No),
                 Finalize::new(trait_ref.ref_id, trait_ref.path.span),
             );
+
+            info!("HAIII");
+
+            new_provide_index = trait_ref.path.segments.last().unwrap().args.is_some();
+
             self.diagnostic_metadata.currently_processing_impl_trait = None;
             if let Some(def_id) = res.expect_full_res().opt_def_id() {
                 new_id = Some(def_id);
+                new_argument_provider = Some(def_id);
                 new_val = Some((self.r.expect_module(def_id), trait_ref.clone()));
             }
         }
         let original_trait_ref = replace(&mut self.current_trait_ref, new_val);
+        let original_argument_provider = replace(&mut self.current_argument_provider, new_argument_provider);
+        let original_argument_provider_index = replace(&mut self.current_argument_provider_index, None);
+        let original_argument_provide_index = replace(&mut self.current_argument_provide_index, new_provide_index);
         let result = f(self, new_id);
         self.current_trait_ref = original_trait_ref;
+        self.current_argument_provider = original_argument_provider;
+        self.current_argument_provider_index = original_argument_provider_index;
+        self.current_argument_provide_index = original_argument_provide_index;
         result
     }
 
@@ -3378,7 +3441,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
     ) -> PartialRes {
         let ns = source.namespace();
 
-        debug!("{:?}", ns);
+        debug!("smart_resolve_path_fragment in namespace: {:?}", ns);
 
         let Finalize { node_id, path_span, .. } = finalize;
         let report_errors = |this: &mut Self, res: Option<Res>| {
@@ -3526,6 +3589,8 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
             None
         };
 
+        debug!("pre - resolved_qpath");
+
         let resolved_qpath = self.resolve_qpath_anywhere(
             qself,
             path,
@@ -3534,6 +3599,13 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
             source.defer_to_typeck(),
             finalize,
         );
+
+        if let Ok(r) = &resolved_qpath {
+            debug!("resolved_qpath: Ok({:?})", r);
+        } else {
+            debug!("resolved_qpath: Err(...)");
+        }
+
 
         let partial_res = match resolved_qpath {
             Ok(Some(partial_res)) if let Some(res) = partial_res.full_res() => {

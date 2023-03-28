@@ -59,7 +59,7 @@ use rustc_hir::def_id::{LocalDefId};
 use rustc_hir::definitions::DefPathData;
 use rustc_hir::{ConstArg, GenericArg, ItemLocalId, OwnerId, ParamName, TraitCandidate};
 use rustc_index::vec::{Idx, IndexVec};
-use rustc_middle::span_bug;
+use rustc_middle::{span_bug};
 use rustc_middle::ty::{ResolverAstLowering, TyCtxt};
 use rustc_session::parse::feature_err;
 use rustc_span::hygiene::MacroKind;
@@ -70,7 +70,7 @@ use rustc_span::{Span, DUMMY_SP};
 use smallvec::SmallVec;
 use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Formatter};
-use rustc_span::def_id::CRATE_DEF_ID;
+use rustc_span::def_id::{CRATE_DEF_ID};
 
 macro_rules! arena_vec {
     ($this:expr; $($x:expr),*) => (
@@ -138,8 +138,6 @@ struct LoweringContext<'a, 'hir> {
     /// defined on the TAIT, so we have type Foo<'a1> = ... and we establish a mapping in this
     /// field from the original parameter 'a to the new parameter 'a1.
     generics_def_id_map: Vec<FxHashMap<LocalDefId, LocalDefId>>,
-
-    current_argument_scope_id: Option<LocalDefId>,
 }
 
 trait ResolverAstLoweringExt {
@@ -590,17 +588,6 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             .rev()
             .find_map(|map| map.get(&local_def_id).map(|local_def_id| *local_def_id))
             .unwrap_or(local_def_id)
-    }
-
-    fn with_current_argument_scope_id<R>(
-        &mut self,
-        id: LocalDefId,
-        f: impl FnOnce(&mut Self) -> R,
-    ) -> R {
-        self.current_argument_scope_id = Some(id);
-        let res = f(self);
-        self.current_argument_scope_id = None;
-        res
     }
 
     /// Freshen the `LoweringContext` and ready it to lower a nested item.
@@ -1286,7 +1273,11 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     fn lower_ty_direct(&mut self, t: &Ty, itctx: &ImplTraitContext) -> hir::Ty<'hir> {
         let kind = match &t.kind {
             TyKind::Argument(ident) => {
-                hir::TyKind::Argument(*ident, self.current_argument_scope_id)
+                let (did, index) = self.resolver.argument_to_provider.get(&t.id).copied().unwrap();
+
+                //info!("Lower argument direct: {:?}, {:?},  {}", ident, self.current_argument_scope_id, std::backtrace::Backtrace::capture());
+
+                hir::TyKind::Argument(*ident, did, index)
             }
             TyKind::Infer => hir::TyKind::Infer,
             TyKind::Err => hir::TyKind::Err,

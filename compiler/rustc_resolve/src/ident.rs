@@ -99,7 +99,7 @@ impl<'a> Resolver<'a> {
         };
         let mut scope = match ns {
             _ if is_absolute_path => Scope::CrateRoot,
-            TypeNS | ValueNS => Scope::Module(module),
+            TypeNS | ValueNS | ArgumentNS => Scope::Module(module),
             MacroNS => Scope::DeriveHelpers(parent_scope.expansion),
         };
         let mut ctxt = ctxt.normalize_to_macros_2_0();
@@ -170,7 +170,7 @@ impl<'a> Resolver<'a> {
                         ctxt.adjust(ExpnId::root());
                         Scope::ExternPrelude
                     }
-                    ValueNS | MacroNS => break,
+                    ValueNS | MacroNS | ArgumentNS => break,
                 },
                 Scope::Module(module) => {
                     use_prelude = !module.no_implicit_prelude;
@@ -182,6 +182,7 @@ impl<'a> Resolver<'a> {
                                 TypeNS => Scope::ExternPrelude,
                                 ValueNS => Scope::StdLibPrelude,
                                 MacroNS => Scope::MacroUsePrelude,
+                                ArgumentNS => break, // FIXMIG: what to do here?
                             }
                         }
                     }
@@ -195,6 +196,7 @@ impl<'a> Resolver<'a> {
                     TypeNS => Scope::BuiltinTypes,
                     ValueNS => break, // nowhere else to search
                     MacroNS => Scope::BuiltinAttrs,
+                    ArgumentNS => break, // FIXMIG: what to do here?
                 },
                 Scope::BuiltinTypes => break, // nowhere else to search
             };
@@ -246,7 +248,7 @@ impl<'a> Resolver<'a> {
         ribs: &[Rib<'a>],
         ignore_binding: Option<&'a NameBinding<'a>>,
     ) -> Option<LexicalScopeBinding<'a>> {
-        assert!(ns == TypeNS || ns == ValueNS);
+        assert!(ns == TypeNS || ns == ValueNS || ns == ArgumentNS);
         let orig_ident = ident;
         if ident.name == kw::Empty {
             return Some(LexicalScopeBinding::Res(Res::Err));
@@ -271,8 +273,8 @@ impl<'a> Resolver<'a> {
             // Use the rib kind to determine whether we are resolving parameters
             // (macro 2.0 hygiene) or local variables (`macro_rules` hygiene).
             let rib_ident = if ribs[i].kind.contains_params() { normalized_ident } else { ident };
-            if let Some((original_rib_ident_def, res)) = ribs[i].bindings.get_key_value(&rib_ident)
-            {
+
+            if let Some((original_rib_ident_def, res)) = ribs[i].bindings.get_key_value(&rib_ident) {
                 // The ident resolves to a type parameter or local variable.
                 return Some(LexicalScopeBinding::Res(self.validate_res_from_ribs(
                     i,
@@ -1379,6 +1381,7 @@ impl<'a> Resolver<'a> {
                 Binding(Result<&'a NameBinding<'a>, Determinacy>),
                 Res(Res),
             }
+
             let find_binding_in_ns = |this: &mut Self, ns| {
                 let binding = if let Some(module) = module {
                     this.resolve_ident_in_module(

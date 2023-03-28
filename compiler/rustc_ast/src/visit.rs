@@ -293,7 +293,7 @@ where
 }
 
 pub fn walk_trait_ref<'a, V: Visitor<'a>>(visitor: &mut V, trait_ref: &'a TraitRef) {
-    visitor.visit_path(&trait_ref.path, trait_ref.ref_id)
+    visitor.visit_path(&trait_ref.path, trait_ref.ref_id);
 }
 
 pub fn walk_item<'a, V: Visitor<'a>>(visitor: &mut V, item: &'a Item) {

@@ -221,7 +221,7 @@ impl DeepRejectCtxt {
             | ty::Bound(..)
             | ty::Infer(_) => bug!("unexpected impl_ty: {impl_ty}"),
             ty::Argument(..) => {
-                todo!("hoch") // FIXMIG: what to do here?
+                return true // FIXMIG: what to do here?
             }
         }
 
@@ -235,6 +235,7 @@ impl DeepRejectCtxt {
             | ty::Float(_)
             | ty::Str
             | ty::Never
+            | ty::Argument(_) // FIXMIG: what to do here?
             | ty::Foreign(_) => obligation_ty == impl_ty,
             ty::Ref(_, obl_ty, obl_mutbl) => match k {
                 &ty::Ref(_, impl_ty, impl_mutbl) => {
@@ -325,10 +326,6 @@ impl DeepRejectCtxt {
 
             ty::GeneratorWitness(..) | ty::Bound(..) => {
                 bug!("unexpected obligation type: {:?}", obligation_ty)
-            }
-
-            ty::Argument(..) => {
-                todo!("hoch") // FIXMIG: what to do here?
             }
         }
     }

@@ -1015,6 +1015,8 @@ pub struct Resolver<'a> {
     node_id_to_def_id: FxHashMap<ast::NodeId, LocalDefId>,
     def_id_to_node_id: IndexVec<LocalDefId, ast::NodeId>,
 
+    argument_to_provider: FxHashMap<ast::NodeId, (DefId, usize)>,
+
     /// Indices of unnamed struct or variant fields with unresolved attributes.
     placeholder_field_indices: FxHashMap<NodeId, usize>,
     /// When collecting definitions from an AST fragment produced by a macro invocation `ExpnId`
@@ -1352,6 +1354,7 @@ impl<'a> Resolver<'a> {
             next_node_id: CRATE_NODE_ID,
             node_id_to_def_id,
             def_id_to_node_id,
+            argument_to_provider: Default::default(),
             placeholder_field_indices: Default::default(),
             invocation_parents,
             trait_impl_items: Default::default(),
@@ -1453,6 +1456,7 @@ impl<'a> Resolver<'a> {
             trait_map: self.trait_map,
             builtin_macro_kinds: self.builtin_macro_kinds,
             lifetime_elision_allowed: self.lifetime_elision_allowed,
+            argument_to_provider: self.argument_to_provider,
         };
         ResolverOutputs { global_ctxt, ast_lowering, untracked }
     }
@@ -1497,6 +1501,7 @@ impl<'a> Resolver<'a> {
             trait_map: self.trait_map.clone(),
             builtin_macro_kinds: self.builtin_macro_kinds.clone(),
             lifetime_elision_allowed: self.lifetime_elision_allowed.clone(),
+            argument_to_provider: self.argument_to_provider.clone(),
         };
         ResolverOutputs { global_ctxt, ast_lowering, untracked }
     }

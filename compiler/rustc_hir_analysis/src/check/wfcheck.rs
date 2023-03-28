@@ -1261,9 +1261,12 @@ fn check_impl<'tcx>(
                     },
                     polarity: ty::ImplPolarity::Positive,
                 };
+
+                let param_env = tcx.param_env_with_hkt((ast_trait_ref.trait_def_id().unwrap(), wfcx.param_env));
+
                 let obligations = traits::wf::trait_obligations(
                     wfcx.infcx,
-                    wfcx.param_env,
+                    param_env,
                     wfcx.body_id,
                     &trait_pred,
                     ast_trait_ref.path.span,
