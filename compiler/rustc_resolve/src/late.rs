@@ -8,7 +8,7 @@
 
 use RibKind::*;
 
-use crate::{path_names_to_string, BindingError, Finalize, LexicalScopeBinding};
+use crate::{path_names_to_string, BindingError, Finalize, LexicalScopeBinding, ArgumentProvider};
 use crate::{Module, ModuleOrUniformRoot, NameBinding, ParentScope, PathResult};
 use crate::{ResolutionError, Resolver, Segment, UseError};
 
@@ -47,6 +47,7 @@ type BindingMap = IdentMap<BindingInfo>;
 use diagnostics::{
     ElisionFnParameter, LifetimeElisionCandidate, MissingLifetime, MissingLifetimeKind,
 };
+use crate::late::AllowArgumentProvider::AllowProviderIndex;
 
 #[derive(Copy, Clone, Debug)]
 struct BindingInfo {
@@ -592,7 +593,7 @@ struct LateResolutionVisitor<'a, 'b, 'ast> {
 
     current_argument_provider: Option<DefId>,
     current_argument_provider_index: Option<usize>,
-    current_argument_provide_index: bool,
+    current_argument_provide_index: AllowArgumentProvider,
 
     /// Fields used to add information to diagnostic errors.
     diagnostic_metadata: Box<DiagnosticMetadata<'ast>>,
@@ -606,6 +607,13 @@ struct LateResolutionVisitor<'a, 'b, 'ast> {
 
     /// Count the number of places a lifetime is used.
     lifetime_uses: FxHashMap<LocalDefId, LifetimeUseSet>,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum AllowArgumentProvider {
+    AllowProviderId,
+    AllowProviderIndex,
+    Disallowed
 }
 
 /// Walks the whole crate in DFS order, visiting each item, resolving names as it goes.
@@ -665,13 +673,25 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
                 self.resolve_elided_lifetime(ty.id, span);
                 visit::walk_ty(self, ty);
             }
-            TyKind::Argument(_ident) => {
-                if let Some(provider) = self.current_argument_provider && let Some(index) = self.current_argument_provider_index {
+            TyKind::Argument(ident) => {
+
+                info!("Lookup in '{ident}' the argument namespace...");
+                info!("Arguments: {:#?}", self.ribs.argument_ns);
+
+                let mut arguments = self.ribs.argument_ns.iter().rev().flat_map(|a| &a.bindings);
+
+                if let Some((_, Res::Argument(did, _index))) = arguments.find(|(i, _)| **i == ident) {
+
+                    self.r.argument_to_provider.insert(ty.id, ArgumentProvider::FromId(*did));
+
+                } else if let Some(provider) = self.current_argument_provider && let Some(index) = self.current_argument_provider_index {
                     if self.current_trait_ref.is_some() {
-                        self.r.argument_to_provider.insert(ty.id, (provider, index + 1));
+                        self.r.argument_to_provider.insert(ty.id, ArgumentProvider::FromParentIdAndIndex(provider, index + 1));
                     } else {
-                        self.r.argument_to_provider.insert(ty.id, (provider, index));
+                        self.r.argument_to_provider.insert(ty.id, ArgumentProvider::FromParentIdAndIndex(provider, index));
                     }
+                } else {
+                    panic!("The argument '{ident}' could not be resolved")
                 }
 
                 /*println!("current_argument_provider: {:?}", self.current_argument_provider);
@@ -965,13 +985,16 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
     }
 
     fn visit_generics(&mut self, generics: &'ast Generics) {
+        info!("pre visit generic params");
         self.visit_generic_params(
             &generics.params,
             self.diagnostic_metadata.current_self_item.is_some(),
         );
+        info!("pre visit generic where clause predicates");
         for p in &generics.where_clause.predicates {
             self.visit_where_predicate(p);
         }
+        info!("post visit generics");
     }
 
     fn visit_closure_binder(&mut self, b: &'ast ClosureBinder) {
@@ -1069,12 +1092,12 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
             match &**args {
                 GenericArgs::AngleBracketed(data) => {
                     let provide_index = self.current_argument_provide_index;
-                    self.current_argument_provide_index = false;
+                    self.current_argument_provide_index = AllowArgumentProvider::Disallowed;
 
                     for (index, arg) in data.args.iter().enumerate() {
                         match arg {
                             AngleBracketedArg::Arg(a) => {
-                                if provide_index {
+                                if provide_index == AllowProviderIndex{
                                     self.current_argument_provider_index = Some(index);
                                 }
 
@@ -1229,7 +1252,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
             current_trait_ref: None,
             current_argument_provider: None,
             current_argument_provider_index: None,
-            current_argument_provide_index: false,
+            current_argument_provide_index: AllowArgumentProvider::AllowProviderId,
             diagnostic_metadata: Box::new(DiagnosticMetadata::default()),
             // errors at module scope should always be reported
             in_func_body: false,
@@ -1340,6 +1363,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         // them one by one as they are processed and become available.
         let mut forward_ty_ban_rib = Rib::new(ForwardGenericParamBanRibKind);
         let mut forward_const_ban_rib = Rib::new(ForwardGenericParamBanRibKind);
+
         for param in params.iter() {
             match param.kind {
                 GenericParamKind::Type { .. } => {
@@ -1429,9 +1453,20 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
                             .remove(&Ident::with_dummy_span(param.ident.name));
                     }
                     GenericParamKind::HKT(ref generics) => {
-                        for bound in &param.bounds {
-                            this.visit_param_bound(bound, BoundKind::Bound);
-                        }
+                        this.with_rib(Namespace::ArgumentNS, NormalRibKind, |this_inner| {
+                            let rib = this_inner.ribs[ArgumentNS].last_mut().unwrap();
+
+                            for (index, inner_param) in generics.params.iter().enumerate() {
+                                let id = this_inner.r.node_id_to_def_id[&param.id];
+                                rib.bindings.insert(inner_param.ident, Res::Argument(id.to_def_id(), index));
+                            }
+
+
+                            for bound in &param.bounds {
+                                this_inner.visit_param_bound(bound, BoundKind::Bound);
+                            }
+                        });
+
 
                         // Push to ban
                         this.ribs[TypeNS].push(forward_ty_ban_rib);
@@ -2670,7 +2705,7 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
     ) -> T {
         let mut new_val = None;
         let mut new_argument_provider = None;
-        let mut new_provide_index = false;
+        let mut new_provide_index = AllowArgumentProvider::Disallowed;
         let mut new_id = None;
 
         if let Some(trait_ref) = opt_trait_ref {
@@ -2687,7 +2722,10 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
 
             info!("HAIII");
 
-            new_provide_index = trait_ref.path.segments.last().unwrap().args.is_some();
+            if trait_ref.path.segments.last().unwrap().args.is_some() && self.current_argument_provide_index == AllowArgumentProvider::AllowProviderId {
+                new_provide_index = AllowArgumentProvider::AllowProviderIndex;
+            }
+
 
             self.diagnostic_metadata.currently_processing_impl_trait = None;
             if let Some(def_id) = res.expect_full_res().opt_def_id() {
@@ -3422,13 +3460,13 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         qself: &Option<P<QSelf>>,
         path: &Path,
         source: PathSource<'ast>,
-    ) {
+    ) -> PartialRes {
         self.smart_resolve_path_fragment(
             qself,
             &Segment::from_path(path),
             source,
             Finalize::new(id, path.span),
-        );
+        )
     }
 
     #[instrument(level = "debug", skip(self))]
@@ -3953,8 +3991,25 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         // Next, resolve the node.
         match expr.kind {
             ExprKind::Path(ref qself, ref path) => {
-                self.smart_resolve_path(expr.id, qself, path, PathSource::Expr(parent));
-                visit::walk_expr(self, expr);
+                info!("ExprKind::Path smart resolve: {}", rustc_ast_pretty::pprust::path_to_string(path));
+                let res = self.smart_resolve_path(expr.id, qself, path, PathSource::Expr(parent));
+                info!("ExprKind::Path post smart resolve: {}", rustc_ast_pretty::pprust::path_to_string(path));
+
+                if self.current_argument_provide_index == AllowArgumentProvider::AllowProviderId && res.unresolved_segments() == 0 && let Some(did) = res.expect_full_res().opt_def_id() {
+                    self.current_argument_provide_index = AllowArgumentProvider::AllowProviderIndex;
+                    let old_argument_id = self.current_argument_provider.take();
+
+                    self.current_argument_provider = Some(did);
+
+                    visit::walk_expr(self, expr);
+
+                    self.current_argument_provider = old_argument_id;
+                    self.current_argument_provide_index = AllowArgumentProvider::AllowProviderId;
+                } else {
+                    visit::walk_expr(self, expr);
+                }
+
+                info!("ExprKind::Path walk expr post: {}", rustc_ast_pretty::pprust::path_to_string(path));
             }
 
             ExprKind::Struct(ref se) => {

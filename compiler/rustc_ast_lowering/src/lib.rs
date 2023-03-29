@@ -57,10 +57,10 @@ use rustc_hir as hir;
 use rustc_hir::def::{DefKind, LifetimeRes, Namespace, PartialRes, PerNS, Res};
 use rustc_hir::def_id::{LocalDefId};
 use rustc_hir::definitions::DefPathData;
-use rustc_hir::{ConstArg, GenericArg, ItemLocalId, OwnerId, ParamName, TraitCandidate};
+use rustc_hir::{ArgumentDef, ConstArg, GenericArg, ItemLocalId, OwnerId, ParamName, TraitCandidate};
 use rustc_index::vec::{Idx, IndexVec};
 use rustc_middle::{span_bug};
-use rustc_middle::ty::{ResolverAstLowering, TyCtxt};
+use rustc_middle::ty::{ArgumentProvider, ResolverAstLowering, TyCtxt};
 use rustc_session::parse::feature_err;
 use rustc_span::hygiene::MacroKind;
 use rustc_span::source_map::DesugaringKind;
@@ -1273,11 +1273,16 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     fn lower_ty_direct(&mut self, t: &Ty, itctx: &ImplTraitContext) -> hir::Ty<'hir> {
         let kind = match &t.kind {
             TyKind::Argument(ident) => {
-                let (did, index) = self.resolver.argument_to_provider.get(&t.id).copied().unwrap();
+                let provider = self.resolver.argument_to_provider.get(&t.id).copied().unwrap();
+
+                let converted_provider = match provider {
+                    ArgumentProvider::FromId(did) => ArgumentDef::FromId(did),
+                    ArgumentProvider::FromParentIdAndIndex(did, index) => ArgumentDef::FromParentIdAndIndex(did, index),
+                };
 
                 //info!("Lower argument direct: {:?}, {:?},  {}", ident, self.current_argument_scope_id, std::backtrace::Backtrace::capture());
 
-                hir::TyKind::Argument(*ident, did, index)
+                hir::TyKind::Argument(*ident, converted_provider)
             }
             TyKind::Infer => hir::TyKind::Infer,
             TyKind::Err => hir::TyKind::Err,

@@ -854,7 +854,7 @@ pub fn walk_ty<'v, V: Visitor<'v>>(visitor: &mut V, typ: &'v Ty<'v>) {
         }
         TyKind::Typeof(ref expression) => visitor.visit_anon_const(expression),
         TyKind::Infer | TyKind::Err => {}
-        TyKind::Argument(i, _, _) => visitor.visit_ident(i)
+        TyKind::Argument(i, _) => visitor.visit_ident(i)
     }
 }
 

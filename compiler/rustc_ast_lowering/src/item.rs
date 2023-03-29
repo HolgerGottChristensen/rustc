@@ -10,7 +10,7 @@ use rustc_data_structures::sorted_map::SortedMap;
 use rustc_hir as hir;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{LocalDefId, CRATE_DEF_ID};
-use rustc_hir::{OwnedHKTParam, PredicateOrigin};
+use rustc_hir::{ArgumentDef, OwnedHKTParam, PredicateOrigin};
 use rustc_index::vec::{Idx, IndexVec};
 use rustc_middle::ty::{DefIdTree, ResolverAstLowering, TyCtxt};
 use rustc_span::lev_distance::find_best_match_for_name;
@@ -1518,7 +1518,14 @@ impl<'hir> LoweringContext<'_, 'hir> {
 
                 let args = generics.params.iter().map(|param| {
                     hir::GenericArg::Type(
-                        self.arena.alloc(hir::Ty { kind: hir::TyKind::Argument(param.ident, def_id.to_def_id(), 25), span: self.lower_span(param.ident.span), hir_id: self.next_id()})
+                        self.arena.alloc(hir::Ty {
+                            kind: hir::TyKind::Argument(
+                                param.ident,
+                                ArgumentDef::FromId(def_id.to_def_id()),
+                            ),
+                            span: self.lower_span(param.ident.span),
+                            hir_id: self.next_id()
+                        })
                     )
                 }).collect::<Vec<_>>();
 

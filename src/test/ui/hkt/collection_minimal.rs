@@ -1,6 +1,7 @@
 // HKT inspect method
 // check-pass
 
+// We need some where: I<R> = Self.
 trait Collection<R, I<%A>> {
     fn empty() -> I<R>;
 

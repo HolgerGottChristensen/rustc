@@ -214,7 +214,13 @@ pub struct ResolverAstLowering {
     /// List functions and methods for which lifetime elision was successful.
     pub lifetime_elision_allowed: FxHashSet<ast::NodeId>,
 
-    pub argument_to_provider: FxHashMap<ast::NodeId, (DefId, usize)>,
+    pub argument_to_provider: FxHashMap<ast::NodeId, ArgumentProvider>,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum ArgumentProvider {
+    FromId(DefId),
+    FromParentIdAndIndex(DefId, usize),
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -2633,11 +2633,17 @@ pub enum OpaqueTyOrigin {
     TyAlias,
 }
 
+#[derive(Copy, Clone, Debug, HashStable_Generic)]
+pub enum ArgumentDef {
+    FromParentIdAndIndex(DefId, usize),
+    FromId(DefId),
+}
+
 /// The various kinds of types recognized by the compiler.
 #[derive(Debug, HashStable_Generic)]
 pub enum TyKind<'hir> {
     /// An HKT argument (i.e., `%J`). The option will be None from the function call.
-    Argument(Ident, DefId, usize),
+    Argument(Ident, ArgumentDef),
     /// A variable length slice (i.e., `[T]`).
     Slice(&'hir Ty<'hir>),
     /// A fixed length array (i.e., `[T; n]`).

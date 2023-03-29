@@ -43,7 +43,7 @@ use rustc_metadata::creader::{CStore, CrateLoader};
 use rustc_middle::metadata::ModChild;
 use rustc_middle::middle::privacy::EffectiveVisibilities;
 use rustc_middle::span_bug;
-use rustc_middle::ty::{self, DefIdTree, MainDefinition, RegisteredTools};
+use rustc_middle::ty::{self, ArgumentProvider, DefIdTree, MainDefinition, RegisteredTools};
 use rustc_middle::ty::{ResolverGlobalCtxt, ResolverOutputs};
 use rustc_query_system::ich::StableHashingContext;
 use rustc_session::cstore::{CrateStore, MetadataLoaderDyn, Untracked};
@@ -1015,7 +1015,7 @@ pub struct Resolver<'a> {
     node_id_to_def_id: FxHashMap<ast::NodeId, LocalDefId>,
     def_id_to_node_id: IndexVec<LocalDefId, ast::NodeId>,
 
-    argument_to_provider: FxHashMap<ast::NodeId, (DefId, usize)>,
+    argument_to_provider: FxHashMap<ast::NodeId, ArgumentProvider>,
 
     /// Indices of unnamed struct or variant fields with unresolved attributes.
     placeholder_field_indices: FxHashMap<NodeId, usize>,

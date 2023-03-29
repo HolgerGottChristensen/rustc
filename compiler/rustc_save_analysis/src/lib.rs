@@ -746,6 +746,7 @@ impl<'tcx> SaveContext<'tcx> {
             | Res::SelfTyAlias { .. }
             | Res::ToolMod
             | Res::NonMacroAttr(..)
+            | Res::Argument(..)
             | Res::SelfCtor(..)
             | Res::Err => None,
         }

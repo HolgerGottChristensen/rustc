@@ -1,0 +1,11 @@
+error[E0403]: the name `J` is already used for a generic parameter in this item's generic parameters
+  --> $DIR/dont_allow_same_name_twice.rs:6:12
+   |
+LL | fn test<J, J>() {}
+   |         -  ^ already used
+   |         |
+   |         first use of `J`
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0403`.

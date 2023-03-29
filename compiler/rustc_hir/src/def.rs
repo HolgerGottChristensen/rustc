@@ -312,6 +312,7 @@ pub enum Res<Id = hir::HirId> {
     ///
     /// **Belongs to the type namespace.**
     PrimTy(hir::PrimTy),
+    Argument(DefId, usize),
 
     /// The `Self` type, as used within a trait.
     ///
@@ -618,6 +619,7 @@ impl<Id> Res<Id> {
 
             Res::Local(..)
             | Res::PrimTy(..)
+            | Res::Argument(..)
             | Res::SelfTyParam { .. }
             | Res::SelfTyAlias { .. }
             | Res::SelfCtor(..)
@@ -642,6 +644,7 @@ impl<Id> Res<Id> {
             Res::SelfCtor(..) => "self constructor",
             Res::PrimTy(..) => "builtin type",
             Res::Local(..) => "local variable",
+            Res::Argument(..) => "hkt argument",
             Res::SelfTyParam { .. } | Res::SelfTyAlias { .. } => "self type",
             Res::ToolMod => "tool module",
             Res::NonMacroAttr(attr_kind) => attr_kind.descr(),
@@ -672,6 +675,7 @@ impl<Id> Res<Id> {
             Res::ToolMod => Res::ToolMod,
             Res::NonMacroAttr(attr_kind) => Res::NonMacroAttr(attr_kind),
             Res::Err => Res::Err,
+            Res::Argument(id, index) => Res::Argument(id, index),
         }
     }
 
@@ -688,6 +692,7 @@ impl<Id> Res<Id> {
             Res::ToolMod => Res::ToolMod,
             Res::NonMacroAttr(attr_kind) => Res::NonMacroAttr(attr_kind),
             Res::Err => Res::Err,
+            Res::Argument(id, index) => Res::Argument(id, index),
         })
     }
 
@@ -716,6 +721,7 @@ impl<Id> Res<Id> {
             }
             Res::SelfCtor(..) | Res::Local(..) => Some(Namespace::ValueNS),
             Res::NonMacroAttr(..) => Some(Namespace::MacroNS),
+            Res::Argument(..) => Some(Namespace::ArgumentNS),
             Res::Err => None,
         }
     }

@@ -90,7 +90,7 @@ impl<'tcx> MarkSymbolVisitor<'tcx> {
                 self.check_def_id(def_id);
             }
             _ if self.in_pat => {}
-            Res::PrimTy(..) | Res::SelfCtor(..) | Res::Local(..) => {}
+            Res::PrimTy(..) | Res::SelfCtor(..) | Res::Local(..) | Res::Argument(..) => {} // FIXMIG: what to do here?
             Res::Def(DefKind::Ctor(CtorOf::Variant, ..), ctor_def_id) => {
                 let variant_id = self.tcx.parent(ctor_def_id);
                 let enum_id = self.tcx.parent(variant_id);

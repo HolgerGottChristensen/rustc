@@ -981,6 +981,7 @@ impl<'a, 'b> BuildReducedGraphVisitor<'a, 'b> {
                 _,
             )
             | Res::Local(..)
+            | Res::Argument(..)
             | Res::SelfTyParam { .. }
             | Res::SelfTyAlias { .. }
             | Res::SelfCtor(..)
