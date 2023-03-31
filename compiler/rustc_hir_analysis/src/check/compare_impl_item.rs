@@ -287,10 +287,12 @@ fn compare_method_predicate_entailment<'tcx>(
 
     let bound_sig = tcx.bound_fn_sig(trait_m.def_id).map_bound(|a| a.fold_with(&mut OffsetterFolder(impl_to_placeholder_substs.len() as u32, tcx)));
 
-    info!("Bound sig: {:#?}", bound_sig);
+    info!("Bound sig for the method: {:#?}", bound_sig);
 
     let trait_sig = bound_sig.subst(tcx, trait_to_placeholder_substs, HKTSubstType::SubstHKTParamWithType);
+    info!("Bound sig after substs: {:#?}", trait_sig);
     let trait_sig = tcx.liberate_late_bound_regions(impl_m.def_id, trait_sig);
+    info!("Bound sig after liberation: {:#?}", trait_sig);
 
     // Next, add all inputs and output as well-formed tys. Importantly,
     // we have to do this before normalization, since the normalized ty may

@@ -5,17 +5,17 @@
 trait Collection<R, I<%A>> {
     fn empty() -> I<R>;
 
-    //fn add(&mut self, value: R);
+    fn add(&mut self, value: R);
 
-    //fn clear(&mut self);
+    fn clear(&mut self);
 }
 
 impl<T, E: Default> Collection<T, Result<%A, E>> for Result<T, E> {
     fn empty() -> Result<T, E> { Err(E::default()) }
 
-    //fn add(&mut self, value: T) { *self = Ok(value); }
+    fn add(&mut self, value: T) { *self = Ok(value); }
 
-    //fn clear(&mut self) { *self = Err(E::default()); }
+    fn clear(&mut self) { *self = Err(E::default()); }
 }
 
 fn main() {

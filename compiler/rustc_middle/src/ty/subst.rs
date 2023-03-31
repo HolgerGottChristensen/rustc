@@ -721,15 +721,6 @@ pub enum HKTSubstType {
     SubstArgumentWithinHKTParam,
 }
 
-impl<'tcx, T: TypeFoldable<'tcx>> ty::EarlyBinder<T> {
-    pub fn subst(self, tcx: TyCtxt<'tcx>, substs: &[GenericArg<'tcx>], hkt_subst_type: HKTSubstType) -> T {
-        let mut folder = SubstFolder { tcx, substs, binders_passed: 0, hkt_subst_type };
-        let res = self.clone().0.fold_with(&mut folder);
-        //println!("{:?} gets subst with: {:?}, substs: {:?}", self, res, substs);
-        res
-    }
-}
-
 pub struct OffsetterFolder<'tcx>(pub u32, pub TyCtxt<'tcx>);
 
 impl<'tcx> TypeFolder<'tcx> for OffsetterFolder<'tcx> {
@@ -748,10 +739,18 @@ impl<'tcx> TypeFolder<'tcx> for OffsetterFolder<'tcx> {
             _ => ()
         }
 
-        t
+        t.super_fold_with(self)
     }
 }
 
+impl<'tcx, T: TypeFoldable<'tcx>> ty::EarlyBinder<T> {
+    pub fn subst(self, tcx: TyCtxt<'tcx>, substs: &[GenericArg<'tcx>], hkt_subst_type: HKTSubstType) -> T {
+        let mut folder = SubstFolder { tcx, substs, binders_passed: 0, hkt_subst_type };
+        let res = self.clone().0.fold_with(&mut folder);
+        //println!("{:?} gets subst with: {:?}, substs: {:?}", self, res, substs);
+        res
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////
 // The actual substitution engine itself is a type folder.
