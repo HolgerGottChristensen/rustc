@@ -195,7 +195,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
                         substs[param.index as usize].to_string()
                     }
                     GenericParamDefKind::Lifetime => continue,
-                    GenericParamDefKind::HKT => todo!("hoch") // FIXMIG: what to do here?
+                    GenericParamDefKind::HKT => substs[param.index as usize].to_string() // FIXMIG: what to do here?
                 };
                 let name = param.name;
                 flags.push((name, Some(value)));

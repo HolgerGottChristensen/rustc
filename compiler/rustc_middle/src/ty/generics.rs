@@ -364,13 +364,17 @@ impl<'tcx> GenericPredicates<'tcx> {
             predicates: self
                 .predicates
                 .iter()
-                .map(|(p, _)| EarlyBinder(*p).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType))
+                .map(|(p, _)| {
+                    let subst_result = EarlyBinder(*p).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
+                    info!("InstantiateOwn: {}, into: {}, with substs: {:#?}", p, subst_result, substs);
+                    subst_result
+                })
                 .collect(),
             spans: self.predicates.iter().map(|(_, sp)| *sp).collect(),
         }
     }
 
-    #[instrument(level = "debug", skip(self, tcx))]
+    #[instrument(level = "info", skip(self, tcx))]
     fn instantiate_into(
         &self,
         tcx: TyCtxt<'tcx>,
@@ -382,7 +386,11 @@ impl<'tcx> GenericPredicates<'tcx> {
         }
         instantiated
             .predicates
-            .extend(self.predicates.iter().map(|(p, _)| EarlyBinder(*p).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType)));
+            .extend(self.predicates.iter().map(|(p, _)| {
+                let subst_result = EarlyBinder(*p).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
+                info!("Instantiate: {}, into: {}, with substs: {:#?}", p, subst_result, substs);
+                subst_result
+            }));
 
         instantiated.spans.extend(self.predicates.iter().map(|(_, sp)| *sp));
     }

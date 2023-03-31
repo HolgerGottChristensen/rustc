@@ -915,7 +915,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         self.tcx().mk_trait_ref(trait_def_id, substs)
     }
 
-    #[instrument(level = "debug", skip(self, span))]
+    #[instrument(level = "info", skip(self, span))]
     fn create_substs_for_ast_trait_ref<'a>(
         &self,
         span: Span,

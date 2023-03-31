@@ -89,7 +89,12 @@ impl fmt::Debug for ty::FreeRegion {
 
 impl<'tcx> fmt::Debug for ty::FnSig<'tcx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({:?}; c_variadic: {})->{:?}", self.inputs().iter().map(|a| a.kind()).collect::<Vec<_>>(), self.c_variadic, self.output())
+        if f.alternate() {
+            write!(f, "({:?}; c_variadic: {})->{:?}", self.inputs().iter().map(|a| a.kind()).collect::<Vec<_>>(), self.c_variadic, self.output().kind())
+
+        } else {
+            write!(f, "({:?}; c_variadic: {})->{:?}", self.inputs().iter().map(|a| a.kind()).collect::<Vec<_>>(), self.c_variadic, self.output())
+        }
     }
 }
 

@@ -13,7 +13,7 @@ use rustc_infer::infer::{self, InferCtxt, TyCtxtInferExt};
 use rustc_infer::traits::util;
 use rustc_middle::ty::error::{ExpectedFound, TypeError};
 use rustc_middle::ty::util::ExplicitSelf;
-use rustc_middle::ty::{self, DefIdTree, Generics, HKTSubstType, InternalSubsts, Ty, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable};
+use rustc_middle::ty::{self, DefIdTree, Generics, HKTSubstType, InternalSubsts, OffsetterFolder, SubstsRef, Ty, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable};
 use rustc_middle::ty::{GenericParamDefKind, ToPredicate, TyCtxt};
 use rustc_span::Span;
 use rustc_trait_selection::traits::error_reporting::TypeErrCtxtExt;
@@ -147,7 +147,7 @@ pub(super) fn compare_impl_method<'tcx>(
 ///
 /// Finally we register each of these predicates as an obligation and check that
 /// they hold.
-#[instrument(level = "debug", skip(tcx, impl_m_span, impl_trait_ref))]
+#[instrument(level = "info", skip(tcx, impl_m_span, impl_trait_ref))]
 fn compare_method_predicate_entailment<'tcx>(
     tcx: TyCtxt<'tcx>,
     impl_m: &ty::AssocItem,
@@ -164,6 +164,7 @@ fn compare_method_predicate_entailment<'tcx>(
     // FIXME(@lcnr): remove that after removing `cause.body_id` from
     // obligations.
     let impl_m_hir_id = tcx.hir().local_def_id_to_hir_id(impl_m.def_id.expect_local());
+
     let cause = ObligationCause::new(
         impl_m_span,
         impl_m_hir_id,
@@ -176,17 +177,29 @@ fn compare_method_predicate_entailment<'tcx>(
 
     // Create mapping from impl to placeholder.
     let impl_to_placeholder_substs = InternalSubsts::identity_for_item(tcx, impl_m.def_id);
+    info!("impl_to_placeholder_substs={:#?}", impl_to_placeholder_substs);
+
 
     // Create mapping from trait to placeholder.
-    let trait_to_placeholder_substs =
-        impl_to_placeholder_substs.rebase_onto(tcx, impl_m.container_id(tcx), trait_to_impl_substs);
-    debug!("compare_impl_method: trait_to_placeholder_substs={:?}", trait_to_placeholder_substs);
+    let trait_to_placeholder_substs: SubstsRef<'tcx> = {
+        let tail_substs = impl_to_placeholder_substs.rebase_onto(tcx, impl_m.container_id(tcx), trait_to_impl_substs);
+        let substs = impl_to_placeholder_substs.iter().chain(tail_substs);
+        tcx.mk_substs(substs)
+    };
+
+    info!("compare_impl_method: trait_to_placeholder_substs={:#?}", trait_to_placeholder_substs);
 
     let impl_m_predicates = tcx.predicates_of(impl_m.def_id);
     let trait_m_predicates = tcx.predicates_of(trait_m.def_id);
 
+    info!("Predicates of impl_m_predicates({:?}) = {:#?}", impl_m.def_id, impl_m_predicates);
+    info!("Predicates of trait_m_predicates({:?}) = {:#?}", trait_m.def_id, trait_m_predicates);
+
+
     // Check region bounds.
     check_region_bounds_on_impl_item(tcx, impl_m, trait_m, false)?;
+
+    info!("post check_region_bounds_on_impl_item");
 
     // Create obligations for each predicate declared by the impl
     // definition in the context of the trait's parameter
@@ -196,7 +209,7 @@ fn compare_method_predicate_entailment<'tcx>(
     let impl_predicates = tcx.predicates_of(impl_m_predicates.parent.unwrap());
     let mut hybrid_preds = impl_predicates.instantiate_identity(tcx);
 
-    debug!("compare_impl_method: impl_bounds={:?}", hybrid_preds);
+    info!("compare_impl_method: impl_bounds={:#?}", hybrid_preds);
 
     // This is the only tricky bit of the new way we check implementation methods
     // We need to build a set of predicates where only the method-level bounds
@@ -223,9 +236,10 @@ fn compare_method_predicate_entailment<'tcx>(
     let infcx = &tcx.infer_ctxt().build();
     let ocx = ObligationCtxt::new(infcx);
 
-    debug!("compare_impl_method: caller_bounds={:?}", param_env.caller_bounds());
+    info!("compare_impl_method: caller_bounds={:#?}", param_env.caller_bounds());
 
     let impl_m_own_bounds = impl_m_predicates.instantiate_own(tcx, impl_to_placeholder_substs);
+
     for (predicate, span) in iter::zip(impl_m_own_bounds.predicates, impl_m_own_bounds.spans) {
         let normalize_cause = traits::ObligationCause::misc(span, impl_m_hir_id);
         let predicate = ocx.normalize(&normalize_cause, param_env, predicate);
@@ -269,9 +283,13 @@ fn compare_method_predicate_entailment<'tcx>(
 
     let norm_cause = ObligationCause::misc(impl_m_span, impl_m_hir_id);
     let impl_fty = ocx.normalize(&norm_cause, param_env, unnormalized_impl_fty);
-    debug!("compare_impl_method: impl_fty={:?}", impl_fty);
+    info!("compare_impl_method: impl_fty={:#?}", impl_fty);
 
-    let trait_sig = tcx.bound_fn_sig(trait_m.def_id).subst(tcx, trait_to_placeholder_substs, HKTSubstType::SubstHKTParamWithType);
+    let bound_sig = tcx.bound_fn_sig(trait_m.def_id).map_bound(|a| a.fold_with(&mut OffsetterFolder(impl_to_placeholder_substs.len() as u32, tcx)));
+
+    info!("Bound sig: {:#?}", bound_sig);
+
+    let trait_sig = bound_sig.subst(tcx, trait_to_placeholder_substs, HKTSubstType::SubstHKTParamWithType);
     let trait_sig = tcx.liberate_late_bound_regions(impl_m.def_id, trait_sig);
 
     // Next, add all inputs and output as well-formed tys. Importantly,
@@ -284,7 +302,7 @@ fn compare_method_predicate_entailment<'tcx>(
     wf_tys.extend(trait_sig.inputs_and_output.iter());
     let trait_fty = tcx.mk_fn_ptr(ty::Binder::dummy(trait_sig));
 
-    debug!("compare_impl_method: trait_fty={:?}", trait_fty);
+    info!("compare_impl_method: trait_fty={:#?}", trait_fty);
 
     // FIXME: We'd want to keep more accurate spans than "the method signature" when
     // processing the comparison between the trait and impl fn, but we sadly lose them
@@ -295,7 +313,7 @@ fn compare_method_predicate_entailment<'tcx>(
     let result = ocx.sup(&cause, param_env, trait_fty, impl_fty);
 
     if let Err(terr) = result {
-        debug!(?terr, "sub_types failed: impl ty {:?}, trait ty {:?}", impl_fty, trait_fty);
+        info!(?terr, "sub_types failed: impl ty {:?}, trait ty {:?}", impl_fty, trait_fty);
 
         let emitted = report_trait_method_mismatch(
             &infcx,

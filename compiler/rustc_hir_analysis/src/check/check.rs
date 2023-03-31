@@ -728,6 +728,7 @@ pub(super) fn check_specialization_validity<'tcx>(
     }
 }
 
+#[instrument(skip_all, level = "info")]
 fn check_impl_items_against_trait<'tcx>(
     tcx: TyCtxt<'tcx>,
     full_impl_span: Span,
