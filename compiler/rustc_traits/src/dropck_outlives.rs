@@ -277,12 +277,13 @@ fn dtorck_constraint_for_ty<'tcx>(
         ty::Placeholder(..)
         | ty::Bound(..)
         | ty::Infer(..)
-        | ty::HKTInfer // FIXMIG: what to do here?
         | ty::Error(_) => {
             // By the time this code runs, all type variables ought to
             // be fully resolved.
             return Err(NoSolution);
         }
+
+        ty::HKTInfer => todo!("hoch"), // FIXMIG
     }
 
     Ok(())

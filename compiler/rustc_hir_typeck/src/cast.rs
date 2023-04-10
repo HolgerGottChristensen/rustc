@@ -126,8 +126,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             // Insufficient type information.
             ty::Placeholder(..)
             | ty::Bound(..)
-            | ty::HKTInfer
             | ty::Infer(_) => None,
+
+            ty::HKTInfer => todo!("hoh"), // FIXMIG
 
             ty::Bool
             | ty::Char

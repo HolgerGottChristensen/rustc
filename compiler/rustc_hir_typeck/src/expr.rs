@@ -603,7 +603,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 let e = report_unexpected_variant_res(tcx, res, qpath, expr.span, "E0533", "value");
                 tcx.ty_error_with_guaranteed(e)
             }
-            _ => self.instantiate_value_path(segs, opt_ty, res, expr.span, expr.hir_id).0,
+            _ => self.instantiate_value_path(segs, opt_ty, Some(args), res, expr.span, expr.hir_id).0,
         };
 
 

@@ -1008,6 +1008,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         &self,
         segments: &[hir::PathSegment<'_>],
         self_ty: Option<Ty<'tcx>>,
+        args: Option<&'tcx [hir::Expr<'tcx>]>,
         res: Res,
         span: Span,
         hir_id: hir::HirId,
@@ -1073,7 +1074,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }),
             |_| {},
         );
-
         if let Res::Local(hid) = res {
             let ty = self.local_ty(span, hid).decl_ty;
             let ty = self.normalize(span, ty);
@@ -1180,6 +1180,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             path_segs: &'a [PathSeg],
             infer_args_for_err: &'a FxHashSet<usize>,
             segments: &'a [hir::PathSegment<'a>],
+            arg_types: Option<Vec<(Ty<'tcx>, usize)>>,
+            hkt_param_types: Option<Vec<(Ty<'tcx>, usize)>>,
         }
         impl<'tcx, 'a> CreateSubstsForGenericArgsCtxt<'a, 'tcx> for CreateCtorSubstsContext<'a, 'tcx> {
             fn args_for_def_id(
@@ -1278,6 +1280,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     }
                     GenericParamDefKind::HKT => {
                         //todo!("hoch")
+                        info!("gen_kind: {:#?}", param);
+                        info!("arg_types: {:#?}", self.arg_types);
+                        info!("hkt_param_types: {:#?}", self.hkt_param_types);
+
                         self.fcx.var_for_def(self.span, param)
                     }
                 }
@@ -1285,6 +1291,42 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
 
         debug!("pre create_substs_for_generic_args = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+
+        let mut args_ty = Vec::new();
+        if let Some(args) = args {
+            for arg in args.clone() {
+
+                // select only the arguments using the HKT
+                let arg_ty = self.check_expr(arg);
+                args_ty.push(arg_ty);
+            }
+        }
+
+        let is_function = match self.tcx.type_of(def_id).kind() {
+            ty::FnDef(..) => true,
+            _ => false,
+        };
+
+        let (left, right) = if is_function {
+            let mut lefties = Vec::new();
+            let mut righties = Vec::new();
+            let fn_signature = self.tcx.bound_fn_sig(def_id);
+            for (l, i) in fn_signature.skip_binder().inputs().skip_binder().iter().zip(0..fn_signature.skip_binder().inputs().skip_binder().len()) {
+                // if l is HKT push to lefties
+                if let ty::HKT(_, _, _) = l.kind() {
+                    lefties.push((l.clone(), i));
+                }
+            }
+
+            for (_, i) in &lefties {
+                if let Some(arg_ty) = args_ty.get(*i) {
+                    righties.push((arg_ty.clone(), i.clone()));
+                }
+            }
+            (Some(lefties), Some(righties))
+        } else {
+            (None, None)
+        };
 
         let substs = self_ctor_substs.unwrap_or_else(|| {
             <dyn AstConv<'_>>::create_substs_for_generic_args(
@@ -1300,6 +1342,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     path_segs: &path_segs,
                     infer_args_for_err: &infer_args_for_err,
                     segments,
+                    arg_types: left,
+                    hkt_param_types: right,
                 },
             )
         });

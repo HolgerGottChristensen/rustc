@@ -126,7 +126,7 @@ pub fn simplify_type<'tcx>(
         ty::Argument(..) => {
             Some(TyArgumentSimplifiedType)
         },
-        ty::HKTInfer => Some(HKTInferSimplifiedType),
+        ty::HKTInfer => todo!("hoch"), // FIXMIG
         ty::Alias(..) => match treat_params {
             // When treating `ty::Param` as a placeholder, projections also
             // don't unify with anything else as long as they are fully normalized.

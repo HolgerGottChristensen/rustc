@@ -188,6 +188,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         // Collect the segments of the path; we need to substitute arguments
         // for parameters throughout the entire path (wherever there are
         // generic parameters).
+        info!("is function {:#?}",tcx.type_of(def_id).kind());
         let mut parent_defs = tcx.generics_of(def_id);
         let count = parent_defs.count();
         let mut stack = vec![(def_id, parent_defs)];
@@ -366,7 +367,8 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
 
                         if let GenericParamDefKind::HKT = param.kind {
                             // If the parameter is HKT, then we should insert HKTInfer instead of Infer
-                            substs.push(tcx.mk_ty(ty::HKTInfer).into());
+                            //substs.push(tcx.mk_ty(ty::Bool).into());
+                            substs.push(ctx.inferred_kind(Some(&substs), param, infer_args));
                         } else {
                             // If there are fewer arguments than parameters, it means
                             // we're inferring the remaining arguments.

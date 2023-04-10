@@ -428,6 +428,73 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 let fn_sig = fn_sig.subst(self.tcx, subst, HKTSubstType::SubstHKTParamWithType);
                 info!("Sig after substs: {:?}", fn_sig);
 
+                /*
+                struct InfFolder<'tcx> { tcx: TyCtxt<'tcx>, subst_ty: Ty<'tcx> }
+
+                impl TypeFolder for InfFolder {
+                    fn tcx<'a>(&'a self) -> TyCtxt<'tcx> {
+                        self.tcx
+                    }
+
+                    fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
+                        if self.subst_ty == t {
+                            self.subst_ty
+                        } else {
+                            t.super_fold_with(self)
+                        }
+                    }
+                }
+
+
+
+                let obligations = self.fulfillment_cx.borrow_mut().pending_obligations();
+
+                let new_obligations = obligations
+                    .iter()
+                    .map(|obl| {
+                        let subst_ty = self.tcx.mk_ty(ty::Bool);
+                        obl.fold_with(&mut InfFolder { tcx: self.tcx, subst_ty })
+                    })
+                    .collect::<Vec<_>>();
+                */
+                /*
+                let mut indices = Vec::new();
+                for x in 0..obligations.len() {
+                    if let Some(obligation) = obligations.get(x) {
+                        /*
+                        let wf = match obligation.predicate.kind().skip_binder() {
+                            PredicateKind::WellFormed(t) => Some(t),
+                            _ => None
+                        };
+
+                        if let Some(t) = wf {
+                            if let Some(_) = subst.iter().find(|s| {s.expect_ty() == t.expect_ty()}) {
+                                indices.push(x);
+                            }
+                        }
+                        */
+                        let subst_ty = self.tcx.mk_ty(ty::Bool);
+                        let new_obligation = obligation.fold_with(
+                            &mut InfFolder {
+                                tcx: self.tcx,
+                                subst_ty
+                            }
+                        );
+                    }
+                }
+
+                for x in 0..indices.len() {
+                    if let Some(found_x) = obligations.get(indices[x]) {
+                        info!("found infer predicates{:#?}", found_x.predicate.kind().skip_binder());
+
+                        if let Some(obl) = obligations.get(x) {
+                            obl.fold_with(&mut InfFolder {tcx})
+                        }
+                    }
+                }
+
+                 */
+
                 // Unit testing: function items annotated with
                 // `#[rustc_evaluate_where_clauses]` trigger special output
                 // to let us test the trait evaluation system.

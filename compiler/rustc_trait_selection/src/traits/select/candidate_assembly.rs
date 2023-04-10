@@ -889,8 +889,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Bound(_, _)
             | ty::Error(_)
             | ty::Infer(_)
-            | ty::HKTInfer
             | ty::Placeholder(_) => {}
+
+            ty::HKTInfer => todo!("hoch"), // FIXMIG
         }
     }
 

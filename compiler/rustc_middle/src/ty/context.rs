@@ -1406,8 +1406,9 @@ macro_rules! sty_debug_print {
                 for &InternedInSet(t) in types {
                     let variant = match t.internee {
                         ty::Bool | ty::Char | ty::Int(..) | ty::Uint(..) |
-                            ty::Float(..) | ty::Str | ty::Never | ty::HKTInfer => continue,
+                            ty::Float(..) | ty::Str | ty::Never => continue,
                         ty::Error(_) => /* unimportant */ continue,
+                        ty::HKTInfer => bug!("hoch"), // FIXMIG
                         $(ty::$variant(..) => &mut $variant,)*
                     };
                     let lt = t.flags.intersects(ty::TypeFlags::HAS_RE_INFER);

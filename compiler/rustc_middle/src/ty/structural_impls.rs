@@ -721,7 +721,7 @@ impl<'tcx> TypeSuperVisitable<'tcx> for Ty<'tcx> {
             | ty::Float(_)
             | ty::Error(_)
             | ty::Infer(_)
-            | ty::HKTInfer
+            | ty::HKTInfer // FIXMIG: is this correct?
             | ty::Bound(..)
             | ty::Placeholder(..)
             | ty::Param(..)

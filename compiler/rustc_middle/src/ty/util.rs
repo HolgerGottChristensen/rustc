@@ -947,12 +947,13 @@ impl<'tcx> Ty<'tcx> {
             | ty::Generator(..)
             | ty::GeneratorWitness(_)
             | ty::Infer(_)
-            | ty::HKTInfer
             | ty::Alias(..)
             | ty::Param(_)
             | ty::HKT(..)
             | ty::Argument(..)
             | ty::Placeholder(_) => false,
+
+            ty::HKTInfer => todo!("hoch"), // FIXMIG
         }
     }
 
@@ -989,12 +990,13 @@ impl<'tcx> Ty<'tcx> {
             | ty::Generator(..)
             | ty::GeneratorWitness(_)
             | ty::Infer(_)
-            | ty::HKTInfer
             | ty::Alias(..)
             | ty::Param(_)
             | ty::HKT(..)
             | ty::Argument(..)
             | ty::Placeholder(_) => false,
+
+            ty::HKTInfer => todo!("hoch"), // FIXMIG
         }
     }
 
