@@ -3,7 +3,7 @@ use crate::method::{self, MethodCallee, SelfSource};
 use crate::rvalue_scopes;
 use crate::{BreakableCtxt, Diverges, Expectation, FnCtxt, LocalTy};
 use rustc_data_structures::captures::Captures;
-use rustc_data_structures::fx::FxHashSet;
+use rustc_data_structures::fx::{FxHasher, FxHashMap, FxHashSet};
 use rustc_errors::{Applicability, Diagnostic, ErrorGuaranteed, MultiSpan};
 use rustc_hir as hir;
 use rustc_hir::def::{CtorOf, DefKind, Res};
@@ -32,7 +32,9 @@ use rustc_trait_selection::traits::error_reporting::TypeErrCtxtExt as _;
 use rustc_trait_selection::traits::{self, NormalizeExt, ObligationCauseCode, ObligationCtxt};
 
 use std::collections::hash_map::Entry;
+use std::hash::BuildHasherDefault;
 use std::slice;
+use crate::huets::{create_constraints_from_rust_tys, main_huet, solution_as_ty};
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Produces warning on the given node, if the current point in the
@@ -1180,8 +1182,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             path_segs: &'a [PathSeg],
             infer_args_for_err: &'a FxHashSet<usize>,
             segments: &'a [hir::PathSegment<'a>],
-            arg_types: Option<Vec<(Ty<'tcx>, usize)>>,
-            hkt_param_types: Option<Vec<(Ty<'tcx>, usize)>>,
+            hkt_tys: Option<Vec<Ty<'tcx>>>
         }
         impl<'tcx, 'a> CreateSubstsForGenericArgsCtxt<'a, 'tcx> for CreateCtorSubstsContext<'a, 'tcx> {
             fn args_for_def_id(
@@ -1281,9 +1282,13 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     GenericParamDefKind::HKT => {
                         //todo!("hoch")
                         info!("gen_kind: {:#?}", param);
-                        info!("arg_types: {:#?}", self.arg_types);
-                        info!("hkt_param_types: {:#?}", self.hkt_param_types);
-
+                        //info!("arg_types: {:#?}", self.arg_types);
+                        //info!("hkt_param_types: {:#?}", self.hkt_param_types);
+                        if let Some(tys) = &mut self.hkt_tys {
+                            if let Some(t) = tys.pop() {
+                                return t.into();
+                            }
+                        }
                         self.fcx.var_for_def(self.span, param)
                     }
                 }
@@ -1302,30 +1307,58 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         }
 
-        let is_function = match self.tcx.type_of(def_id).kind() {
-            ty::FnDef(..) => true,
-            _ => false,
+        let (is_function, is_hkt) = match self.tcx.type_of(def_id).kind() {
+            ty::FnDef(..) => {
+                let fn_signature = self.tcx.bound_fn_sig(def_id);
+                let mut hkt = false;
+                for t in fn_signature.skip_binder().inputs().skip_binder().iter() {
+                    match t.kind() {
+                        ty::HKT(..) => {
+                            hkt = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+                (true, hkt)
+            },
+            _ => (false, false),
         };
 
-        let (left, right) = if is_function {
+        let (left, right) = if is_function && is_hkt {
             let mut lefties = Vec::new();
             let mut righties = Vec::new();
             let fn_signature = self.tcx.bound_fn_sig(def_id);
-            for (l, i) in fn_signature.skip_binder().inputs().skip_binder().iter().zip(0..fn_signature.skip_binder().inputs().skip_binder().len()) {
-                // if l is HKT push to lefties
-                if let ty::HKT(_, _, _) = l.kind() {
-                    lefties.push((l.clone(), i));
-                }
+            for l in fn_signature.skip_binder().inputs().skip_binder().iter() {
+                lefties.push(l.clone());
             }
 
-            for (_, i) in &lefties {
-                if let Some(arg_ty) = args_ty.get(*i) {
-                    righties.push((arg_ty.clone(), i.clone()));
-                }
+            for i in 0..lefties.len() {
+                righties.push(args_ty[i].clone());
             }
             (Some(lefties), Some(righties))
         } else {
             (None, None)
+        };
+
+        let new_tys = if let (Some(l), Some(r)) = (left, right) {
+            let mut ty_map : FxHashMap<String, Ty<'tcx>> = FxHashMap::with_hasher(BuildHasherDefault::<FxHasher>::default());
+            let (ctxt, constraints) = create_constraints_from_rust_tys(&mut ty_map, l, r);
+            let mut new_ctxt = ctxt.clone();
+            info!("constraint_set: {:?}", constraints);
+            info!("context in solution: {:?}", new_ctxt);
+            main_huet(&mut new_ctxt, constraints);
+            let solutions_set = new_ctxt.minimal_solutions();
+            info!("solution_set: {:#?}", solutions_set);
+            if let Some(sol) = solutions_set.0.first() {
+                let new_tys = solution_as_ty(self.tcx, &ty_map, sol.clone());
+                info!("new_tys: {:#?}", new_tys);
+                Some(new_tys)
+            } else {
+                None
+            }
+        } else {
+            None
         };
 
         let substs = self_ctor_substs.unwrap_or_else(|| {
@@ -1342,8 +1375,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     path_segs: &path_segs,
                     infer_args_for_err: &infer_args_for_err,
                     segments,
-                    arg_types: left,
-                    hkt_param_types: right,
+                    hkt_tys: new_tys,
                 },
             )
         });

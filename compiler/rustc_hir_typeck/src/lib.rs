@@ -43,6 +43,7 @@ mod place_op;
 mod rvalue_scopes;
 mod upvar;
 mod writeback;
+mod huets;
 
 pub use diverges::Diverges;
 pub use expectation::Expectation;
