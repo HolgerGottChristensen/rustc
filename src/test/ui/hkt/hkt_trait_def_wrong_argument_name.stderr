@@ -1,0 +1,14 @@
+error[E9999]: hkt argument `%B` could not be found in the definition
+  --> $DIR/hkt_trait_def_wrong_argument_name.rs:8:22
+   |
+LL | impl<T> Test<Option<%B>> for Option<T> {
+   |                      ^
+   |
+note: expected one of the parameters `%A` inside the definition
+  --> $DIR/hkt_trait_def_wrong_argument_name.rs:4:12
+   |
+LL | trait Test<I<%A>> {
+   |            ^
+
+error: aborting due to previous error
+
