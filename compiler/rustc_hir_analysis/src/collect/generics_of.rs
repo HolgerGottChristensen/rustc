@@ -17,10 +17,19 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
 
     let node = tcx.hir().get(hir_id);
 
+    let hkt_parent = match node {
+        Node::OwnedHKTParam(_) => {
+            let parent_id = tcx.hir().get_parent_item(hir_id);
+            Some(parent_id.to_def_id())
+        }
+        _ => None,
+    };
+
     let parent_def_id = match node {
         Node::ImplItem(_)
         | Node::TraitItem(_)
         | Node::Variant(_)
+        //| Node::OwnedHKTParam(_)
         | Node::Ctor(..)
         | Node::Field(_) => {
             let parent_id = tcx.hir().get_parent_item(hir_id);
@@ -76,7 +85,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
                     //
                     // This has some implications for how we get the predicates available to the anon const
                     // see `explicit_predicates_of` for more information on this
-                    let generics = tcx.generics_of(parent_def_id.to_def_id());
+                    let generics: &ty::Generics= tcx.generics_of(parent_def_id.to_def_id());
                     let param_def_idx = generics.param_def_id_to_index[&param_id.to_def_id()];
                     // In the above example this would be .params[..N#0]
                     let params = generics.params_to(param_def_idx as usize, tcx).to_owned();
@@ -87,6 +96,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
                         // we set the parent of these generics to be our parent's parent so that we
                         // dont end up with substs: [N, M, N] for the const default on a struct like this:
                         // struct Foo<const N: usize, const M: usize = { ... }>;
+                        hkt_parent: generics.hkt_parent,
                         parent: generics.parent,
                         parent_count: generics.parent_count,
                         params,
@@ -347,6 +357,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
     let param_def_id_to_index = params.iter().map(|param| (param.def_id, param.index)).collect();
 
     ty::Generics {
+        hkt_parent,
         parent: parent_def_id,
         parent_count,
         params,

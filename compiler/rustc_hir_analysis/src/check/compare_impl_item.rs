@@ -185,6 +185,7 @@ fn compare_method_predicate_entailment<'tcx>(
         let tail_substs = impl_to_placeholder_substs.rebase_onto(tcx, impl_m.container_id(tcx), trait_to_impl_substs);
         let substs = impl_to_placeholder_substs.iter().chain(tail_substs);
         tcx.mk_substs(substs)
+        //impl_to_placeholder_substs.rebase_onto(tcx, impl_m.container_id(tcx), trait_to_impl_substs)
     };
 
     info!("compare_impl_method: trait_to_placeholder_substs={:#?}", trait_to_placeholder_substs);
@@ -285,6 +286,7 @@ fn compare_method_predicate_entailment<'tcx>(
     let impl_fty = ocx.normalize(&norm_cause, param_env, unnormalized_impl_fty);
     info!("compare_impl_method: impl_fty={:#?}", impl_fty);
 
+    // let bound_sig = tcx.bound_fn_sig(trait_m.def_id);
     let bound_sig = tcx.bound_fn_sig(trait_m.def_id).map_bound(|a| a.fold_with(&mut OffsetterFolder(impl_to_placeholder_substs.len() as u32, tcx)));
 
     info!("Bound sig for the method: {:#?}", bound_sig);

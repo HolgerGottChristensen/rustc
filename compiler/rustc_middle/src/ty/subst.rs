@@ -4,7 +4,7 @@ use crate::ty::codec::{TyDecoder, TyEncoder};
 use crate::ty::fold::{FallibleTypeFolder, TypeFoldable, TypeFolder, TypeSuperFoldable};
 use crate::ty::sty::{ClosureSubsts, GeneratorSubsts, InlineConstSubsts};
 use crate::ty::visit::{TypeVisitable, TypeVisitor};
-use crate::ty::{self, Lift, List, ParamConst, ParamTy, Ty, TyCtxt};
+use crate::ty::{self, Const, ConstKind, Lift, List, ParamConst, ParamTy, Region, RegionKind, Ty, TyCtxt};
 
 use rustc_data_structures::intern::Interned;
 use rustc_hir::def_id::DefId;
@@ -714,11 +714,15 @@ impl<T: Iterator> Iterator for EarlyBinderIter<T> {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum HKTSubstType {
     /// Substitute `I<u32>` `[Option<%J>]` to `Option<u32>`
+    /// Substitute `A<u32>` `[I<%B>]` to `I<u32>`
     /// Substitute `A, I<A>` `[u32, Option<%J>]` to `u32, Option<u32>`
     /// Substitute `A, I<A>` `[u32, Result<%J, E>]` to `u32, Result<u32, E>`
     SubstHKTParamWithType,
-    /// Substitute `I<%J>` `[u32]` to I<u32>
+    /// Substitute `I<%J>` `[u32]` to `I<u32>`
     SubstArgumentWithinHKTParam,
+    /// Substitute `I<%J>` `[u32]` to `I<u32>`
+    /// But if we have arguments that do not correspond to the DefId we do not substitute them
+    SubstArgumentWithinHKTParamWithDefId(DefId),
 }
 
 pub struct OffsetterFolder<'tcx>(pub u32, pub TyCtxt<'tcx>);
@@ -740,6 +744,32 @@ impl<'tcx> TypeFolder<'tcx> for OffsetterFolder<'tcx> {
         }
 
         t.super_fold_with(self)
+    }
+
+    fn fold_const(&mut self, c: Const<'tcx>) -> Const<'tcx> {
+        match c.kind() {
+            ConstKind::Param(p) => {
+                return self.1.mk_const(ConstKind::Param(ParamConst::new(p.index + self.0, p.name)), c.ty());
+            }
+            _ => ()
+        }
+
+        c.super_fold_with(self)
+    }
+
+    fn fold_region(&mut self, r: Region<'tcx>) -> Region<'tcx> {
+        match r.kind() {
+            RegionKind::ReEarlyBound(data) => {
+                return self.1.mk_region(RegionKind::ReEarlyBound(ty::EarlyBoundRegion {
+                    def_id: data.def_id,
+                    index: data.index + self.0,
+                    name: data.name,
+                }));
+            }
+            _ => ()
+        }
+
+        r.super_fold_with(self)
     }
 }
 
@@ -835,8 +865,23 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
             ty::Param(p) => self.ty_for_param(p, t),
             ty::HKT(_, p, substs) if self.hkt_subst_type == HKTSubstType::SubstHKTParamWithType =>
                 self.hkt_for_param(p, substs, t),
-            ty::Argument(arg_def) if self.hkt_subst_type == HKTSubstType::SubstArgumentWithinHKTParam =>
-                self.ty_for_argument(arg_def, t),
+            ty::Argument(arg_def) => {
+                match self.hkt_subst_type {
+                    HKTSubstType::SubstHKTParamWithType => {
+                        t.super_fold_with(self)
+                    }
+                    HKTSubstType::SubstArgumentWithinHKTParam => {
+                        self.ty_for_argument(arg_def, t)
+                    }
+                    HKTSubstType::SubstArgumentWithinHKTParamWithDefId(did) => {
+                        if arg_def.def_id == did {
+                            self.ty_for_argument(arg_def, t)
+                        } else {
+                            t.super_fold_with(self)
+                        }
+                    }
+                }
+            }
             _ => t.super_fold_with(self),
         };
 

@@ -61,7 +61,7 @@ pub(super) fn predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredic
 }
 
 pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, ty::ParamEnv<'tcx>)) -> ty::ParamEnv<'tcx> {
-    if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::Trait || tcx.def_kind(def_id) == DefKind::AssocFn {
+    if tcx.def_kind(def_id) == DefKind::Fn || tcx.def_kind(def_id) == DefKind::Trait || tcx.def_kind(def_id) == DefKind::AssocFn || tcx.def_kind(def_id) == DefKind::HKTParam {
         let outer_generics: &ty::Generics = tcx.generics_of(def_id);
         let mut predicates: FxIndexSet<(ty::Predicate<'_>, Span)> = FxIndexSet::default();
 
@@ -173,13 +173,15 @@ pub fn param_env_with_hkt<'tcx>(tcx: TyCtxt<'tcx>, (def_id, param_env): (DefId, 
         );
         info!("Param for {:?}, {:#?}, parent: {:?}", def_id, res, outer_generics.parent);
 
-        if let Some(parent) = outer_generics.parent {
+        if let Some(parent) = outer_generics.hkt_parent {
+            tcx.param_env_with_hkt((parent, res))
+        } else if let Some(parent) = outer_generics.parent {
             tcx.param_env_with_hkt((parent, res))
         } else {
             res
         }
     } else {
-        info!("DefKind not checked");
+        info!("DefKind not checked: {:?}: {:?}", def_id, tcx.def_kind(def_id));
         param_env
     }
 }

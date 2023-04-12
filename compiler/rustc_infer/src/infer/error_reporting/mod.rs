@@ -2690,7 +2690,10 @@ impl<'tcx> ObligationCauseExt<'tcx> for ObligationCause<'tcx> {
                 TypeError::IntrinsicCast => {
                     Error0308("cannot coerce intrinsics to function pointers")
                 }
-                _ => Error0308("mismatched types"),
+                a => {
+                    println!("Error0308: {:?}, trace: {}", a, std::backtrace::Backtrace::capture());
+                    Error0308("mismatched types")
+                },
             },
         }
     }

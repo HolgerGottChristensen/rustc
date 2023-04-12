@@ -94,7 +94,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expected: Expectation<'tcx>,
     ) -> Ty<'tcx> {
 
-        info!("Pending obligations1: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        //info!("Pending obligations1: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         // Check if we have a simple function call as the callee or some expression that should
         // be evaluated to get the type of the callee.
@@ -108,7 +108,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             _ => self.check_expr(callee_expr),
         };
 
-        info!("Pending obligations2: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        //info!("Pending obligations2: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         let expr_ty = self.structurally_resolved_type(call_expr.span, original_callee_ty);
 
@@ -125,7 +125,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let obligations = autoderef.into_obligations();
         self.register_predicates(obligations);
 
-        info!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        //info!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         let output = match result {
             None => {
@@ -498,8 +498,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // re-normalize the associated types at this point, since they
         // previously appeared within a `Binder<>` and hence would not
         // have been normalized before.
+        info!("fn_sig pre freshen: {:?}", fn_sig);
         let fn_sig = self.replace_bound_vars_with_fresh_vars(call_expr.span, infer::FnCall, fn_sig);
+        info!("fn_sig pre normalize: {:#?}", fn_sig);
         let fn_sig = self.normalize(call_expr.span, fn_sig);
+        info!("fn_sig post normalize: {:?}", fn_sig);
 
         // Call the generic checker.
         let expected_arg_tys = self.expected_inputs_for_expected_output(

@@ -19,7 +19,7 @@ impl<T, E: Default> Collection<T, Result<%A, E>> for Result<T, E> {
 }
 
 fn main() {
-    /*let mut test = Result::<u32, u32>::empty();
+    let mut test = Result::<u32, u32>::empty();
     println!("{:?}", test);
     test.add(42);
     println!("{:?}", test);
@@ -28,16 +28,6 @@ fn main() {
     test.add(40);
     println!("{:?}", test);
     test.clear();
-    println!("{:?}", test);*/
+    println!("{:?}", test);
 }
 
-/*fn test<I<%J>: Collection<%J, I<%A>>>(h: I<u32>) {
-    ...
-}*/
-
-/*trait Test<R: Debug> {
-    fn hejsa(i: R);
-}*/
-/*fn collection<R, I<%A>>() {
-
-}*/

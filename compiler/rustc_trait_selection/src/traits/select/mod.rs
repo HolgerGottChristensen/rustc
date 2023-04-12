@@ -1780,6 +1780,14 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             LateBoundRegionConversionTime::HigherRankedType,
             env_predicate,
         );
+
+        let infer_predicate = self.infcx.replace_argument_with_fresh_vars(
+            obligation.cause.span,
+            infer_predicate,
+        );
+
+        info!("Infer predicate: {:?}", infer_predicate);
+
         let infer_projection = if potentially_unnormalized_candidates {
             ensure_sufficient_stack(|| {
                 project::normalize_with_depth_to(
@@ -1795,6 +1803,8 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             infer_predicate.projection_ty
         };
 
+        info!("Infer projection: {:?}", infer_projection);
+
         let is_match = self
             .infcx
             .at(&obligation.cause, obligation.param_env)
@@ -1805,8 +1815,13 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                     TraitObligationStackList::empty(&ProvisionalEvaluationCache::default()),
                     nested_obligations.into_iter().chain(obligations),
                 )
-                .map_or(false, |res| res.may_apply())
+                .map_or(false, |res| {
+                    info!("EvaluationResult: {:?}", res);
+                    res.may_apply()
+                })
             });
+
+        info!("Is match: {}", is_match);
 
         if is_match {
             let generics = self.tcx().generics_of(obligation.predicate.def_id);
@@ -2579,7 +2594,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
         let impl_substs = self.infcx.fresh_substs_for_item(obligation.cause.span, my_did); // FIXMIG: what defid?
         info!("impl_substs = {:#?}", impl_substs);
-        let impl_trait_ref = relevant_hkt_bound.subst(self.tcx(), impl_substs, HKTSubstType::SubstArgumentWithinHKTParam);
+        let impl_trait_ref = relevant_hkt_bound.subst(self.tcx(), impl_substs, HKTSubstType::SubstArgumentWithinHKTParamWithDefId(my_did));
 
         info!(?impl_trait_ref);
 

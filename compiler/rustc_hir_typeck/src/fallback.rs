@@ -18,7 +18,7 @@ impl<'tcx> FnCtxt<'_, 'tcx> {
         // All type checking constraints were added, try to fallback unsolved variables.
         self.select_obligations_where_possible(|_| {});
 
-        debug!(
+        info!(
             "type-inference-fallback post selection obligations: {:#?}",
             self.fulfillment_cx.borrow_mut().pending_obligations()
         );
@@ -35,7 +35,7 @@ impl<'tcx> FnCtxt<'_, 'tcx> {
         // better error messages.
         // The first time, we do *not* replace opaque types.
         for ty in unsolved_variables {
-            debug!("unsolved_variable = {:?}", ty);
+            info!("unsolved_variable = {:?}", ty);
             self.fallback_if_possible(ty, &diverging_fallback);
         }
 

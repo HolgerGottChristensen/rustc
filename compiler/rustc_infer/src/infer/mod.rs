@@ -1522,6 +1522,53 @@ impl<'tcx> InferCtxt<'tcx> {
         self.tcx.replace_bound_vars_uncached(value, delegate)
     }
 
+    pub fn replace_argument_with_fresh_vars<T>(
+        &self,
+        span: Span,
+        value: T,
+    ) -> T
+        where
+            T: TypeFoldable<'tcx> + Copy,
+    {
+
+        struct ArgumentReplacer<'a, 'tcx> {
+            infcx: &'a InferCtxt<'tcx>,
+            span: Span,
+            map: FxHashMap<ty::ArgumentDef, ty::GenericArg<'tcx>>,
+        }
+
+        impl<'a, 'tcx> TypeFolder<'tcx> for ArgumentReplacer<'a, 'tcx> {
+            fn tcx<'k>(&'k self) -> TyCtxt<'tcx> {
+                self.infcx.tcx
+            }
+
+            fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
+                match t.kind() {
+                    ty::Argument(a) => {
+                        self.map
+                            .entry(*a)
+                            .or_insert_with(|| {
+                                self.infcx
+                                    .next_ty_var(TypeVariableOrigin {
+                                        kind: TypeVariableOriginKind::MiscVariable,
+                                        span: self.span,
+                                    })
+                                    .into()
+                            })
+                            .expect_ty()
+                    }
+                    _ => t.super_fold_with(self)
+                }
+            }
+        }
+
+        value.fold_with(&mut ArgumentReplacer {
+            infcx: self,
+            span,
+            map: Default::default(),
+        })
+    }
+
     /// See the [`region_constraints::RegionConstraintCollector::verify_generic_bound`] method.
     pub fn verify_generic_bound(
         &self,

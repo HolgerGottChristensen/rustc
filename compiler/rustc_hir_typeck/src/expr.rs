@@ -118,6 +118,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         ty
     }
 
+    #[instrument(skip_all, level="info")]
     pub(super) fn check_expr_coercable_to_type(
         &self,
         expr: &'tcx hir::Expr<'tcx>,
@@ -196,7 +197,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         //debug!("expr = {:#?}", expr);
         //debug!("expected = {:#?}", expected);
         info!("args = {:#?}", args.len());
-        info!("Pending obligations args: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        //info!("Pending obligations args: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         if self.tcx().sess.verbose() {
             // make this code only run with -Zverbose because it is probably slow
@@ -241,9 +242,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             _ => self.check_expr_kind(expr, expected),
         });
 
+        info!("pre resolve_vars_if_possible ty: {:?}", ty);
+
         info!("pre resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         let ty = self.resolve_vars_if_possible(ty);
+        info!("post resolve_vars_if_possible ty: {:?}", ty);
         info!("post resolve_vars_if_possible: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
 
@@ -588,7 +592,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let (res, opt_ty, segs) =
             self.resolve_ty_and_res_fully_qualified_call(qpath, expr.hir_id, expr.span);
 
-        info!("pre let ty = match res  = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        //info!("pre let ty = match res  = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
         let ty = match res {
             Res::Err => {
@@ -605,6 +609,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             _ => self.instantiate_value_path(segs, opt_ty, res, expr.span, expr.hir_id).0,
         };
 
+        info!("Here we have the type: {:#?}", ty);
 
 
         if let ty::FnDef(did, ..) = *ty.kind() {
@@ -669,8 +674,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             let substs = self.typeck_results.borrow().node_substs(expr.hir_id);
 
             info!("deferred sized = {:#?}", self.deferred_sized_obligations);
-            info!("param environment to add = {:#?}", self.param_env);
-            info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+            //info!("param environment to add = {:#?}", self.param_env);
+            //info!("obs = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
             for arg in substs.iter().filter(|arg| {
                 matches!(arg.unpack(), ty::GenericArgKind::Type(..) | ty::GenericArgKind::Const(..))
@@ -1356,6 +1361,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         res
     }
 
+    #[instrument(skip_all, level="info")]
     fn check_expr_cast(
         &self,
         e: &'tcx hir::Expr<'tcx>,
@@ -1366,8 +1372,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // if appropriate.
         let t_cast = self.to_ty_saving_user_provided_ty(t);
         let t_cast = self.resolve_vars_if_possible(t_cast);
-        let t_expr = self.check_expr_with_expectation(e, ExpectCastableToType(t_cast));
-        let t_expr = self.resolve_vars_if_possible(t_expr);
+        info!("pre-check_expr_with_expectation: {:?}", e);
+        let t_expr_old = self.check_expr_with_expectation(e, ExpectCastableToType(t_cast));
+        let t_expr = self.resolve_vars_if_possible(t_expr_old);
+
+        info!("resolve_vars_if_possible {:?} from {} to {}", e, t_expr_old, t_expr);
 
         // Eagerly check for some obvious errors.
         if t_expr.references_error() || t_cast.references_error() {
@@ -1385,7 +1394,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 self.param_env.constness(),
             ) {
                 Ok(cast_check) => {
-                    debug!(
+                    info!(
                         "check_expr_cast: deferring cast from {:?} to {:?}: {:?}",
                         t_cast, t_expr, cast_check,
                     );

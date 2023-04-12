@@ -43,7 +43,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // when writing to `self.param_env`.
         let mut deferred_cast_checks = mem::take(&mut *self.deferred_cast_checks.borrow_mut());
 
-        debug!("FnCtxt::check_casts: {} deferred checks", deferred_cast_checks.len());
+        info!("FnCtxt::check_casts: {} deferred checks: {:#?}", deferred_cast_checks.len(), deferred_cast_checks);
         for cast in deferred_cast_checks.drain(..) {
             let prev_env = self.param_env;
             self.param_env = self.param_env.with_constness(cast.constness);

@@ -85,17 +85,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         mutate_fulfillment_errors: impl Fn(&mut Vec<traits::FulfillmentError<'tcx>>),
     ) -> Ty<'tcx> {
         info!("Param env: {:#?}", self.param_env);
-        info!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        //info!("Pending obligations: {:#?}", self.fulfillment_cx.borrow().pending_obligations());
         // No Infer()? Nothing needs doing.
         if !ty.has_non_region_infer() {
-            debug!("no inference var, nothing needs doing");
+            info!("no inference var, nothing needs doing");
             return ty;
         }
 
         // If `ty` is a type variable, see whether we already know what it is.
         ty = self.resolve_vars_if_possible(ty);
         if !ty.has_non_region_infer() {
-            debug!(?ty);
+            info!(?ty);
             return ty;
         }
 
@@ -403,6 +403,48 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             self.fulfillment_cx.borrow_mut().register_bound(
                 self,
                 self.param_env,
+                ty,
+                def_id,
+                cause,
+            );
+        }
+    }
+
+    pub fn require_type_is_sized_with_param_env(
+        &self,
+        ty: Ty<'tcx>,
+        span: Span,
+        code: traits::ObligationCauseCode<'tcx>,
+        param_env: ParamEnv<'tcx>
+    ) {
+        if !ty.references_error() {
+            let lang_item = self.tcx.require_lang_item(LangItem::Sized, None);
+            self.require_type_meets_with_param_env(ty, span, code, lang_item, param_env);
+        }
+    }
+
+    pub fn require_type_meets_with_param_env(
+        &self,
+        ty: Ty<'tcx>,
+        span: Span,
+        code: traits::ObligationCauseCode<'tcx>,
+        def_id: DefId,
+        param_env: ParamEnv<'tcx>
+    ) {
+        self.register_bound_with_param_env(ty, def_id, traits::ObligationCause::new(span, self.body_id, code), param_env);
+    }
+
+    pub fn register_bound_with_param_env(
+        &self,
+        ty: Ty<'tcx>,
+        def_id: DefId,
+        cause: traits::ObligationCause<'tcx>,
+        param_env: ParamEnv<'tcx>
+    ) {
+        if !ty.references_error() {
+            self.fulfillment_cx.borrow_mut().register_bound(
+                self,
+                param_env,
                 ty,
                 def_id,
                 cause,
@@ -1078,8 +1120,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         );
 
         if let Res::Local(hid) = res {
+            info!("local: {:?}", hid);
             let ty = self.local_ty(span, hid).decl_ty;
+            info!("post local_ty: {:?}", ty);
             let ty = self.normalize(span, ty);
+            info!("post normalize: {:?}", ty);
             self.write_ty(hir_id, ty);
             return (ty, res);
         }
@@ -1318,7 +1363,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let ty = tcx.bound_type_of(def_id);
         assert!(!substs.has_escaping_bound_vars());
         assert!(!ty.0.has_escaping_bound_vars());
-        let ty_substituted = self.normalize(span, ty.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType));
+
+        info!("Ty pre subst: {:?}", ty);
+        let ty = ty.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
+        info!("Ty pre normalized: {:?}", ty);
+        let ty_substituted = self.normalize(span, ty);
+        info!("Ty post normalized: {:?}", ty_substituted);
 
         if let Some(UserSelfTy { impl_def_id, self_ty }) = user_self_ty {
             // In the case of `Foo<T>::method` and `<Foo<T>>::method`, if `method`
@@ -1342,7 +1392,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         }
 
-        debug!("instantiate_value_path: type of {:?} is {:?}", hir_id, ty_substituted);
+        info!("instantiate_value_path: type of {:?} is {:?}", hir_id, ty_substituted);
         self.write_substs(hir_id, substs);
 
         (ty_substituted, res)

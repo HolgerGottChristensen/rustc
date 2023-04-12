@@ -29,6 +29,7 @@ use std::cmp::min;
 use std::iter;
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
+
     pub fn emit_type_mismatch_suggestions(
         &self,
         err: &mut Diagnostic,
@@ -169,7 +170,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     ///
     /// N.B., this code relies on `self.diverges` to be accurate. In particular, assignments to `!`
     /// will be permitted if the diverges flag is currently "always".
-    #[instrument(level = "debug", skip(self, expr, expected_ty_expr, allow_two_phase))]
+    #[instrument(level = "info", skip(self, expr, expected_ty_expr, allow_two_phase))]
     pub fn demand_coerce_diag(
         &self,
         expr: &hir::Expr<'tcx>,

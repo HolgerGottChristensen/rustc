@@ -31,7 +31,7 @@ pub fn provide(providers: &mut Providers) {
     *providers = Providers { variances_of, crate_variances, ..*providers };
 }
 
-#[instrument(skip_all)]
+#[instrument(skip_all, level = "debug")]
 fn crate_variances(tcx: TyCtxt<'_>, (): ()) -> CrateVariancesMap<'_> {
     let arena = DroplessArena::default();
     let terms_cx = terms::determine_parameters_to_be_inferred(tcx, &arena);

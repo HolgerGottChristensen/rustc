@@ -321,6 +321,7 @@ impl<'tcx> WfPredicates<'tcx> {
             }).chain(trait_ref.substs).collect::<Vec<_>>();
 
             tcx.intern_substs(&substs)
+            //trait_ref.substs
         } else {
             trait_ref.substs
         };
@@ -335,6 +336,7 @@ impl<'tcx> WfPredicates<'tcx> {
 
         info!("compute_trait_pred obligations {:?}", obligations);
         let param_env = self.param_env;
+        let param_env = tcx.param_env_with_hkt((trait_ref.def_id, param_env));
         let depth = self.recursion_depth;
 
         let item = self.item;
@@ -776,6 +778,7 @@ impl<'tcx> WfPredicates<'tcx> {
         predicates.predicates =
             tcx.arena.alloc_from_iter(predicates.predicates.iter().map(|(predicate, span)| {
                 (predicate.fold_with(&mut OffsetterFolder(offset as u32, tcx)), *span)
+                //(*predicate, *span)
             }));
 
         info!("nominal_obligations_inner pre instantiate: {:#?}", predicates);

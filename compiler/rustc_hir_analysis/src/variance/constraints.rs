@@ -326,10 +326,10 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
         substs: SubstsRef<'tcx>,
         variance: VarianceTermPtr<'a>,
     ) {
-        /*info!(
+        info!(
             "add_constraints_from_substs(def_id={:?}, substs={:?}, variance={:?})",
             def_id, substs, variance
-        );*/
+        );
 
         // We don't record `inferred_starts` entries for empty generics.
         if substs.is_empty() {

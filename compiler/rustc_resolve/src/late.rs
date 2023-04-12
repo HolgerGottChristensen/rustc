@@ -594,6 +594,8 @@ struct LateResolutionVisitor<'a, 'b, 'ast> {
     current_argument_provider: Option<DefId>,
     current_argument_provider_index: Option<usize>,
     current_argument_provide_index: AllowArgumentProvider,
+    current_argument_provide_index_skip_first: bool,
+    current_path_segments: Vec<PathSegment>,
 
     /// Fields used to add information to diagnostic errors.
     diagnostic_metadata: Box<DiagnosticMetadata<'ast>>,
@@ -674,7 +676,6 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
                 visit::walk_ty(self, ty);
             }
             TyKind::Argument(ident) => {
-
                 info!("Lookup in '{ident}' the argument namespace...");
                 info!("Arguments: {:#?}", self.ribs.argument_ns);
 
@@ -685,11 +686,9 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
                     self.r.argument_to_provider.insert(ty.id, ArgumentProvider::FromId(*did));
 
                 } else if let Some(provider) = self.current_argument_provider && let Some(index) = self.current_argument_provider_index {
-                    if self.current_trait_ref.is_some() {
-                        self.r.argument_to_provider.insert(ty.id, ArgumentProvider::FromParentIdAndIndex(provider, index + 1));
-                    } else {
-                        self.r.argument_to_provider.insert(ty.id, ArgumentProvider::FromParentIdAndIndex(provider, index));
-                    }
+                    info!("Insert argument to provider id: {:?} and index: {:?}, for type id: {:?} and skip first: {}", provider, index, ty.id, self.current_argument_provide_index_skip_first);
+
+                    self.r.argument_to_provider.insert(ty.id, ArgumentProvider::FromParentIdAndIndex(provider, index));
                 } else {
                     panic!("The argument '{ident}' could not be resolved")
                 }
@@ -805,16 +804,36 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
             },
             |this| {
                 this.visit_generic_params(&tref.bound_generic_params, false);
+
+
                 this.smart_resolve_path(
                     tref.trait_ref.ref_id,
                     &None,
                     &tref.trait_ref.path,
                     PathSource::Trait(AliasPossibility::Maybe),
                 );
-                this.visit_trait_ref(&tref.trait_ref);
+
+                /*if this.current_argument_provide_index == AllowArgumentProvider::AllowProviderId && res.unresolved_segments() == 0 && let Some(did) = res.expect_full_res().opt_def_id() {
+                    this.current_argument_provide_index = AllowArgumentProvider::AllowProviderIndex;
+                    info!("DefID used: {:?}", did);
+                    let old_argument_id = this.current_argument_provider.take();
+                    let old_skip_first = this.current_argument_provide_index_skip_first;
+
+                    this.current_argument_provider = Some(did);
+                    this.current_argument_provide_index_skip_first = true;
+
+                    this.visit_trait_ref(&tref.trait_ref);
+
+                    this.current_argument_provider = old_argument_id;
+                    this.current_argument_provide_index_skip_first = old_skip_first;
+                    this.current_argument_provide_index = AllowArgumentProvider::AllowProviderId;
+                } else {*/
+                    this.visit_trait_ref(&tref.trait_ref);
+                //}
             },
         );
     }
+
     fn visit_foreign_item(&mut self, foreign_item: &'ast ForeignItem) {
         match foreign_item.kind {
             ForeignItemKind::TyAlias(box TyAlias { ref generics, .. }) => {
@@ -1086,22 +1105,49 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
         }
     }
 
+    fn visit_path(&mut self, path: &'ast Path, _id: NodeId) {
+        for segment in &path.segments {
+            self.current_path_segments.push(segment.clone());
+            self.visit_path_segment(segment);
+        }
+        self.current_path_segments.clear();
+    }
+
     fn visit_path_segment(&mut self, path_segment: &'ast PathSegment) {
+
 
         if let Some(ref args) = path_segment.args {
             match &**args {
                 GenericArgs::AngleBracketed(data) => {
+
+                    /*let res = self.smart_resolve_path_fragment(
+                        &None,
+                        &self.current_path_segments.iter().map(|p| p.into()).collect::<Vec<_>>(),
+                        PathSource::Expr(None),
+                        Finalize::new(path_segment.id, Span::default()),
+                    );*/
+
+                    let allow_id = self.current_argument_provide_index == AllowArgumentProvider::AllowProviderId;
+                    if allow_id {
+                        if let Some(res) = self.r.partial_res_map.get(&path_segment.id) {
+                            if let Some(full_res) = res.full_res() {
+                                self.current_argument_provider = Some(full_res.def_id());
+                                self.current_argument_provide_index = AllowArgumentProvider::AllowProviderIndex;
+                            }
+                        }
+                    }
+
                     let provide_index = self.current_argument_provide_index;
                     self.current_argument_provide_index = AllowArgumentProvider::Disallowed;
 
                     for (index, arg) in data.args.iter().enumerate() {
                         match arg {
                             AngleBracketedArg::Arg(a) => {
-                                if provide_index == AllowProviderIndex{
+                                if provide_index == AllowProviderIndex {
                                     self.current_argument_provider_index = Some(index);
                                 }
 
-                                info!("Visit arggg: {:?}, trait_ref: {:#?}", a, self.current_trait_ref);
+                                info!("Visit arggg({:?}): {:?}, trait_ref: {:#?}", self.current_argument_provider, a, self.current_trait_ref);
                                 self.visit_generic_arg(a);
                             },
                             AngleBracketedArg::Constraint(c) => self.visit_assoc_constraint(c),
@@ -1109,6 +1155,11 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
                     }
 
                     self.current_argument_provide_index = provide_index;
+
+                    if allow_id {
+                        self.current_argument_provider = None;
+                        self.current_argument_provide_index = AllowArgumentProvider::AllowProviderId;
+                    }
                 },
                 GenericArgs::Parenthesized(p_args) => {
                     // Probe the lifetime ribs to know how to behave.
@@ -1157,7 +1208,7 @@ impl<'a: 'ast, 'ast> Visitor<'ast> for LateResolutionVisitor<'a, '_, 'ast> {
     }
 
     fn visit_where_predicate(&mut self, p: &'ast WherePredicate) {
-        debug!("visit_where_predicate {:?}", p);
+        info!("visit_where_predicate {:?}", p);
         let previous_value =
             replace(&mut self.diagnostic_metadata.current_where_predicate, Some(p));
         self.with_lifetime_rib(LifetimeRibKind::AnonymousReportError, |this| {
@@ -1253,6 +1304,8 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
             current_argument_provider: None,
             current_argument_provider_index: None,
             current_argument_provide_index: AllowArgumentProvider::AllowProviderId,
+            current_argument_provide_index_skip_first: false,
+            current_path_segments: vec![],
             diagnostic_metadata: Box::new(DiagnosticMetadata::default()),
             // errors at module scope should always be reported
             in_func_body: false,
@@ -2704,9 +2757,10 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         f: impl FnOnce(&mut Self, Option<DefId>) -> T,
     ) -> T {
         let mut new_val = None;
-        let mut new_argument_provider = None;
-        let mut new_provide_index = AllowArgumentProvider::Disallowed;
+        //let mut new_argument_provider = None;
+        //let mut new_provide_index = AllowArgumentProvider::Disallowed;
         let mut new_id = None;
+        //let mut new_skip_first = false;
 
         if let Some(trait_ref) = opt_trait_ref {
             let path: Vec<_> = Segment::from_path(&trait_ref.path);
@@ -2722,27 +2776,31 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
 
             info!("HAIII");
 
-            if trait_ref.path.segments.last().unwrap().args.is_some() && self.current_argument_provide_index == AllowArgumentProvider::AllowProviderId {
+            /*if trait_ref.path.segments.last().unwrap().args.is_some() && self.current_argument_provide_index == AllowArgumentProvider::AllowProviderId {
                 new_provide_index = AllowArgumentProvider::AllowProviderIndex;
-            }
+            }*/
 
 
             self.diagnostic_metadata.currently_processing_impl_trait = None;
+
             if let Some(def_id) = res.expect_full_res().opt_def_id() {
                 new_id = Some(def_id);
-                new_argument_provider = Some(def_id);
+                //new_argument_provider = Some(def_id);
                 new_val = Some((self.r.expect_module(def_id), trait_ref.clone()));
+                //new_skip_first = true;
             }
         }
         let original_trait_ref = replace(&mut self.current_trait_ref, new_val);
-        let original_argument_provider = replace(&mut self.current_argument_provider, new_argument_provider);
-        let original_argument_provider_index = replace(&mut self.current_argument_provider_index, None);
-        let original_argument_provide_index = replace(&mut self.current_argument_provide_index, new_provide_index);
+        //let original_argument_provider = replace(&mut self.current_argument_provider, new_argument_provider);
+        //let original_argument_provider_index = replace(&mut self.current_argument_provider_index, None);
+        //let original_argument_provide_index = replace(&mut self.current_argument_provide_index, new_provide_index);
+        //let original_skip_first = replace(&mut self.current_argument_provide_index_skip_first, new_skip_first);
         let result = f(self, new_id);
         self.current_trait_ref = original_trait_ref;
-        self.current_argument_provider = original_argument_provider;
-        self.current_argument_provider_index = original_argument_provider_index;
-        self.current_argument_provide_index = original_argument_provide_index;
+        //self.current_argument_provider = original_argument_provider;
+        //self.current_argument_provider_index = original_argument_provider_index;
+        //self.current_argument_provide_index = original_argument_provide_index;
+        //self.current_argument_provide_index_skip_first = original_skip_first;
         result
     }
 
@@ -3992,22 +4050,28 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         match expr.kind {
             ExprKind::Path(ref qself, ref path) => {
                 info!("ExprKind::Path smart resolve: {}", rustc_ast_pretty::pprust::path_to_string(path));
-                let res = self.smart_resolve_path(expr.id, qself, path, PathSource::Expr(parent));
+                self.smart_resolve_path(expr.id, qself, path, PathSource::Expr(parent));
                 info!("ExprKind::Path post smart resolve: {}", rustc_ast_pretty::pprust::path_to_string(path));
 
-                if self.current_argument_provide_index == AllowArgumentProvider::AllowProviderId && res.unresolved_segments() == 0 && let Some(did) = res.expect_full_res().opt_def_id() {
+                /*if self.current_argument_provide_index == AllowArgumentProvider::AllowProviderId && res.unresolved_segments() == 0 && let Some(did) = res.expect_full_res().opt_def_id() {
                     self.current_argument_provide_index = AllowArgumentProvider::AllowProviderIndex;
-                    let old_argument_id = self.current_argument_provider.take();
 
+                    info!("DefID used expr: {:?}", did);
+
+                    let old_argument_id = self.current_argument_provider.take();
+                    let old_skip_first = self.current_argument_provide_index_skip_first;
+
+                    self.current_argument_provide_index_skip_first = false;
                     self.current_argument_provider = Some(did);
 
                     visit::walk_expr(self, expr);
 
                     self.current_argument_provider = old_argument_id;
+                    self.current_argument_provide_index_skip_first = old_skip_first;
                     self.current_argument_provide_index = AllowArgumentProvider::AllowProviderId;
-                } else {
+                } else {*/
                     visit::walk_expr(self, expr);
-                }
+                //}
 
                 info!("ExprKind::Path walk expr post: {}", rustc_ast_pretty::pprust::path_to_string(path));
             }

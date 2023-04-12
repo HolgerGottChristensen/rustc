@@ -101,6 +101,7 @@ enum ImplTraitInTraitCandidate<'tcx> {
     Impl(ImplSourceUserDefinedData<'tcx, PredicateObligation<'tcx>>),
 }
 
+#[derive(Debug)]
 enum ProjectionCandidateSet<'tcx> {
     None,
     Single(ProjectionCandidate<'tcx>),
@@ -123,6 +124,8 @@ impl<'tcx> ProjectionCandidateSet<'tcx> {
     fn push_candidate(&mut self, candidate: ProjectionCandidate<'tcx>) -> bool {
         use self::ProjectionCandidate::*;
         use self::ProjectionCandidateSet::*;
+
+        info!("push_candidate: {:#?}", candidate);
 
         // This wacky variable is just used to try and
         // make code readable and avoid confusing paths.
@@ -322,7 +325,7 @@ where
     Normalized { value, obligations }
 }
 
-#[instrument(level = "debug", skip(selcx, param_env, cause, obligations))]
+#[instrument(level = "info", skip(selcx, param_env, cause, obligations))]
 pub(crate) fn normalize_with_depth_to<'a, 'b, 'tcx, T>(
     selcx: &'a mut SelectionContext<'b, 'tcx>,
     param_env: ty::ParamEnv<'tcx>,
@@ -334,11 +337,11 @@ pub(crate) fn normalize_with_depth_to<'a, 'b, 'tcx, T>(
 where
     T: TypeFoldable<'tcx>,
 {
-    debug!(obligations.len = obligations.len());
+    info!(obligations.len = obligations.len());
     let mut normalizer = AssocTypeNormalizer::new(selcx, param_env, cause, depth, obligations);
     let result = ensure_sufficient_stack(|| normalizer.fold(value));
-    debug!(?result, obligations.len = normalizer.obligations.len());
-    debug!(?normalizer.obligations,);
+    info!(?result, obligations.len = normalizer.obligations.len());
+    info!(?normalizer.obligations,);
     result
 }
 
@@ -532,6 +535,7 @@ impl<'a, 'b, 'tcx> TypeFolder<'tcx> for AssocTypeNormalizer<'a, 'b, 'tcx> {
                 // there won't be bound vars there.
                 let data = data.fold_with(self);
                 let normalized_ty = if self.eager_inference_replacement {
+                    info!("eager_inference_replacement = true");
                     normalize_projection_type(
                         self.selcx,
                         self.param_env,
@@ -541,6 +545,7 @@ impl<'a, 'b, 'tcx> TypeFolder<'tcx> for AssocTypeNormalizer<'a, 'b, 'tcx> {
                         &mut self.obligations,
                     )
                 } else {
+                    info!("eager_inference_replacement = false");
                     opt_normalize_projection_type(
                         self.selcx,
                         self.param_env,
@@ -553,7 +558,7 @@ impl<'a, 'b, 'tcx> TypeFolder<'tcx> for AssocTypeNormalizer<'a, 'b, 'tcx> {
                     .flatten()
                     .unwrap_or_else(|| ty.super_fold_with(self).into())
                 };
-                debug!(
+                info!(
                     ?self.depth,
                     ?ty,
                     ?normalized_ty,
@@ -603,12 +608,12 @@ impl<'a, 'b, 'tcx> TypeFolder<'tcx> for AssocTypeNormalizer<'a, 'b, 'tcx> {
                 })
                 .unwrap_or_else(|| ty.super_fold_with(self));
 
-                debug!(
+                info!(
                     ?self.depth,
                     ?ty,
                     ?normalized_ty,
                     obligations.len = ?self.obligations.len(),
-                    "AssocTypeNormalizer: normalized type"
+                    "AssocTypeNormalizer: normalized type2"
                 );
                 normalized_ty
             }
@@ -992,7 +997,7 @@ pub fn normalize_projection_type<'a, 'b, 'tcx>(
 /// often immediately appended to another obligations vector. So now this
 /// function takes an obligations vector and appends to it directly, which is
 /// slightly uglier but avoids the need for an extra short-lived allocation.
-#[instrument(level = "debug", skip(selcx, param_env, cause, obligations))]
+#[instrument(level = "info", skip(selcx, param_env, cause, obligations))]
 fn opt_normalize_projection_type<'a, 'b, 'tcx>(
     selcx: &'a mut SelectionContext<'b, 'tcx>,
     param_env: ty::ParamEnv<'tcx>,
@@ -1024,12 +1029,12 @@ fn opt_normalize_projection_type<'a, 'b, 'tcx>(
         Ok(())
     };
     match cache_result {
-        Ok(()) => debug!("no cache"),
+        Ok(()) => info!("no cache"),
         Err(ProjectionCacheEntry::Ambiguous) => {
             // If we found ambiguity the last time, that means we will continue
             // to do so until some type in the key changes (and we know it
             // hasn't, because we just fully resolved it).
-            debug!("found cache entry: ambiguous");
+            info!("found cache entry: ambiguous");
             return Ok(None);
         }
         Err(ProjectionCacheEntry::InProgress) => {
@@ -1041,7 +1046,7 @@ fn opt_normalize_projection_type<'a, 'b, 'tcx>(
             // with `A::B`, which can trigger a recursive
             // normalization.
 
-            debug!("found cache entry: in-progress");
+            info!("found cache entry: in-progress");
 
             // Cache that normalizing this projection resulted in a cycle. This
             // should ensure that, unless this happens within a snapshot that's
@@ -1053,7 +1058,7 @@ fn opt_normalize_projection_type<'a, 'b, 'tcx>(
             return Err(InProgress);
         }
         Err(ProjectionCacheEntry::Recur) => {
-            debug!("recur cache");
+            info!("recur cache");
             return Err(InProgress);
         }
         Err(ProjectionCacheEntry::NormalizedTy { ty, complete: _ }) => {
@@ -1068,12 +1073,12 @@ fn opt_normalize_projection_type<'a, 'b, 'tcx>(
             // discarded as duplicated). But when doing trait
             // evaluation this is not the case, and dropping the trait
             // evaluations can causes ICEs (e.g., #43132).
-            debug!(?ty, "found normalized ty");
+            info!(?ty, "found normalized ty");
             obligations.extend(ty.obligations);
             return Ok(Some(ty.value));
         }
         Err(ProjectionCacheEntry::Error) => {
-            debug!("opt_normalize_projection_type: found error");
+            info!("opt_normalize_projection_type: found error");
             let result = normalize_to_error(selcx, param_env, projection_ty, cause, depth);
             obligations.extend(result.obligations);
             return Ok(Some(result.value.into()));
@@ -1133,14 +1138,14 @@ fn opt_normalize_projection_type<'a, 'b, 'tcx>(
             Ok(Some(result.value))
         }
         Err(ProjectionError::TooManyCandidates) => {
-            debug!("opt_normalize_projection_type: too many candidates");
+            info!("opt_normalize_projection_type: too many candidates");
             if use_cache {
                 infcx.inner.borrow_mut().projection_cache().ambiguous(cache_key);
             }
             Ok(None)
         }
         Err(ProjectionError::TraitSelectionError(_)) => {
-            debug!("opt_normalize_projection_type: ERROR");
+            info!("opt_normalize_projection_type: ERROR");
             // if we got an error processing the `T as Trait` part,
             // just return `ty::err` but add the obligation `T :
             // Trait`, which when processed will cause the error to be
@@ -1222,7 +1227,7 @@ impl<'tcx> Progress<'tcx> {
 ///
 /// IMPORTANT:
 /// - `obligation` must be fully normalized
-#[instrument(level = "debug", skip(selcx))]
+#[instrument(level = "info", skip(selcx))]
 fn project<'cx, 'tcx>(
     selcx: &mut SelectionContext<'cx, 'tcx>,
     obligation: &ProjectionTyObligation<'tcx>,
@@ -1260,6 +1265,8 @@ fn project<'cx, 'tcx>(
     } else {
         assemble_candidates_from_impls(selcx, obligation, &mut candidates);
     };
+
+    info!("ProjectionCandidates: {:#?}", candidates);
 
     match candidates {
         ProjectionCandidateSet::Single(candidate) => {
@@ -1369,7 +1376,7 @@ fn assemble_candidates_from_trait_def<'cx, 'tcx>(
     obligation: &ProjectionTyObligation<'tcx>,
     candidate_set: &mut ProjectionCandidateSet<'tcx>,
 ) {
-    debug!("assemble_candidates_from_trait_def(..)");
+    info!("assemble_candidates_from_trait_def(..)");
 
     let tcx = selcx.tcx();
     // Check whether the self-type is itself a projection.
@@ -1409,7 +1416,7 @@ fn assemble_candidates_from_object_ty<'cx, 'tcx>(
     obligation: &ProjectionTyObligation<'tcx>,
     candidate_set: &mut ProjectionCandidateSet<'tcx>,
 ) {
-    debug!("assemble_candidates_from_object_ty(..)");
+    info!("assemble_candidates_from_object_ty(..)");
 
     let tcx = selcx.tcx();
 
@@ -1441,7 +1448,7 @@ fn assemble_candidates_from_object_ty<'cx, 'tcx>(
 }
 
 #[instrument(
-    level = "debug",
+    level = "info",
     skip(selcx, candidate_set, ctor, env_predicates, potentially_unnormalized_candidates)
 )]
 fn assemble_candidates_from_predicates<'cx, 'tcx>(
@@ -1733,7 +1740,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                 false
             }
             super::ImplSource::HKT(_) => {
-                todo!("hoch")
+                false // FIXMIG: what to do here?
             }
             super::ImplSource::Object(_) => {
                 // Handled by the `Object` projection candidate. See
@@ -2058,6 +2065,11 @@ fn confirm_param_env_candidate<'cx, 'tcx>(
         cause.span,
         LateBoundRegionConversionTime::HigherRankedType,
         poly_cache_entry,
+    );
+
+    let cache_entry = infcx.replace_argument_with_fresh_vars(
+        cause.span,
+        cache_entry,
     );
 
     let cache_projection = cache_entry.projection_ty;

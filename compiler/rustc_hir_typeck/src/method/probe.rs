@@ -837,7 +837,8 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                         }
                         (ty::HKT(did1, ref p, ..), ty::HKT(did2, _, substs)) if p.clone() == param_ty && did1 == did2 => {
 
-                            let substituted_trait_ref: TraitRef<'tcx> = EarlyBinder(trait_predicate.trait_ref).subst(tcx, substs, HKTSubstType::SubstArgumentWithinHKTParam);
+                            //let substituted_trait_ref: TraitRef<'tcx> = EarlyBinder(trait_predicate.trait_ref).subst(tcx, substs, HKTSubstType::SubstArgumentWithinHKTParam);
+                            let substituted_trait_ref: TraitRef<'tcx> = EarlyBinder(trait_predicate.trait_ref).subst(tcx, substs, HKTSubstType::SubstArgumentWithinHKTParamWithDefId(*did1));
                             info!("trait_predicate.trait_ref: {:?}", trait_predicate.trait_ref);
                             info!("trait_predicate.trait_ref.with_self_ty: {:?}", trait_predicate.trait_ref.with_self_ty(tcx, ty));
                             info!("trait_predicate.trait_ref.subst: {:?}", substituted_trait_ref);
@@ -1912,6 +1913,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         impl_ty: Ty<'tcx>,
         substs: SubstsRef<'tcx>,
     ) -> (Ty<'tcx>, Option<Ty<'tcx>>) {
+        //println!("{}", std::backtrace::Backtrace::capture());
         if item.kind == ty::AssocKind::Fn && self.mode == Mode::MethodCall {
             let sig = self.xform_method_sig(item.def_id, substs);
             (sig.inputs()[0], Some(sig.output()))

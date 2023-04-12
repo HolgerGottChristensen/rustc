@@ -239,8 +239,9 @@ impl<'cx, 'tcx> VerifyBoundCx<'cx, 'tcx> {
                 // add a bound that never holds
                 VerifyBound::AnyBound(vec![])
             }
-            Component::HKT(_) => {
-                todo!("hoch")
+            Component::HKT(param_ty) => {
+                // FIXMIG: what to do here?
+                self.hkt_bound(param_ty.clone())
             }
         }
     }

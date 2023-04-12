@@ -134,6 +134,7 @@ pub struct GenericParamCount {
 /// `Self` (optionally), `Lifetime` params..., `Type` params...
 #[derive(Clone, Debug, TyEncodable, TyDecodable, HashStable)]
 pub struct Generics {
+    pub hkt_parent: Option<DefId>,
     pub parent: Option<DefId>,
     pub parent_count: usize,
     pub params: Vec<GenericParamDef>,

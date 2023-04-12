@@ -204,6 +204,7 @@ fn make_invalid_casting_error<'a, 'tcx>(
 }
 
 impl<'a, 'tcx> CastCheck<'tcx> {
+    #[instrument(skip(fcx, expr, cast_span, span, constness), level = "info")]
     pub fn new(
         fcx: &FnCtxt<'a, 'tcx>,
         expr: &'tcx hir::Expr<'tcx>,
@@ -371,6 +372,7 @@ impl<'a, 'tcx> CastCheck<'tcx> {
                 err.emit();
             }
             CastError::NonScalar => {
+                info!("NonScalar stacktrace: {}", std::backtrace::Backtrace::capture());
                 let mut err = type_error_struct!(
                     fcx.tcx.sess,
                     self.span,
@@ -708,12 +710,14 @@ impl<'a, 'tcx> CastCheck<'tcx> {
         );
     }
 
-    #[instrument(skip(fcx), level = "debug")]
+    #[instrument(skip(self, fcx), level = "info")]
     pub fn check(mut self, fcx: &FnCtxt<'a, 'tcx>) {
+        info!("check_cast - pre({}, {:?} as {:?})", self.expr.hir_id, self.expr_ty, self.cast_ty);
+
         self.expr_ty = fcx.structurally_resolved_type(self.expr_span, self.expr_ty);
         self.cast_ty = fcx.structurally_resolved_type(self.cast_span, self.cast_ty);
 
-        debug!("check_cast({}, {:?} as {:?})", self.expr.hir_id, self.expr_ty, self.cast_ty);
+        info!("check_cast({}, {:?} as {:?})", self.expr.hir_id, self.expr_ty, self.cast_ty);
 
         if !fcx.type_is_sized_modulo_regions(fcx.param_env, self.cast_ty, self.span)
             && !self.cast_ty.has_infer_types()

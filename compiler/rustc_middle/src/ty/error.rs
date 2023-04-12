@@ -650,7 +650,7 @@ impl<T> Trait<T> for X {
                 } else if let ty::HKT(..) = proj_ty.self_ty().kind() {
                     //let generics = self.generics_of(body_owner_def_id);
                     //generics.type_param(param_ty, self).def_id
-                    todo!("hoch") // FIXMIG: what to do here?
+                    return false;// FIXMIG: what to do here?
                 } else {
                     return false;
                 };

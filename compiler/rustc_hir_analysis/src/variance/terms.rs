@@ -99,10 +99,8 @@ pub fn determine_parameters_to_be_inferred<'a, 'tcx>(
             DefKind::Fn | DefKind::AssocFn => {
                 terms_cx.add_inferreds_for_item(def_id);
             }
-            DefKind::HKTParam => {
-                todo!("hoch")
-                /*terms_cx.add_inferreds_for_item(def_id);
-                let generics: &Generics = tcx.generics_of(def_id);
+            DefKind::Trait => {
+                let generics: &ty::Generics = tcx.generics_of(def_id);
                 for param in &generics.params {
                     match param.kind {
                         GenericParamDefKind::HKT => {
@@ -110,7 +108,8 @@ pub fn determine_parameters_to_be_inferred<'a, 'tcx>(
                         }
                         _ => (),
                     }
-                }*/
+                }
+
             },
             _ => {}
         }

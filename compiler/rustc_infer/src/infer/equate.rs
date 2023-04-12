@@ -80,7 +80,9 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
             return Ok(a);
         }
 
-        info!(a = ?a.kind(), b = ?b.kind());
+        info!("a={:?}, b={:?}", a.kind(), b.kind());
+        //info!("a={:?}, b={:?}, stack: {}", a.kind(), b.kind(), std::backtrace::Backtrace::capture());
+        //info!(a = ?a.kind(), b = ?b.kind(), stack = );
 
         let infcx = self.fields.infcx;
 

@@ -589,7 +589,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         }
 
         info!("def_id = {:#?}", def_id);
-        info!("generic_args = {:#?}", generic_args);
+        //info!("generic_args = {:#?}", generic_args);
         info!("infer_args = {:#?}", infer_args);
 
         let mut substs_ctx = SubstsForAstPathCtxt {
@@ -2470,7 +2470,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     ) -> Ty<'tcx> {
         info!("res: {:?}", path.res);
         info!("opt_self_ty: {:?}", opt_self_ty);
-        info!("path_segments: {:#?}", path.segments);
+        //info!("path_segments: {:#?}", path.segments);
         let tcx = self.tcx();
 
         /*info!(
@@ -2755,7 +2755,15 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
             hir::TyKind::Argument(i, argument_def) => {
                 let (possibilities, def_id) = match argument_def {
                     hir::ArgumentDef::FromParentIdAndIndex(def_id, index) => {
+
+                        let index = if let DefKind::Trait = tcx.def_kind(def_id) {
+                            index + 1
+                        } else {
+                            index
+                        };
+
                         let outer_generics: &ty::Generics = self.tcx().generics_of(def_id);
+                        info!("DefId: {:?}, index: {:?}, outer_generics: {:?}", def_id, index, outer_generics);
 
                         let inner_id = outer_generics.params[index].def_id;
                         let inner_generics: &ty::Generics = self.tcx().generics_of(inner_id);

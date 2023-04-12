@@ -49,6 +49,8 @@ pub(super) fn check_fn<'a, 'tcx>(
             fcx.param_env,
         ));
 
+    info!("Post replace_opaque_types_with_inference_vars");
+
     fcx.ret_coercion = Some(RefCell::new(CoerceMany::new(ret_ty)));
 
     let span = body.value.span;
@@ -71,7 +73,9 @@ pub(super) fn check_fn<'a, 'tcx>(
         fcx.resume_yield_tys = Some((resume_ty, yield_ty));
     }
 
+    info!("Pre GatherLocalsVisitor");
     GatherLocalsVisitor::new(&fcx).visit_body(body);
+    info!("Post GatherLocalsVisitor");
 
     // C-variadic fns also have a `VaList` input that's not listed in `fn_sig`
     // (as it's created inside the body itself, not passed in from outside).
@@ -88,6 +92,7 @@ pub(super) fn check_fn<'a, 'tcx>(
     // Add formal parameters.
     let inputs_hir = hir.fn_decl_by_hir_id(fn_id).map(|decl| &decl.inputs);
     let inputs_fn = fn_sig.inputs().iter().copied();
+
     for (idx, (param_ty, param)) in inputs_fn.chain(maybe_va_list).zip(body.params).enumerate() {
         // Check the pattern.
         let ty_span = try { inputs_hir?.get(idx)?.span };
@@ -150,7 +155,7 @@ pub(super) fn check_fn<'a, 'tcx>(
     // earlier when trying to find a LUB.
     let coercion = fcx.ret_coercion.take().unwrap().into_inner();
     let mut actual_return_ty = coercion.complete(&fcx);
-    debug!("actual_return_ty = {:?}", actual_return_ty);
+    info!("actual_return_ty = {:?}", actual_return_ty);
     if let ty::Dynamic(..) = declared_ret_ty.kind() {
         // We have special-cased the case where the function is declared
         // `-> dyn Foo` and we don't actually relate it to the

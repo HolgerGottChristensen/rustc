@@ -63,7 +63,7 @@ use rustc_hir_analysis::check::check_abi;
 use rustc_infer::infer::type_variable::{TypeVariableOrigin, TypeVariableOriginKind};
 use rustc_middle::traits;
 use rustc_middle::ty::query::Providers;
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::ty::{self, Ty, TyCtxt, TypeFoldable, TypeFolder, TypeSuperFoldable};
 use rustc_session::config;
 use rustc_session::Session;
 use rustc_span::def_id::{DefId, LocalDefId};
@@ -301,9 +301,45 @@ fn typeck_with_fallback<'tcx>(
         fcx.resolve_rvalue_scopes(def_id.to_def_id());
         fcx.resolve_generator_interiors(def_id.to_def_id());
 
+        struct ArgumentProviders<'tcx>(TyCtxt<'tcx>, Vec<DefId>);
+
+        impl<'tcx> TypeFolder<'tcx> for ArgumentProviders<'tcx> {
+            fn tcx<'a>(&'a self) -> TyCtxt<'tcx> {
+                self.0
+            }
+
+            fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
+                match t.kind() {
+                    ty::Argument(arg_def) => {
+                        let def_id: DefId = arg_def.def_id;
+                        self.1.push(def_id);
+                    }
+                    _ => ()
+                }
+                info!("current ty: {:?}", t.kind());
+
+                t.super_fold_with(self)
+            }
+        }
+
         for (ty, span, code) in fcx.deferred_sized_obligations.borrow_mut().drain(..) {
             let ty = fcx.normalize_ty(span, ty);
-            fcx.require_type_is_sized(ty, span, code);
+
+            let mut folder = ArgumentProviders(tcx, vec![]);
+
+            ty.fold_with(&mut folder);
+
+            let mut current_param_env = fcx.param_env;
+
+            info!("pre require_type_is_sized with dids: {:#?}", folder.1);
+
+            for def_id in folder.1 {
+                current_param_env = tcx.param_env_with_hkt((def_id, current_param_env));
+            }
+
+            info!("current_param_env: {:#?}", current_param_env);
+
+            fcx.require_type_is_sized_with_param_env(ty, span, code, current_param_env);
         }
 
         fcx.select_all_obligations_or_error();
