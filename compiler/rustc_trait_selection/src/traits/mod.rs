@@ -369,7 +369,7 @@ pub fn normalize_param_env_or_error<'tcx>(
 }
 
 /// Normalize a type and process all resulting obligations, returning any errors
-#[instrument(skip_all)]
+#[instrument(skip_all, level = "debug")]
 pub fn fully_normalize<'tcx, T>(
     infcx: &InferCtxt<'tcx>,
     cause: ObligationCause<'tcx>,

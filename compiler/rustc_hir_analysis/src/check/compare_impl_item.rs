@@ -13,7 +13,7 @@ use rustc_infer::infer::{self, InferCtxt, TyCtxtInferExt};
 use rustc_infer::traits::util;
 use rustc_middle::ty::error::{ExpectedFound, TypeError};
 use rustc_middle::ty::util::ExplicitSelf;
-use rustc_middle::ty::{self, DefIdTree, Generics, HKTSubstType, InternalSubsts, OffsetterFolder, SubstsRef, Ty, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable};
+use rustc_middle::ty::{self, DefIdTree, GenericPredicates, Generics, HKTSubstType, InternalSubsts, OffsetterFolder, SubstsRef, Ty, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitable};
 use rustc_middle::ty::{GenericParamDefKind, ToPredicate, TyCtxt};
 use rustc_span::Span;
 use rustc_trait_selection::traits::error_reporting::TypeErrCtxtExt;
@@ -39,7 +39,7 @@ pub(super) fn compare_impl_method<'tcx>(
     impl_trait_ref: ty::TraitRef<'tcx>,
     trait_item_span: Option<Span>,
 ) {
-    debug!("compare_impl_method(impl_trait_ref={:?})", impl_trait_ref);
+    //info!("compare_impl_method(impl_trait_ref={:?})", impl_trait_ref);
 
     let impl_m_span = tcx.def_span(impl_m.def_id);
 
@@ -55,9 +55,7 @@ pub(super) fn compare_impl_method<'tcx>(
         return;
     }
 
-    if let Err(_) =
-        compare_number_of_method_arguments(tcx, impl_m, impl_m_span, trait_m, trait_item_span)
-    {
+    if let Err(_) = compare_number_of_method_arguments(tcx, impl_m, impl_m_span, trait_m, trait_item_span) {
         return;
     }
 
@@ -147,12 +145,12 @@ pub(super) fn compare_impl_method<'tcx>(
 ///
 /// Finally we register each of these predicates as an obligation and check that
 /// they hold.
-#[instrument(level = "info", skip(tcx, impl_m_span, impl_trait_ref))]
+#[instrument(level = "info", skip_all, ret)]
 fn compare_method_predicate_entailment<'tcx>(
     tcx: TyCtxt<'tcx>,
-    impl_m: &ty::AssocItem,
+    impl_method: &ty::AssocItem,
     impl_m_span: Span,
-    trait_m: &ty::AssocItem,
+    trait_method: &ty::AssocItem,
     impl_trait_ref: ty::TraitRef<'tcx>,
     check_implied_wf: CheckImpliedWfMode,
 ) -> Result<(), ErrorGuaranteed> {
@@ -163,54 +161,63 @@ fn compare_method_predicate_entailment<'tcx>(
     //
     // FIXME(@lcnr): remove that after removing `cause.body_id` from
     // obligations.
-    let impl_m_hir_id = tcx.hir().local_def_id_to_hir_id(impl_m.def_id.expect_local());
+    let impl_m_hir_id = tcx.hir().local_def_id_to_hir_id(impl_method.def_id.expect_local());
 
     let cause = ObligationCause::new(
         impl_m_span,
         impl_m_hir_id,
         ObligationCauseCode::CompareImplItemObligation {
-            impl_item_def_id: impl_m.def_id.expect_local(),
-            trait_item_def_id: trait_m.def_id,
-            kind: impl_m.kind,
+            impl_item_def_id: impl_method.def_id.expect_local(),
+            trait_item_def_id: trait_method.def_id,
+            kind: impl_method.kind,
         },
     );
 
     // Create mapping from impl to placeholder.
-    let impl_to_placeholder_substs = InternalSubsts::identity_for_item(tcx, impl_m.def_id);
-    info!("impl_to_placeholder_substs={:#?}", impl_to_placeholder_substs);
+    let impl_to_placeholder_substs = InternalSubsts::identity_for_item(tcx, impl_method.def_id);
+    info!("impl_to_placeholder_substs={:?}", impl_to_placeholder_substs);
 
 
     // Create mapping from trait to placeholder.
     let trait_to_placeholder_substs: SubstsRef<'tcx> = {
-        let tail_substs = impl_to_placeholder_substs.rebase_onto(tcx, impl_m.container_id(tcx), trait_to_impl_substs);
+        let tail_substs = impl_to_placeholder_substs.rebase_onto(tcx, impl_method.container_id(tcx), trait_to_impl_substs);
         let substs = impl_to_placeholder_substs.iter().chain(tail_substs);
         tcx.mk_substs(substs)
-        //impl_to_placeholder_substs.rebase_onto(tcx, impl_m.container_id(tcx), trait_to_impl_substs)
+        //impl_to_placeholder_substs.rebase_onto(tcx, impl_method.container_id(tcx), trait_to_impl_substs)
     };
 
-    info!("compare_impl_method: trait_to_placeholder_substs={:#?}", trait_to_placeholder_substs);
+    info!("trait_to_placeholder_substs={:?}", trait_to_placeholder_substs);
 
-    let impl_m_predicates = tcx.predicates_of(impl_m.def_id);
-    let trait_m_predicates = tcx.predicates_of(trait_m.def_id);
+    let impl_method_predicates = tcx.predicates_of(impl_method.def_id);
+    let trait_method_predicates: GenericPredicates<'tcx> = tcx.predicates_of(trait_method.def_id);
 
-    info!("Predicates of impl_m_predicates({:?}) = {:#?}", impl_m.def_id, impl_m_predicates);
-    info!("Predicates of trait_m_predicates({:?}) = {:#?}", trait_m.def_id, trait_m_predicates);
+    let trait_method_predicates = GenericPredicates {
+        parent: trait_method_predicates.parent,
+        predicates: tcx.arena.alloc_from_iter(trait_method_predicates.predicates.iter().map(|(predicate, span)| {
+            let mut folder = OffsetterFolder(impl_to_placeholder_substs.len() as u32, tcx);
+            (predicate.fold_with(&mut folder), *span)
+        })),
+    };
+
+    info!("Predicates of impl_method_predicates({:?}) = {:#?}", impl_method.def_id, impl_method_predicates);
+    info!("Predicates of trait_method_predicates({:?}) = {:#?}", trait_method.def_id, trait_method_predicates);
 
 
     // Check region bounds.
-    check_region_bounds_on_impl_item(tcx, impl_m, trait_m, false)?;
-
-    info!("post check_region_bounds_on_impl_item");
+    check_region_bounds_on_impl_item(tcx, impl_method, trait_method, false)?;
 
     // Create obligations for each predicate declared by the impl
     // definition in the context of the trait's parameter
     // environment. We can't just use `impl_env.caller_bounds`,
     // however, because we want to replace all late-bound regions with
     // region variables.
-    let impl_predicates = tcx.predicates_of(impl_m_predicates.parent.unwrap());
+    let impl_predicates = tcx.predicates_of(impl_method_predicates.parent.unwrap());
+
+    info!("compare_impl_method: impl_predicates={:#?}", impl_predicates);
+
     let mut hybrid_preds = impl_predicates.instantiate_identity(tcx);
 
-    info!("compare_impl_method: impl_bounds={:#?}", hybrid_preds);
+    info!("compare_impl_method: hybrid_preds={:#?}", hybrid_preds.predicates);
 
     // This is the only tricky bit of the new way we check implementation methods
     // We need to build a set of predicates where only the method-level bounds
@@ -219,9 +226,16 @@ fn compare_method_predicate_entailment<'tcx>(
     //
     // We then register the obligations from the impl_m and check to see
     // if all constraints hold.
+
+    let extended_preds = trait_method_predicates.instantiate_own(tcx, trait_to_placeholder_substs);
+
+    info!("compare_impl_method: extended_preds={:#?}", extended_preds.predicates);
+
     hybrid_preds
         .predicates
-        .extend(trait_m_predicates.instantiate_own(tcx, trait_to_placeholder_substs).predicates);
+        .extend(extended_preds.predicates);
+
+
 
     // Construct trait parameter environment and then shift it into the placeholder viewpoint.
     // The key step here is to update the caller_bounds's predicates to be
@@ -239,7 +253,7 @@ fn compare_method_predicate_entailment<'tcx>(
 
     info!("compare_impl_method: caller_bounds={:#?}", param_env.caller_bounds());
 
-    let impl_m_own_bounds = impl_m_predicates.instantiate_own(tcx, impl_to_placeholder_substs);
+    let impl_m_own_bounds = impl_method_predicates.instantiate_own(tcx, impl_to_placeholder_substs);
 
     for (predicate, span) in iter::zip(impl_m_own_bounds.predicates, impl_m_own_bounds.spans) {
         let normalize_cause = traits::ObligationCause::misc(span, impl_m_hir_id);
@@ -249,13 +263,17 @@ fn compare_method_predicate_entailment<'tcx>(
             span,
             impl_m_hir_id,
             ObligationCauseCode::CompareImplItemObligation {
-                impl_item_def_id: impl_m.def_id.expect_local(),
-                trait_item_def_id: trait_m.def_id,
-                kind: impl_m.kind,
+                impl_item_def_id: impl_method.def_id.expect_local(),
+                trait_item_def_id: trait_method.def_id,
+                kind: impl_method.kind,
             },
         );
         ocx.register_obligation(traits::Obligation::new(tcx, cause, param_env, predicate));
     }
+
+
+
+    info!("Obligations: {:#?}", ocx.engine.borrow().pending_obligations());
 
     // We now need to check that the signature of the impl method is
     // compatible with that of the trait method. We do this by
@@ -278,7 +296,7 @@ fn compare_method_predicate_entailment<'tcx>(
     let unnormalized_impl_sig = infcx.replace_bound_vars_with_fresh_vars(
         impl_m_span,
         infer::HigherRankedType,
-        tcx.fn_sig(impl_m.def_id),
+        tcx.fn_sig(impl_method.def_id),
     );
     let unnormalized_impl_fty = tcx.mk_fn_ptr(ty::Binder::dummy(unnormalized_impl_sig));
 
@@ -287,13 +305,13 @@ fn compare_method_predicate_entailment<'tcx>(
     info!("compare_impl_method: impl_fty={:#?}", impl_fty);
 
     // let bound_sig = tcx.bound_fn_sig(trait_m.def_id);
-    let bound_sig = tcx.bound_fn_sig(trait_m.def_id).map_bound(|a| a.fold_with(&mut OffsetterFolder(impl_to_placeholder_substs.len() as u32, tcx)));
+    let bound_sig = tcx.bound_fn_sig(trait_method.def_id).map_bound(|a| a.fold_with(&mut OffsetterFolder(impl_to_placeholder_substs.len() as u32, tcx)));
 
     info!("Bound sig for the method: {:#?}", bound_sig);
 
     let trait_sig = bound_sig.subst(tcx, trait_to_placeholder_substs, HKTSubstType::SubstHKTParamWithType);
     info!("Bound sig after substs: {:#?}", trait_sig);
-    let trait_sig = tcx.liberate_late_bound_regions(impl_m.def_id, trait_sig);
+    let trait_sig = tcx.liberate_late_bound_regions(impl_method.def_id, trait_sig);
     info!("Bound sig after liberation: {:#?}", trait_sig);
 
     // Next, add all inputs and output as well-formed tys. Importantly,
@@ -323,8 +341,8 @@ fn compare_method_predicate_entailment<'tcx>(
             &infcx,
             cause,
             terr,
-            (trait_m, trait_fty),
-            (impl_m, impl_fty),
+            (trait_method, trait_fty),
+            (impl_method, impl_fty),
             trait_sig,
             impl_trait_ref,
         );
@@ -345,7 +363,7 @@ fn compare_method_predicate_entailment<'tcx>(
         infcx.tcx.struct_span_lint_hir(
             rustc_session::lint::builtin::IMPLIED_BOUNDS_ENTAILMENT,
             impl_m_hir_id,
-            infcx.tcx.def_span(impl_m.def_id),
+            infcx.tcx.def_span(impl_method.def_id),
             "impl method assumes more implied bounds than the corresponding trait method",
             |lint| lint,
         );
@@ -354,14 +372,17 @@ fn compare_method_predicate_entailment<'tcx>(
     // Check that all obligations are satisfied by the implementation's
     // version.
     let errors = ocx.select_all_or_error();
+
+    info!("Selection errors: {:#?}", errors);
+
     if !errors.is_empty() {
         match check_implied_wf {
             CheckImpliedWfMode::Check => {
                 return compare_method_predicate_entailment(
                     tcx,
-                    impl_m,
+                    impl_method,
                     impl_m_span,
-                    trait_m,
+                    trait_method,
                     impl_trait_ref,
                     CheckImpliedWfMode::Skip,
                 )
@@ -396,9 +417,9 @@ fn compare_method_predicate_entailment<'tcx>(
             CheckImpliedWfMode::Check => {
                 return compare_method_predicate_entailment(
                     tcx,
-                    impl_m,
+                    impl_method,
                     impl_m_span,
-                    trait_m,
+                    trait_method,
                     impl_trait_ref,
                     CheckImpliedWfMode::Skip,
                 )
@@ -409,7 +430,7 @@ fn compare_method_predicate_entailment<'tcx>(
             }
             CheckImpliedWfMode::Skip => {
                 if infcx.tainted_by_errors().is_none() {
-                    infcx.err_ctxt().report_region_errors(impl_m.def_id.expect_local(), &errors);
+                    infcx.err_ctxt().report_region_errors(impl_method.def_id.expect_local(), &errors);
                 }
                 return Err(tcx
                     .sess
@@ -433,6 +454,7 @@ enum CheckImpliedWfMode {
     Skip,
 }
 
+#[instrument(skip_all, ret)]
 fn compare_asyncness<'tcx>(
     tcx: TyCtxt<'tcx>,
     impl_m: &ty::AssocItem,
@@ -890,6 +912,7 @@ fn report_trait_method_mismatch<'tcx>(
     return diag.emit();
 }
 
+#[instrument(skip_all, ret)]
 fn check_region_bounds_on_impl_item<'tcx>(
     tcx: TyCtxt<'tcx>,
     impl_m: &ty::AssocItem,
@@ -1014,6 +1037,7 @@ fn extract_spans_for_error_reporting<'tcx>(
     }
 }
 
+#[instrument(skip_all, ret)]
 fn compare_self_type<'tcx>(
     tcx: TyCtxt<'tcx>,
     impl_m: &ty::AssocItem,
@@ -1116,6 +1140,7 @@ fn compare_self_type<'tcx>(
 /// Notably this does not error on `foo<T>` implemented as `foo<const N: u8>` or
 /// `foo<const N: u8>` implemented as `foo<const N: u32>`. This is handled in
 /// [`compare_generic_param_kinds`]. This function also does not handle lifetime parameters
+#[instrument(skip_all, ret)]
 fn compare_number_of_generics<'tcx>(
     tcx: TyCtxt<'tcx>,
     impl_: &ty::AssocItem,
@@ -1260,6 +1285,7 @@ fn compare_number_of_generics<'tcx>(
     if let Some(reported) = err_occurred { Err(reported) } else { Ok(()) }
 }
 
+#[instrument(skip_all, ret)]
 fn compare_number_of_method_arguments<'tcx>(
     tcx: TyCtxt<'tcx>,
     impl_m: &ty::AssocItem,
@@ -1342,6 +1368,7 @@ fn compare_number_of_method_arguments<'tcx>(
     Ok(())
 }
 
+#[instrument(skip_all, ret)]
 fn compare_synthetic_generics<'tcx>(
     tcx: TyCtxt<'tcx>,
     impl_m: &ty::AssocItem,
@@ -1505,6 +1532,7 @@ fn compare_synthetic_generics<'tcx>(
 /// ```
 ///
 /// This function does not handle lifetime parameters
+#[instrument(skip_all, ret)]
 fn compare_generic_param_kinds<'tcx>(
     tcx: TyCtxt<'tcx>,
     impl_item: &ty::AssocItem,

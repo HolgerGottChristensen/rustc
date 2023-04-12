@@ -21,7 +21,7 @@ use rustc_middle::middle::stability::EvalResult;
 use rustc_middle::ty::layout::{LayoutError, MAX_SIMD_LANES};
 use rustc_middle::ty::subst::GenericArgKind;
 use rustc_middle::ty::util::{Discr, IntTypeExt};
-use rustc_middle::ty::{self, AdtDef, HKTSubstType, ParamEnv, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable};
+use rustc_middle::ty::{self, AdtDef, AssocItem, HKTSubstType, ParamEnv, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable};
 use rustc_session::lint::builtin::{UNINHABITED_STATIC, UNSUPPORTED_CALLING_CONVENTIONS};
 use rustc_span::symbol::sym;
 use rustc_span::{self, Span};
@@ -765,7 +765,8 @@ fn check_impl_items_against_trait<'tcx>(
 
     for impl_item in impl_item_refs {
         let ty_impl_item = tcx.associated_item(impl_item.id.owner_id);
-        let ty_trait_item = if let Some(trait_item_id) = ty_impl_item.trait_item_def_id {
+
+        let ty_trait_item: &AssocItem = if let Some(trait_item_id) = ty_impl_item.trait_item_def_id {
             tcx.associated_item(trait_item_id)
         } else {
             // Checked in `associated_item`.
@@ -773,6 +774,9 @@ fn check_impl_items_against_trait<'tcx>(
             continue;
         };
         let impl_item_full = tcx.hir().impl_item(impl_item.id);
+
+        info!("ty_trait_item = {:#?}", ty_trait_item);
+        info!("ty_impl_item = {:#?}", ty_impl_item);
         match impl_item_full.kind {
             hir::ImplItemKind::Const(..) => {
                 let _ = tcx.compare_impl_const((
