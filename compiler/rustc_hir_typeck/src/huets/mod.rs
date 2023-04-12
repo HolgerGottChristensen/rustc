@@ -5,7 +5,7 @@ use rustc_ast::Mutability;
 use rustc_data_structures::fx::{FxHasher, FxHashMap};
 use rustc_errors::fluent_bundle::types::AnyEq;
 use rustc_middle::ty;
-use rustc_middle::ty::{AdtDef, ArgumentDef, GenericArgKind, ty_slice_as_generic_args, TyCtxt, TypeAndMut};
+use rustc_middle::ty::{AdtDef, ArgumentDef, GenericArgKind, PolyFnSig, ty_slice_as_generic_args, TyCtxt, TypeAndMut};
 use rustc_span::def_id::DefId;
 use crate::huets::datatype::{Constraint, Context, Problem, Solution, Type, Term};
 use crate::huets::datatype::Term::{Abs, App, Meta, Var};
@@ -55,9 +55,9 @@ pub fn main_huet(context: &mut Context, problem: Problem) {
     }
 }
 
-pub fn create_constraints_from_rust_tys<'tcx>(ty_map: &mut FxHashMap<String, Ty<'tcx>>, left: Vec<Ty<'tcx>>, right: Vec<Ty<'tcx>>) -> (Context, Problem) {
+pub fn create_constraints_from_rust_tys<'tcx>(tcx: TyCtxt<'tcx>, ty_map: &mut FxHashMap<String, Ty<'tcx>>, left: Vec<Ty<'tcx>>, right: Vec<Ty<'tcx>>) -> (Context, Problem) {
     let mut context = new_context();
-    let (lh, rh) = map_list_of_rust_ty_to_huet_ty(&mut context, ty_map, left, right);
+    let (lh, rh) = map_list_of_rust_ty_to_huet_ty(tcx, &mut context, ty_map, left, right);
     (context, Problem(map_list_of_tys_to_constraints(lh, rh)))
 }
 
@@ -71,7 +71,7 @@ pub fn solution_as_ty<'tcx>(tcx: TyCtxt<'tcx>, ty_map: &FxHashMap<String, Ty<'tc
             tys.push(ty);
         }
     }
-    //tys.reverse();
+    tys.reverse();
     tys
 }
 
@@ -158,12 +158,31 @@ fn map_term_to_ty<'tcx>(
                 App(_, _) => None,
                 _ => None
             }
+            /*
+            let mapped_opt = map_term_to_ty(tcx, ty_map, mapping_for.clone(), *callee.clone(), type_args);
+            if let None = mapped_opt {
+                info!("cannot map following type from term 6");
+                return None
+            }
+            match mapped_opt.unwrap().kind() {
+                ty::Adt(adt_def, _) => {
+                    let new_gen_arg = ty_slice_as_generic_args(tcx.arena.alloc_from_iter([call_arg_ty_opt.unwrap()]));
+                    let subst = tcx.mk_substs(new_gen_arg.iter());
+                    //FIXMIG: remove old adt?
+                    Some(tcx.mk_adt(*adt_def, subst))
+                }
+                _ => {
+                    info!("cannot map following type from term 7: {:?}", mapped_opt.unwrap().kind());
+                    None
+                }
+            }
+             */
         }
         _ => None
     }
 }
 
-fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<String, Ty<'tcx>>, rust_ty: Ty<'tcx>) -> Option<(Term, Type)> {
+fn map_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &mut FxHashMap<String, Ty<'tcx>>, rust_ty: Ty<'tcx>) -> Option<(Term, Type)> {
     match rust_ty.kind() {
         ty::Bool => {
             ctxt.typing_context.insert("bool".to_string(), Type::Star);
@@ -176,6 +195,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
             Some((Var("char".to_string()), Type::Star))
         },
         ty::Int(int_ty) => {
+            // FIXMIG: check om IntTy er unknown
             ctxt.typing_context.insert(int_ty.name_str().to_string(), Type::Star);
             ty_map.insert(int_ty.name_str().to_string(), rust_ty);
             Some((Var(int_ty.name_str().to_string()), Type::Star))
@@ -196,7 +216,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
             Some((Var("str".to_string()), Type::Star))
         },
         ty::Ref(_, t, m) => {
-            if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(ctxt, ty_map, *t) {
+            if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, *t) {
                 match *m {
                     Mutability::Mut => {
                         ctxt.typing_context.insert("&mut".to_string(), Type::Arrow(Box::new(Type::Star), Box::new(Type::Star)));
@@ -220,7 +240,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
             }
         }
         ty::Array(t, _) => {
-            if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(ctxt, ty_map, *t) {
+            if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, *t) {
                 ctxt.typing_context.insert("a[]".to_string(), Type::Arrow(Box::new(Type::Star), Box::new(Type::Star)));
                 ty_map.insert("a[]".to_string(), rust_ty);
                 Some((App(
@@ -232,7 +252,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
             }
         }
         ty::Slice(t) => {
-            if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(ctxt, ty_map, *t) {
+            if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, *t) {
                 ctxt.typing_context.insert("s[]".to_string(), Type::Arrow(Box::new(Type::Star), Box::new(Type::Star)));
                 ty_map.insert("s[]".to_string(), rust_ty);
                 Some((App(
@@ -253,7 +273,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
                 let mut term_acc = Var("()".to_string());
                 let mut term_kind = Type::Star;
                 while counter < list.len() {
-                    let i = map_rust_ty_to_huet_ty(ctxt, ty_map, list[counter]);
+                    let i = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, list[counter]);
                     if let Some((t, _)) = i {
                         term_kind = Type::Arrow(
                             Box::new(Type::Star),
@@ -294,7 +314,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
             */
         }
         ty::RawPtr(TypeAndMut {ty, mutbl}) => {
-            if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(ctxt, ty_map, *ty) {
+            if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, *ty) {
                 match mutbl {
                     Mutability::Mut => {
                         ctxt.typing_context.insert("*mut".to_string(), Type::Arrow(Box::new(Type::Star), Box::new(Type::Star)));
@@ -330,7 +350,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
                 let mut term_kind = Type::Star;
                 while counter < substs.len() {
                     let i = match substs[counter].unpack() {
-                        GenericArgKind::Type(ty) => map_rust_ty_to_huet_ty(ctxt, ty_map, ty),
+                        GenericArgKind::Type(ty) => map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, ty),
                         _ => None
                     };
                     if let Some((t, _)) = i {
@@ -350,19 +370,23 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
                 Some((term_acc, term_kind))
             }
         }
-        ty::FnDef(did, substs) => {
-            let fun_name = format!("{:?}", did);
+        ty::FnDef(did, _) => {
+            let fn_sig : PolyFnSig<'tcx> = tcx.fn_sig(did);
+            let fn_inputs = fn_sig.skip_binder().inputs();
+            let fn_output = fn_sig.skip_binder().output();
+            let fn_name = format!("fn{}", fn_inputs.len());
+            /*
             if substs.len() == 0 {
-                ctxt.typing_context.insert(fun_name.clone(), Type::Star);
-                ty_map.insert(fun_name.clone(), rust_ty);
-                Some((Var(fun_name), Type::Star))
+                ctxt.typing_context.insert(fn_name.clone(), Type::Star);
+                ty_map.insert(fn_name.clone(), rust_ty);
+                Some((Var(fn_name), Type::Star))
             } else {
                 let mut counter = 0;
-                let mut term_acc = Var(fun_name.clone());
+                let mut term_acc = Var(fn_name.clone());
                 let mut term_kind = Type::Star;
                 while counter < substs.len() {
                     let i = match substs[counter].unpack() {
-                        GenericArgKind::Type(ty) => map_rust_ty_to_huet_ty(ctxt, ty_map, ty),
+                        GenericArgKind::Type(ty) => map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, ty),
                         _ => None
                     };
                     if let Some((t, _)) = i {
@@ -377,10 +401,47 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
                     }
                     counter += 1;
                 }
-                ctxt.typing_context.insert(fun_name.clone(), term_kind.clone());
-                ty_map.insert(fun_name.clone(), rust_ty);
+                ctxt.typing_context.insert(fn_name.clone(), term_kind.clone());
+                ty_map.insert(fn_name.clone(), rust_ty);
                 Some((term_acc, term_kind))
             }
+            */
+
+            ty_map.insert(fn_name.clone(), rust_ty);
+
+            let mut term_acc = Var(fn_name.clone());
+            let mut term_kind = Type::Star;
+
+            for input_ty in fn_inputs {
+                let term_opt = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, input_ty.clone());
+
+                if let Some((term, _)) = term_opt {
+                    term_kind = Type::Arrow(
+                        Box::new(Type::Star),
+                        Box::new(term_kind)
+                    );
+                    term_acc = App(
+                        Box::new(term_acc),
+                        Box::new(term)
+                    );
+                }
+            }
+
+            let output_term_opt = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, fn_output.clone());
+            if let Some((term, _)) = output_term_opt {
+                term_kind = Type::Arrow(
+                    Box::new(Type::Star),
+                    Box::new(term_kind)
+                );
+                term_acc = App(
+                    Box::new(term_acc),
+                    Box::new(term)
+                );
+            }
+
+            ctxt.typing_context.insert(fn_name.clone(), term_kind.clone());
+            ty_map.insert(fn_name.clone(), rust_ty);
+            Some((term_acc, term_kind))
         }
         ty::HKT(did, _, substs) => {
             let hkt_name = format!("{:?}", did);
@@ -393,7 +454,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
                 let mut term_kind = Type::Star;
                 while counter < substs.len() {
                     let i = match substs[counter].unpack() {
-                        GenericArgKind::Type(ty) => map_rust_ty_to_huet_ty(ctxt, ty_map, ty),
+                        GenericArgKind::Type(ty) => map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, ty),
                         _ => None
                     };
                     if let Some((t, _)) = i {
@@ -416,7 +477,49 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
             let param_name = param_ty.name().to_string();
             ctxt.typing_context.insert(param_name.clone(), Type::Star);
             ty_map.insert(param_name.clone(), rust_ty);
-            Some((Var(param_name), Type::Star))
+            Some((Meta(param_name), Type::Star))
+        }
+        ty::FnPtr(polysig) => {
+            let sig: PolyFnSig<'tcx> = *polysig;
+            let fn_inputs = sig.skip_binder().inputs();
+            let fn_output = sig.skip_binder().output();
+
+            let fn_name = format!("fn{}", fn_inputs.len());
+            ty_map.insert(fn_name.clone(), rust_ty);
+
+            let mut term_acc = Var(fn_name.clone());
+            let mut term_kind = Type::Star;
+
+            for input_ty in fn_inputs {
+                let term_opt = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, input_ty.clone());
+
+                if let Some((term, _)) = term_opt {
+                    term_kind = Type::Arrow(
+                        Box::new(Type::Star),
+                        Box::new(term_kind)
+                    );
+                    term_acc = App(
+                        Box::new(term_acc),
+                        Box::new(term)
+                    );
+                }
+            }
+
+            let output_term_opt = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, fn_output.clone());
+            if let Some((term, _)) = output_term_opt {
+                term_kind = Type::Arrow(
+                    Box::new(Type::Star),
+                    Box::new(term_kind)
+                );
+                term_acc = App(
+                    Box::new(term_acc),
+                    Box::new(term)
+                );
+            }
+
+            ctxt.typing_context.insert(fn_name.clone(), term_kind.clone());
+            ty_map.insert(fn_name.clone(), rust_ty);
+            Some((term_acc, term_kind))
         }
         _ => {
             info!("failing on rust ty: {:#?}", rust_ty.kind());
@@ -425,15 +528,15 @@ fn map_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<Strin
     }
 }
 
-fn map_list_of_rust_ty_to_huet_ty<'tcx>(ctxt: &mut Context, ty_map: &mut FxHashMap<String, Ty<'tcx>>, left: Vec<Ty<'tcx>>, right: Vec<Ty<'tcx>>) -> (Vec<Term>, Vec<Term>) {
+fn map_list_of_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &mut FxHashMap<String, Ty<'tcx>>, left: Vec<Ty<'tcx>>, right: Vec<Ty<'tcx>>) -> (Vec<Term>, Vec<Term>) {
     assert_eq!(left.len(),right.len());
     let mut left_acc = Vec::new();
     let mut right_acc = Vec::new();
 
     let mut counter = 0;
     while counter < left.len() {
-        let t1 = map_rust_ty_to_huet_ty(ctxt, ty_map, left[counter].clone());
-        let t2 = map_rust_ty_to_huet_ty(ctxt, ty_map, right[counter].clone());
+        let t1 = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, left[counter].clone());
+        let t2 = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, right[counter].clone());
 
         if let (Some((l, _)), Some((r, _))) = (t1, t2) {
             left_acc.push(l);

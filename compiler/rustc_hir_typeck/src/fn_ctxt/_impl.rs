@@ -9,7 +9,7 @@ use rustc_hir as hir;
 use rustc_hir::def::{CtorOf, DefKind, Res};
 use rustc_hir::def_id::DefId;
 use rustc_hir::lang_items::LangItem;
-use rustc_hir::{ExprKind, GenericArg, Node, QPath};
+use rustc_hir::{Expr, ExprKind, GenericArg, Node, QPath};
 use rustc_hir_analysis::astconv::{
     AstConv, CreateSubstsForGenericArgsCtxt, ExplicitLateBound, GenericArgCountMismatch,
     GenericArgCountResult, IsMethodCall, PathSeg,
@@ -34,6 +34,7 @@ use rustc_trait_selection::traits::{self, NormalizeExt, ObligationCauseCode, Obl
 use std::collections::hash_map::Entry;
 use std::hash::BuildHasherDefault;
 use std::slice;
+use rustc_index::vec::Idx;
 use crate::huets::{create_constraints_from_rust_tys, main_huet, solution_as_ty};
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
@@ -1182,7 +1183,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             path_segs: &'a [PathSeg],
             infer_args_for_err: &'a FxHashSet<usize>,
             segments: &'a [hir::PathSegment<'a>],
-            hkt_tys: Option<Vec<Ty<'tcx>>>
+            fn_def_id: DefId,
+            fn_args: Option<&'tcx [hir::Expr<'tcx>]>
         }
         impl<'tcx, 'a> CreateSubstsForGenericArgsCtxt<'a, 'tcx> for CreateCtorSubstsContext<'a, 'tcx> {
             fn args_for_def_id(
@@ -1284,9 +1286,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         info!("gen_kind: {:#?}", param);
                         //info!("arg_types: {:#?}", self.arg_types);
                         //info!("hkt_param_types: {:#?}", self.hkt_param_types);
-                        if let Some(tys) = &mut self.hkt_tys {
-                            if let Some(t) = tys.pop() {
-                                return t.into();
+                        let new_tys_opt = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id);
+                        if let Some(new_tys) = new_tys_opt {
+                            if let Some(new_ty) = new_tys.get(param.index.index()) {
+                                let x = new_ty.clone().into();
+                                return x;
                             }
                         }
                         self.fcx.var_for_def(self.span, param)
@@ -1297,6 +1301,68 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         debug!("pre create_substs_for_generic_args = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
 
+        let substs = self_ctor_substs.unwrap_or_else(|| {
+            <dyn AstConv<'_>>::create_substs_for_generic_args(
+                tcx,
+                def_id,
+                &[],
+                has_self,
+                self_ty,
+                &arg_count,
+                &mut CreateCtorSubstsContext {
+                    fcx: self,
+                    span,
+                    path_segs: &path_segs,
+                    infer_args_for_err: &infer_args_for_err,
+                    segments,
+                    fn_def_id: def_id,
+                    fn_args: args
+                },
+            )
+        });
+
+        // First, store the "user substs" for later.
+        self.write_user_type_annotation_from_substs(hir_id, def_id, substs, user_self_ty);
+
+        debug!("pre add_required_obligations_for_hir = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
+        self.add_required_obligations_for_hir(span, def_id, &substs, hir_id);
+
+        // Substitute the values for the type parameters into the type of
+        // the referenced item.
+        let ty = tcx.bound_type_of(def_id);
+        assert!(!substs.has_escaping_bound_vars());
+        assert!(!ty.0.has_escaping_bound_vars());
+        let ty_substituted = self.normalize(span, ty.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType));
+
+        if let Some(UserSelfTy { impl_def_id, self_ty }) = user_self_ty {
+            // In the case of `Foo<T>::method` and `<Foo<T>>::method`, if `method`
+            // is inherent, there is no `Self` parameter; instead, the impl needs
+            // type parameters, which we can infer by unifying the provided `Self`
+            // with the substituted impl type.
+            // This also occurs for an enum variant on a type alias.
+            let impl_ty = self.normalize(span, tcx.bound_type_of(impl_def_id).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType));
+            match self.at(&self.misc(span), self.param_env).eq(impl_ty, self_ty) {
+                Ok(ok) => self.register_infer_ok_obligations(ok),
+                Err(_) => {
+                    self.tcx.sess.delay_span_bug(
+                        span,
+                        &format!(
+                        "instantiate_value_path: (UFCS) {:?} was a subtype of {:?} but now is not?",
+                        self_ty,
+                        impl_ty,
+                    ),
+                    );
+                }
+            }
+        }
+
+        debug!("instantiate_value_path: type of {:?} is {:?}", hir_id, ty_substituted);
+        self.write_substs(hir_id, substs);
+
+        (ty_substituted, res)
+    }
+
+    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId) -> Option<Vec<Ty<'tcx>>> {
         let mut args_ty = Vec::new();
         if let Some(args) = args {
             for arg in args.clone() {
@@ -1342,11 +1408,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         };
 
         let new_tys = if let (Some(l), Some(r)) = (left, right) {
-            let mut ty_map : FxHashMap<String, Ty<'tcx>> = FxHashMap::with_hasher(BuildHasherDefault::<FxHasher>::default());
-            let (ctxt, constraints) = create_constraints_from_rust_tys(&mut ty_map, l, r);
+            let mut ty_map: FxHashMap<String, Ty<'tcx>> = FxHashMap::with_hasher(BuildHasherDefault::<FxHasher>::default());
+            let (ctxt, constraints) = create_constraints_from_rust_tys(self.tcx, &mut ty_map, l, r);
             let mut new_ctxt = ctxt.clone();
-            info!("constraint_set: {:?}", constraints);
-            info!("context in solution: {:?}", new_ctxt);
+            info!("constraint_set: {:#?}", constraints);
+            info!("context in solution: {:#?}", new_ctxt);
             main_huet(&mut new_ctxt, constraints);
             let solutions_set = new_ctxt.minimal_solutions();
             info!("solution_set: {:#?}", solutions_set);
@@ -1360,65 +1426,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         } else {
             None
         };
-
-        let substs = self_ctor_substs.unwrap_or_else(|| {
-            <dyn AstConv<'_>>::create_substs_for_generic_args(
-                tcx,
-                def_id,
-                &[],
-                has_self,
-                self_ty,
-                &arg_count,
-                &mut CreateCtorSubstsContext {
-                    fcx: self,
-                    span,
-                    path_segs: &path_segs,
-                    infer_args_for_err: &infer_args_for_err,
-                    segments,
-                    hkt_tys: new_tys,
-                },
-            )
-        });
-
-        // First, store the "user substs" for later.
-        self.write_user_type_annotation_from_substs(hir_id, def_id, substs, user_self_ty);
-
-        debug!("pre add_required_obligations_for_hir = {:#?}", self.fulfillment_cx.borrow().pending_obligations());
-        self.add_required_obligations_for_hir(span, def_id, &substs, hir_id);
-
-        // Substitute the values for the type parameters into the type of
-        // the referenced item.
-        let ty = tcx.bound_type_of(def_id);
-        assert!(!substs.has_escaping_bound_vars());
-        assert!(!ty.0.has_escaping_bound_vars());
-        let ty_substituted = self.normalize(span, ty.subst(tcx, substs, HKTSubstType::SubstHKTParamWithType));
-
-        if let Some(UserSelfTy { impl_def_id, self_ty }) = user_self_ty {
-            // In the case of `Foo<T>::method` and `<Foo<T>>::method`, if `method`
-            // is inherent, there is no `Self` parameter; instead, the impl needs
-            // type parameters, which we can infer by unifying the provided `Self`
-            // with the substituted impl type.
-            // This also occurs for an enum variant on a type alias.
-            let impl_ty = self.normalize(span, tcx.bound_type_of(impl_def_id).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType));
-            match self.at(&self.misc(span), self.param_env).eq(impl_ty, self_ty) {
-                Ok(ok) => self.register_infer_ok_obligations(ok),
-                Err(_) => {
-                    self.tcx.sess.delay_span_bug(
-                        span,
-                        &format!(
-                        "instantiate_value_path: (UFCS) {:?} was a subtype of {:?} but now is not?",
-                        self_ty,
-                        impl_ty,
-                    ),
-                    );
-                }
-            }
-        }
-
-        debug!("instantiate_value_path: type of {:?} is {:?}", hir_id, ty_substituted);
-        self.write_substs(hir_id, substs);
-
-        (ty_substituted, res)
+        new_tys
     }
 
     /// Add all the obligations that are required, substituting and normalized appropriately.

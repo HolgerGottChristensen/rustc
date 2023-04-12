@@ -410,7 +410,6 @@ impl<O: ForestObligation> ObligationForest<O> {
 
     /// Performs a fixpoint computation over the obligation list.
     #[inline(never)]
-    #[instrument(skip(self, processor), level="info")]
     pub fn process_obligations<P>(&mut self, processor: &mut P) -> P::OUT
     where
         P: ObligationProcessor<Obligation = O>,
@@ -480,10 +479,6 @@ impl<O: ForestObligation> ObligationForest<O> {
             // state. (Note that this will occur if we invoke
             // `process_obligations` with no pending obligations.)
             if !has_changed {
-                info!("everything unchanged");
-                info!("node count: {:#?}", self.nodes.len());
-                let pendings = self.nodes.iter().filter(|n| n.state.get() == NodeState::Pending).count();
-                info!("pending count: {:#?}", pendings);
                 break;
             }
 

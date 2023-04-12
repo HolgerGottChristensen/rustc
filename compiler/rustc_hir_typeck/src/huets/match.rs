@@ -14,9 +14,16 @@ pub fn imitation(_context: &Context, constraint: &Constraint) -> Substitution {
     let x_argument_count = l_tail.len();
     let h_argument_count = r_tail.len();
 
-    let function_constructed = construct_imitation_function(x_argument_count, h_argument_count, h);
+    let function_constructed = match x {
+        Term::Meta(_) => construct_imitation_function(x_argument_count, h_argument_count, h.clone()),
+        _ => construct_imitation_function(h_argument_count, x_argument_count, x.clone())
+    };
 
-    Substitution { name: x.get_name(), with: function_constructed }
+    match x {
+        Term::Meta(_) => Substitution { name: x.get_name(), with: function_constructed },
+        _ => Substitution { name: h.get_name(), with: function_constructed }
+    }
+
 }
 
 fn construct_imitation_function(x_argument_count: usize, h_argument_count: usize, h: Term) -> Term {
@@ -45,13 +52,23 @@ fn construct_imitation_function(x_argument_count: usize, h_argument_count: usize
 
 pub fn projection(_context: &Context, constraint: &Constraint) -> Vec<Substitution> {
     let (_, x, l_head) = constraint.left.split();
+    let (_, h, r_head) = constraint.right.split();
     let x_argument_count = l_head.len();
+    let h_argument_count = r_head.len();
 
     let mut substitutions = vec![];
 
     for index in 0..x_argument_count {
-        let projected_function = construct_projection_function(index, x_argument_count);
-        let substitution = Substitution { name: x.get_name(), with: projected_function };
+        let substitution = match x {
+            Term::Meta(_) => {
+                let projected_function = construct_projection_function(index, x_argument_count);
+                Substitution { name: x.get_name(), with: projected_function }
+            }
+            _ => {
+                let projected_function = construct_projection_function(index, h_argument_count);
+                Substitution { name: h.get_name(), with: projected_function }
+            }
+        };
         substitutions.push(substitution);
     }
 
