@@ -784,9 +784,6 @@ where
                 ty::Argument(..) => {
                     todo!("hoch") // FIXMIG: what to do here?
                 }
-                ty::HKTInfer => {
-                    todo!("hoch") // FIXMIG: what to do here?
-                }
 
                 ty::Alias(..)
                 | ty::Bound(..)

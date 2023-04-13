@@ -1612,7 +1612,6 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
 
 
                         ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
-                        ty::HKTInfer => todo!("hoch"), // FIXMIG: what to do here?
                          // type parameters, opaques, and unnormalized projections have pointer
                         // metadata if they're known (e.g. by the param_env) to be sized
                         ty::Param(_)
@@ -1671,7 +1670,6 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
 
                         ty::HKT(..) => todo!("hoch"), // FIXMIG: what to do here?
                         ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
-                        ty::HKTInfer => todo!("hoch"), // FIXMIG: what to do here?
 
                         // type parameters, opaques, and unnormalized projections have pointer
                         // metadata if they're known (e.g. by the param_env) to be sized

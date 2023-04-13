@@ -893,7 +893,6 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             | ty::TyKind::Error(_)
             | ty::TyKind::Argument(_)
             | ty::TyKind::Infer(_) // FIXMIG: do this right
-            | ty::TyKind::HKTInfer // FIXMIG: do this right
             | ty::TyKind::Float(_) => {
                 ty
             }

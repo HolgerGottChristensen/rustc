@@ -599,7 +599,6 @@ impl<'rt, 'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> ValidityVisitor<'rt, 'mir, '
             // We should not see them here and we could not check them anyway.
             ty::Error(_)
             | ty::Infer(..)
-            | ty::HKTInfer // FIXMIG: what to do here?
             | ty::Placeholder(..)
             | ty::Bound(..)
             | ty::Param(..)

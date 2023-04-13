@@ -2156,7 +2156,6 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             },
             ty::Alias(..) | ty::Param(_) => None,
             ty::Infer(ty::TyVar(_)) => Ambiguous,
-            ty::HKTInfer => Ambiguous, // FIXMIG: is this correct?
 
             ty::Placeholder(..)
             | ty::Bound(..)
@@ -2268,8 +2267,6 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 Ambiguous
             }
 
-            ty::HKTInfer => todo!("hoch"), // FIXMIG
-
             ty::Placeholder(..)
             | ty::Bound(..)
             | ty::Infer(ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
@@ -2318,8 +2315,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Foreign(..)
             | ty::Alias(ty::Projection, ..)
             | ty::Bound(..)
-            | ty::Infer(ty::TyVar(_) | ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_))
-            | ty::HKTInfer => {
+            | ty::Infer(ty::TyVar(_) | ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
                 bug!("asked to assemble constituent types of unexpected type: {:?}", t);
             }
 

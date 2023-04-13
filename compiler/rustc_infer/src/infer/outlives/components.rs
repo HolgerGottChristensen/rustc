@@ -77,7 +77,6 @@ fn compute_components<'tcx>(
     // projection).
     match *ty.kind() {
         //ty::Argument(..) => todo!("hoch"),
-        ty::HKTInfer => todo!("hoch"),
         ty::FnDef(_, substs) => {
             // HACK(eddyb) ignore lifetimes found shallowly in `substs`.
             // This is inconsistent with `ty::Adt` (including all substs)

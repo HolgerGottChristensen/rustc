@@ -1408,7 +1408,6 @@ macro_rules! sty_debug_print {
                         ty::Bool | ty::Char | ty::Int(..) | ty::Uint(..) |
                             ty::Float(..) | ty::Str | ty::Never => continue,
                         ty::Error(_) => /* unimportant */ continue,
-                        ty::HKTInfer => bug!("hoch"), // FIXMIG
                         $(ty::$variant(..) => &mut $variant,)*
                     };
                     let lt = t.flags.intersects(ty::TypeFlags::HAS_RE_INFER);

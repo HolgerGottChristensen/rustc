@@ -693,7 +693,6 @@ pub trait PrettyPrinter<'tcx>:
                     if verbose { p!(write("{:?}", infer_ty)) } else { p!(write("{}", infer_ty)) }
                 }
             }
-            ty::HKTInfer => p!("[HKT infer]"),
             ty::Error(_) => p!("[type error]"),
             ty::Param(ref param_ty) => p!(print(param_ty)),
             ty::HKT(_, ref param_ty, substs) => {

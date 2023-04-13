@@ -375,7 +375,6 @@ impl<'tcx> LowerInto<'tcx, chalk_ir::Ty<RustInterner<'tcx>>> for Ty<'tcx> {
                 })
             }
             ty::Infer(_infer) => unimplemented!(),
-            ty::HKTInfer => unimplemented!(), // FIXMIG: what to do here?
             ty::Error(_) => chalk_ir::TyKind::Error,
         }
         .intern(interner)

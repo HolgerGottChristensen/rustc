@@ -274,7 +274,6 @@ where
             | ty::GeneratorWitness(..) => {}
             ty::Bound(..)
             | ty::Placeholder(..)
-            | ty::HKTInfer // FIXMIG: what to do here?
             | ty::Infer(..) => {
                 bug!("unexpected type: {:?}", ty)
             }

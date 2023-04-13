@@ -267,7 +267,7 @@ impl<'tcx> TypeError<'tcx> {
 impl<'tcx> Ty<'tcx> {
     pub fn sort_string(self, tcx: TyCtxt<'_>) -> Cow<'static, str> {
         match *self.kind() {
-            ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str | ty::Never | ty::HKTInfer => {
+            ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str | ty::Never => {
                 format!("`{}`", self).into()
             }
             ty::Tuple(ref tys) if tys.is_empty() => format!("`{}`", self).into(),
@@ -356,8 +356,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Uint(_)
             | ty::Float(_)
             | ty::Str
-            | ty::Never
-            | ty::HKTInfer => "type".into(),
+            | ty::Never => "type".into(),
             ty::Tuple(ref tys) if tys.is_empty() => "unit type".into(),
             ty::Adt(def, _) => def.descr().into(),
             ty::Foreign(_) => "extern type".into(),

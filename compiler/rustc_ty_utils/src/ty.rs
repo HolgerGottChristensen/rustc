@@ -67,7 +67,6 @@ fn sized_constraint_for_ty<'tcx>(
 
         Placeholder(..)
         | Bound(..)
-        | HKTInfer // FIXMIG: what to do here?
         | Infer(..) => {
             bug!("unexpected type `{:?}` in sized_constraint_for_ty", ty)
         }

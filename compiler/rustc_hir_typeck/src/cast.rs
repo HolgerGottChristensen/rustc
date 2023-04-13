@@ -128,8 +128,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             | ty::Bound(..)
             | ty::Infer(_) => None,
 
-            ty::HKTInfer => todo!("hoh"), // FIXMIG
-
             ty::Bool
             | ty::Char
             | ty::Int(..)

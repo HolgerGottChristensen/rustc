@@ -213,10 +213,6 @@ impl<'a, 'tcx> TypeFolder<'tcx> for TypeFreshener<'a, 'tcx> {
             | ty::Closure(..)
             | ty::GeneratorWitness(..) => t.super_fold_with(self),
 
-            ty::HKTInfer => {
-                todo!("hoch") // FIXMIG: what to do here?
-            }
-
             ty::Placeholder(..) | ty::Bound(..) => bug!("unexpected type {:?}", t),
         }
     }

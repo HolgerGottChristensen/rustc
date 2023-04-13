@@ -464,8 +464,6 @@ impl<'cx, 'tcx> TypeFolder<'tcx> for Canonicalizer<'cx, 'tcx> {
                     t
                 }
             }
-
-            ty::HKTInfer => todo!("hoch"), // FIXMIG
         }
     }
 

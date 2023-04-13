@@ -448,7 +448,6 @@ fn encode_ty<'tcx>(
         }
 
         ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
-        ty::HKTInfer => todo!("hoch"), // FIXMIG: what to do here?
 
         ty::Int(..) | ty::Uint(..) | ty::Float(..) => {
             // u<length><type-name> as vendor extended type
@@ -673,7 +672,6 @@ fn transform_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, options: TransformTyOptio
         _ if ty.is_unit() => {}
 
         ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
-        ty::HKTInfer => todo!("hoch"), // FIXMIG: what to do here?
 
         ty::Tuple(tys) => {
             ty = tcx.mk_tup(tys.iter().map(|ty| transform_ty(tcx, ty, options)));

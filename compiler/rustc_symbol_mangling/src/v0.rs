@@ -399,9 +399,6 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
                 unreachable!()
             }
 
-            ty::HKTInfer => {
-                todo!("hoch") // FIXMIG: what to do here?
-            }
 
             ty::Argument(..) => {
                 todo!("hoch") // FIXMIG: what to do here?

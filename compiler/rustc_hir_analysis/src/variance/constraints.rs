@@ -309,8 +309,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
             ty::Placeholder(..)
             | ty::GeneratorWitness(..)
             | ty::Bound(..)
-            | ty::Infer(..)
-            | ty::HKTInfer => {
+            | ty::Infer(..) => {
                 bug!(
                     "unexpected type encountered in \
                       variance inference: {}",

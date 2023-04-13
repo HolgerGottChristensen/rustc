@@ -664,7 +664,6 @@ impl<'tcx> TypeVisitor<'tcx> for OrphanChecker<'tcx> {
             ty::Param(..) => self.found_param_ty(ty),
             ty::HKT(..) => todo!("hoch"), // FIXMIG: what to do here?
             ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
-            ty::HKTInfer => todo!("hoch"), // FIXMIG: what to do here?
 
             ty::Placeholder(..) | ty::Bound(..) | ty::Infer(..) => match self.in_crate {
                 InCrate::Local => self.found_non_local_ty(ty),
