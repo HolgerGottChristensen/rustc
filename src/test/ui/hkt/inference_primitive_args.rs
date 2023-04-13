@@ -4,6 +4,7 @@
 fn test<I<%J>>(in1: I<u32>, in2: I<String>) {}
 
 fn main() {
-    test(false, true); //should infer to be bool
+    //should infer to be bool
+    test(false, true);
 }
 
