@@ -920,6 +920,18 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
                 self.tcx.mk_ty(ty::TyKind::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter())))
             }
+            ty::TyKind::Tuple(ty_list) => {
+                let ty_list: &'tcx List<Ty<'tcx>> = ty_list;
+
+                let new_ty_list = ty_list.iter().map(|a| {
+                    self.ty_kind_substitution(a, with, def_id, index)
+                }).collect::<Vec<_>>();
+                self.tcx.mk_tup(new_ty_list.into_iter())
+            }
+            ty::TyKind::Array(ty, size) => {
+                let new_inner = self.ty_kind_substitution(*ty, with, def_id, index);
+                self.tcx.mk_ty(ty::TyKind::Array(new_inner, *size))
+            }
             ty::TyKind::HKT(did, a, substs) => {
                 let substs: &SubstsRef<'_> = substs;
 

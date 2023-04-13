@@ -5,7 +5,7 @@ use rustc_ast::Mutability;
 use rustc_data_structures::fx::{FxHasher, FxHashMap};
 use rustc_errors::fluent_bundle::types::AnyEq;
 use rustc_middle::ty;
-use rustc_middle::ty::{AdtDef, ArgumentDef, GenericArgKind, PolyFnSig, ty_slice_as_generic_args, TyCtxt, TypeAndMut};
+use rustc_middle::ty::{AdtDef, ArgumentDef, GenericArg, GenericArgKind, PolyFnSig, TyCtxt, TypeAndMut};
 use rustc_span::def_id::DefId;
 use crate::huets::datatype::{Constraint, Context, Problem, Solution, Type, Term};
 use crate::huets::datatype::Term::{Abs, App, Meta, Var};
@@ -67,7 +67,7 @@ pub fn solution_as_ty<'tcx>(tcx: TyCtxt<'tcx>, ty_map: &FxHashMap<String, Ty<'tc
     for subst in solution.0 {
         let term = subst.with;
         let name = subst.name;
-        if let Some(ty) = map_term_to_ty(tcx, ty_map, name.clone(), term, &mut Vec::new()) {
+        if let Some(ty) = map_term_to_ty(tcx, ty_map, name.clone(), term, &mut Vec::new(), &mut vec![]) {
             tys.push(ty);
         }
     }
@@ -80,7 +80,8 @@ fn map_term_to_ty<'tcx>(
     ty_map: &FxHashMap<String, Ty<'tcx>>,
     mapping_for: String,
     term: Term,
-    type_args: &mut Vec<String>
+    type_args: &mut Vec<String>,
+    substitutions: &mut Vec<Ty<'tcx>>
 ) -> Option<Ty<'tcx>> {
     match term {
         Var(s) => {
@@ -127,56 +128,46 @@ fn map_term_to_ty<'tcx>(
         Abs(arg, t, inner_term) => {
             assert_eq!(t, Type::Star);
             type_args.push(arg);
-            map_term_to_ty(tcx, ty_map, mapping_for, *inner_term, type_args)
+            map_term_to_ty(tcx, ty_map, mapping_for, *inner_term, type_args, &mut vec![])
         }
         App(callee, call_arg) => {
-            let call_arg_ty_opt = map_term_to_ty(tcx, ty_map, mapping_for.clone(), *call_arg.clone(), type_args);
+            let call_arg_ty_opt = map_term_to_ty(tcx, ty_map, mapping_for.clone(), *call_arg.clone(), type_args, &mut vec![]);
             if let None = call_arg_ty_opt {
                 info!("cannot map following type from term 5");
                 return None;
             }
-            match *callee {
-                Var(_) => {
-                    let mapped_opt = map_term_to_ty(tcx, ty_map, mapping_for.clone(), *callee.clone(), type_args);
-                    if let None = mapped_opt {
-                        info!("cannot map following type from term 6");
-                        return None
-                    }
-                    match mapped_opt.unwrap().kind() {
-                        ty::Adt(adt_def, _) => {
-                            let new_gen_arg = ty_slice_as_generic_args(tcx.arena.alloc_from_iter([call_arg_ty_opt.unwrap()]));
-                            let subst = tcx.mk_substs(new_gen_arg.iter());
-                            //FIXMIG: remove old adt?
-                            Some(tcx.mk_adt(*adt_def, subst))
-                        }
-                        _ => {
-                            info!("cannot map following type from term 7: {:?}", mapped_opt.unwrap().kind());
-                            None
-                        }
-                    }
-                }
-                App(_, _) => None,
-                _ => None
-            }
-            /*
-            let mapped_opt = map_term_to_ty(tcx, ty_map, mapping_for.clone(), *callee.clone(), type_args);
+            let mapped_opt = map_term_to_ty(tcx, ty_map, mapping_for.clone(), *callee.clone(), type_args, substitutions);
             if let None = mapped_opt {
                 info!("cannot map following type from term 6");
                 return None
             }
+            substitutions.push(call_arg_ty_opt.unwrap());
             match mapped_opt.unwrap().kind() {
                 ty::Adt(adt_def, _) => {
-                    let new_gen_arg = ty_slice_as_generic_args(tcx.arena.alloc_from_iter([call_arg_ty_opt.unwrap()]));
-                    let subst = tcx.mk_substs(new_gen_arg.iter());
+                    let subst = tcx.mk_substs(substitutions.clone().into_iter().map(|x| GenericArg::from(x)));
                     //FIXMIG: remove old adt?
                     Some(tcx.mk_adt(*adt_def, subst))
+                }
+                ty::Tuple(_) => {
+                    Some(tcx.mk_tup(substitutions.clone().into_iter()))
+                }
+                ty::Array(_, size) => {
+                    assert_eq!(substitutions.len(), 1);
+                    Some(tcx.mk_ty(ty::Array(substitutions[0].clone(), size.clone())))
+                }
+                ty::Slice(_) => {
+                    assert_eq!(substitutions.len(), 1);
+                    Some(tcx.mk_ty(ty::Slice(substitutions[0].clone())))
+                }
+                ty::Ref(l,_,m) => {
+                    assert_eq!(substitutions.len(), 1);
+                    Some(tcx.mk_ty(ty::Ref(l.clone(), substitutions[0].clone(), m.clone())))
                 }
                 _ => {
                     info!("cannot map following type from term 7: {:?}", mapped_opt.unwrap().kind());
                     None
                 }
             }
-             */
         }
         _ => None
     }
@@ -217,34 +208,25 @@ fn map_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &
         },
         ty::Ref(_, t, m) => {
             if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, *t) {
-                match *m {
-                    Mutability::Mut => {
-                        ctxt.typing_context.insert("&mut".to_string(), Type::Arrow(Box::new(Type::Star), Box::new(Type::Star)));
-                        ty_map.insert("&mut".to_string(), rust_ty);
-                        Some((App(
-                            Box::new(Var("&mut".to_string())),
-                            Box::new(inner_ty)
-                        ), Type::Star))
-                    },
-                    Mutability::Not => {
-                        ctxt.typing_context.insert("&".to_string(), Type::Arrow(Box::new(Type::Star), Box::new(Type::Star)));
-                        ty_map.insert("&".to_string(), rust_ty);
-                        Some((App(
-                            Box::new(Var("&".to_string())),
-                            Box::new(inner_ty)
-                        ), Type::Star))
-                    },
-                }
+                // FIXMIG: add lifetime to name?
+                let ref_name = format!("&{:?}", m);
+                ctxt.typing_context.insert(ref_name.clone(), Type::Arrow(Box::new(Type::Star), Box::new(Type::Star)));
+                ty_map.insert(ref_name.clone(), rust_ty);
+                Some((App(
+                    Box::new(Var(ref_name.clone())),
+                    Box::new(inner_ty)
+                ), Type::Star))
             } else {
                 None
             }
         }
-        ty::Array(t, _) => {
+        ty::Array(t, size) => {
             if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, *t) {
-                ctxt.typing_context.insert("a[]".to_string(), Type::Arrow(Box::new(Type::Star), Box::new(Type::Star)));
-                ty_map.insert("a[]".to_string(), rust_ty);
+                let array_name = format!("a-{:?}[]", size);
+                ctxt.typing_context.insert(array_name.clone(), Type::Arrow(Box::new(Type::Star), Box::new(Type::Star)));
+                ty_map.insert(array_name.clone(), rust_ty);
                 Some((App(
-                    Box::new(Var("a[]".to_string())),
+                    Box::new(Var(array_name.clone())),
                     Box::new(inner_ty)
                 ), Type::Star))
             } else {

@@ -1411,11 +1411,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             let mut ty_map: FxHashMap<String, Ty<'tcx>> = FxHashMap::with_hasher(BuildHasherDefault::<FxHasher>::default());
             let (ctxt, constraints) = create_constraints_from_rust_tys(self.tcx, &mut ty_map, l, r);
             let mut new_ctxt = ctxt.clone();
-            info!("constraint_set: {:#?}", constraints);
+            info!("constraint_set: {}", constraints);
             info!("context in solution: {:#?}", new_ctxt);
             main_huet(&mut new_ctxt, constraints);
             let solutions_set = new_ctxt.minimal_solutions();
-            info!("solution_set: {:#?}", solutions_set);
+            info!("solution_set: {}", solutions_set);
             if let Some(sol) = solutions_set.0.first() {
                 let new_tys = solution_as_ty(self.tcx, &ty_map, sol.clone());
                 info!("new_tys: {:#?}", new_tys);

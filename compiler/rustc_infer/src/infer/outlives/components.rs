@@ -76,7 +76,7 @@ fn compute_components<'tcx>(
     // in the `subtys` iterator (e.g., when encountering a
     // projection).
     match *ty.kind() {
-        ty::Argument(..) => todo!("hoch"),
+        //ty::Argument(..) => todo!("hoch"),
         ty::HKTInfer => todo!("hoch"),
         ty::FnDef(_, substs) => {
             // HACK(eddyb) ignore lifetimes found shallowly in `substs`.
@@ -184,6 +184,7 @@ fn compute_components<'tcx>(
         // the type and then visits the types that are lexically
         // contained within. (The comments refer to relevant rules
         // from RFC1214.)
+        ty::Argument(..) |    // FIXMIG: is this correct?
         ty::Bool |            // OutlivesScalar
         ty::Char |            // OutlivesScalar
         ty::Int(..) |         // OutlivesScalar
