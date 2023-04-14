@@ -309,6 +309,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         ],
                     ) => {
                         // A reborrow has no effect before a dereference.
+                    },
+                    (
+                        &[
+                            Adjustment{kind: Adjust::Borrow(AutoBorrow::Ref(..)), ..}
+                        ],
+                        &[
+                            Adjustment{kind: Adjust::Borrow(AutoBorrow::Ref(..)), ..}
+                        ]
+                    ) => {
+                        // FIXMIG: Currently we overwrite the first adjustment with the second one,
+                        // could cause problems
                     }
                     // FIXME: currently we never try to compose autoderefs
                     // and ReifyFnPointer/UnsafeFnPointer, but we could.

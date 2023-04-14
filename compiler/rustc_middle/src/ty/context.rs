@@ -1903,7 +1903,7 @@ impl<'tcx> TyCtxt<'tcx> {
     ) -> Ty<'tcx> {
         let substs = self.check_substs(def_id, substs);
         info!("creating function with substs: {:#?}", substs);
-        info!("stacktrace: {:#?}", std::backtrace::Backtrace::capture());
+        //info!("stacktrace: {:#?}", std::backtrace::Backtrace::capture());
         self.mk_ty(FnDef(def_id, substs))
     }
 

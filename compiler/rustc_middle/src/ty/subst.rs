@@ -21,6 +21,7 @@ use std::mem;
 use std::num::NonZeroUsize;
 use std::ops::{ControlFlow, Deref};
 use std::slice;
+use rustc_middle::ty::PolyFnSig;
 use rustc_span::Symbol;
 
 /// An entity in the Rust type system, which can be one of
@@ -945,6 +946,35 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                 }).collect::<Vec<_>>();
 
                 self.tcx.mk_ty(ty::TyKind::HKT(*did, *a, self.tcx.mk_substs(new_substs.into_iter())))
+            }
+            ty::FnDef(defid, substs) => {
+                let substs: &SubstsRef<'_> = substs;
+
+                let new_substs = substs.iter().map(|a| {
+                    match a.unpack() {
+                        GenericArgKind::Const(_)
+                        | GenericArgKind::Lifetime(_) => a,
+                        GenericArgKind::Type(t) => {
+                            self.ty_kind_substitution(t, with, def_id, index).into()
+                        }
+                    }
+                }).collect::<Vec<_>>();
+
+                self.tcx.mk_ty(ty::TyKind::FnDef(defid.clone(), self.tcx.mk_substs(new_substs.into_iter())))
+            }
+            ty::FnPtr(polyfnsig) => {
+                let poly: PolyFnSig<'tcx> = *polyfnsig;
+
+                let new_poly = poly.map_bound(|ty::FnSig{ inputs_and_output, c_variadic, unsafety, abi }| {
+                    ty::FnSig {
+                       inputs_and_output: self.tcx.mk_type_list(inputs_and_output.into_iter().map(|t| self.ty_kind_substitution(t, with, def_id, index))),
+                       c_variadic,
+                       unsafety,
+                       abi,
+                   }
+                });
+
+                self.tcx.mk_fn_ptr(new_poly)
             }
             _ => {
                 todo!("here: {:#?} with {:#?}, def_id: {:?}:{:?}", ty.kind(), with.kind(), def_id, index)

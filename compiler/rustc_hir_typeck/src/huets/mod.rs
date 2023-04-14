@@ -163,6 +163,34 @@ fn map_term_to_ty<'tcx>(
                     assert_eq!(substitutions.len(), 1);
                     Some(tcx.mk_ty(ty::Ref(l.clone(), substitutions[0].clone(), m.clone())))
                 }
+                ty::FnPtr(fnpolysig) => {
+                    let new_poly = fnpolysig.map_bound(|ty::FnSig{ c_variadic, unsafety, abi, .. }| {
+                        ty::FnSig {
+                            inputs_and_output: tcx.mk_type_list(substitutions.iter()),
+                            c_variadic,
+                            unsafety,
+                            abi,
+                        }
+                    });
+                    Some(tcx.mk_fn_ptr(new_poly))
+                }
+                ty::FnDef(def_id, _) => {
+                    // FIXMIG: We cannot map to FnPtr every time. If FnDef is a closure then we cannot map it back to a FnPtr
+                    /*let car_ty = tcx.mk_ty(ty::Char);
+                    let subst = tcx.mk_substs([car_ty].into_iter().map(|x| GenericArg::from(x)));
+                    Some(tcx.mk_fn_def(*defid, subst))*/
+                    let fn_sig: PolyFnSig<'tcx> = tcx.fn_sig(def_id);
+
+                    let new_poly = fn_sig.map_bound(|ty::FnSig{ c_variadic, unsafety, abi, .. }| {
+                        ty::FnSig {
+                            inputs_and_output: tcx.mk_type_list(substitutions.iter()),
+                            c_variadic,
+                            unsafety,
+                            abi,
+                        }
+                    });
+                    Some(tcx.mk_fn_ptr(new_poly))
+                }
                 _ => {
                     info!("cannot map following type from term 7: {:?}", mapped_opt.unwrap().kind());
                     None
@@ -353,6 +381,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &
             }
         }
         ty::FnDef(did, _) => {
+            // FIXMIG: We should take account for binders and unsafety which are found in fn_sig
             let fn_sig : PolyFnSig<'tcx> = tcx.fn_sig(did);
             let fn_inputs = fn_sig.skip_binder().inputs();
             let fn_output = fn_sig.skip_binder().output();
@@ -462,6 +491,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &
             Some((Meta(param_name), Type::Star))
         }
         ty::FnPtr(polysig) => {
+            // FIXMIG: We need to take account for unsafety field in PolyFnSig
             let sig: PolyFnSig<'tcx> = *polysig;
             let fn_inputs = sig.skip_binder().inputs();
             let fn_output = sig.skip_binder().output();
