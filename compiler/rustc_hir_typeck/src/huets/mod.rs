@@ -5,9 +5,10 @@ use rustc_ast::Mutability;
 use rustc_data_structures::fx::{FxHasher, FxHashMap};
 use rustc_errors::fluent_bundle::types::AnyEq;
 use rustc_middle::ty;
-use rustc_middle::ty::{AdtDef, ArgumentDef, GenericArg, GenericArgKind, PolyFnSig, TyCtxt, TypeAndMut};
+use rustc_middle::ty::{AdtDef, ArgumentDef, ClosureSubsts, GenericArg, GenericArgKind, PolyFnSig, TyCtxt, TypeAndMut};
 use rustc_span::def_id::DefId;
-use crate::huets::datatype::{Constraint, Context, Problem, Solution, Type, Term};
+use rustc_target::spec::abi::Abi;
+use crate::huets::datatype::{Constraint, Context, Problem, Solution, Type, Term, SolutionSet};
 use crate::huets::datatype::Term::{Abs, App, Meta, Var};
 use crate::huets::r#match::match_;
 use crate::huets::simpl::simpl;
@@ -19,6 +20,7 @@ mod substs;
 mod r#match;
 mod simpl;
 mod print;
+mod util;
 
 
 pub fn main_huet(context: &mut Context, problem: Problem) {
@@ -73,6 +75,113 @@ pub fn solution_as_ty<'tcx>(tcx: TyCtxt<'tcx>, ty_map: &FxHashMap<String, Ty<'tc
     }
     tys.reverse();
     tys
+}
+
+pub fn get_solution_from_solution_set(solutions: SolutionSet) -> Result<Solution, SolutionSet> {
+    let existence_filtered = existence(solutions);
+    let generality_filtered = generality(existence_filtered);
+    let exhaustiveness_filtered = exhaustiveness(generality_filtered);
+    let ordering_filtered = ordering(exhaustiveness_filtered);
+    let simplicity_filterered = simplicity(ordering_filtered);
+
+    if simplicity_filterered.0.len() == 1 {
+        Ok(simplicity_filterered.0[0].clone())
+    } else {
+        Err(simplicity_filterered)
+    }
+}
+
+fn existence(mut solutions: SolutionSet) -> SolutionSet {
+    solutions.0.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+    let mut new_list = Vec::new();
+    if let Some(first) = solutions.0.first() {
+        let max = first.0.len();
+
+        while let Some(elem) = solutions.0.pop() {
+            if elem.0.len() == max {
+                new_list.push(elem);
+            }
+        }
+    }
+    SolutionSet(new_list)
+}
+
+fn generality(mut solutions: SolutionSet) -> SolutionSet {
+    solutions.0.sort_by(|a, b| {
+        a.number_of_constants().cmp(&b.number_of_constants())
+    });
+
+    let mut new_list = Vec::new();
+    if let Some(first) = solutions.0.first() {
+        let max = first.number_of_constants();
+
+        while let Some(elem) = solutions.0.pop() {
+            if elem.number_of_constants() == max {
+                new_list.push(elem);
+            }
+        }
+    }
+
+    SolutionSet(new_list)
+}
+
+fn exhaustiveness(mut solutions: SolutionSet) -> SolutionSet {
+    solutions.0.sort_by(|a, b| {
+        b.number_of_unique_params().cmp(&a.number_of_unique_params())
+    });
+
+    let mut new_list = Vec::new();
+    if let Some(first) = solutions.0.first() {
+        let max = first.number_of_unique_params();
+
+        while let Some(elem) = solutions.0.pop() {
+            if elem.number_of_unique_params() == max {
+                new_list.push(elem);
+            }
+        }
+    }
+
+    SolutionSet(new_list)
+}
+
+fn ordering(mut solutions: SolutionSet) -> SolutionSet {
+    solutions.0.sort_by(|a, b| {
+        // FIXMIG : what to we sort by?
+        a.number_of_swaps().cmp(&b.number_of_swaps())
+    });
+
+    let mut new_list = Vec::new();
+    if let Some(first) = solutions.0.first() {
+        let max = first.number_of_swaps();
+
+        while let Some(elem) = solutions.0.pop() {
+            if elem.number_of_swaps() == max {
+                new_list.push(elem);
+            }
+        }
+    }
+
+    SolutionSet(new_list)
+}
+
+fn simplicity(mut solutions: SolutionSet) -> SolutionSet {
+    solutions.0.sort_by(|a, b| {
+        // FIXMIG : what to we sort by?
+        a.number_of_params().cmp(&b.number_of_params())
+    });
+
+    let mut new_list = Vec::new();
+    if let Some(first) = solutions.0.first() {
+        let max = first.number_of_params();
+
+        while let Some(elem) = solutions.0.pop() {
+            if elem.number_of_params() == max {
+                new_list.push(elem);
+            }
+        }
+    }
+
+    SolutionSet(new_list)
 }
 
 fn map_term_to_ty<'tcx>(
@@ -172,7 +281,27 @@ fn map_term_to_ty<'tcx>(
                             abi,
                         }
                     });
+                    info!("its a function pointer!");
                     Some(tcx.mk_fn_ptr(new_poly))
+                }
+                ty::Closure(_,substs) => {
+                    let substss : ClosureSubsts<'tcx> = ClosureSubsts { substs };
+
+                    let fn_sig = substss.sig();
+
+                    let new_poly = fn_sig.map_bound(|ty::FnSig{ c_variadic, unsafety, abi, .. }| {
+                        info!("fucking abi {:#?}", abi);
+                        ty::FnSig {
+                            inputs_and_output: tcx.mk_type_list(substitutions.iter()),
+                            c_variadic,
+                            unsafety,
+                            abi: Abi::Rust, // FIXMIG: should we not do this?
+                        }
+                    });
+
+
+                    Some(tcx.mk_ty(ty::FnPtr(new_poly)))
+
                 }
                 ty::FnDef(def_id, _) => {
                     // FIXMIG: We cannot map to FnPtr every time. If FnDef is a closure then we cannot map it back to a FnPtr
@@ -189,6 +318,7 @@ fn map_term_to_ty<'tcx>(
                             abi,
                         }
                     });
+                    info!("its a function def!");
                     Some(tcx.mk_fn_ptr(new_poly))
                 }
                 _ => {
@@ -312,16 +442,6 @@ fn map_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &
             ctxt.typing_context.insert(v.to_string(), Type::Star);
             ty_map.insert(v.to_string(), rust_ty);
             Some((Var(v.to_string()), Type::Star))
-            /*
-            match *v {
-                InferTy::TyVar(id) =>,
-                InferTy::IntVar(_) =>,
-                InferTy::FloatVar(_) =>,
-                InferTy::FreshTy(_) =>,
-                InferTy::FreshIntTy(_) =>,
-                InferTy::FreshFloatTy(_) =>,
-            }
-            */
         }
         ty::RawPtr(TypeAndMut {ty, mutbl}) => {
             if let Some((inner_ty, _)) = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, *ty) {
@@ -385,38 +505,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &
             let fn_sig : PolyFnSig<'tcx> = tcx.fn_sig(did);
             let fn_inputs = fn_sig.skip_binder().inputs();
             let fn_output = fn_sig.skip_binder().output();
-            let fn_name = format!("fn{}", fn_inputs.len());
-            /*
-            if substs.len() == 0 {
-                ctxt.typing_context.insert(fn_name.clone(), Type::Star);
-                ty_map.insert(fn_name.clone(), rust_ty);
-                Some((Var(fn_name), Type::Star))
-            } else {
-                let mut counter = 0;
-                let mut term_acc = Var(fn_name.clone());
-                let mut term_kind = Type::Star;
-                while counter < substs.len() {
-                    let i = match substs[counter].unpack() {
-                        GenericArgKind::Type(ty) => map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, ty),
-                        _ => None
-                    };
-                    if let Some((t, _)) = i {
-                        term_kind = Type::Arrow(
-                            Box::new(Type::Star),
-                            Box::new(term_kind)
-                        );
-                        term_acc = App(
-                            Box::new(term_acc),
-                            Box::new(t)
-                        )
-                    }
-                    counter += 1;
-                }
-                ctxt.typing_context.insert(fn_name.clone(), term_kind.clone());
-                ty_map.insert(fn_name.clone(), rust_ty);
-                Some((term_acc, term_kind))
-            }
-            */
+            let fn_name = format!("fn{}{}", fn_sig.unsafety(), fn_inputs.len());
 
             ty_map.insert(fn_name.clone(), rust_ty);
 
@@ -453,6 +542,54 @@ fn map_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &
             ctxt.typing_context.insert(fn_name.clone(), term_kind.clone());
             ty_map.insert(fn_name.clone(), rust_ty);
             Some((term_acc, term_kind))
+        }
+        ty::Closure(_,substs) => {
+            let fn_sig : PolyFnSig<'tcx> = substs.as_closure().sig();
+            let fn_inputs_container = fn_sig.skip_binder().inputs();
+            let fn_inputs = match fn_inputs_container.first().unwrap().kind() {
+                ty::Tuple(list_ty) => list_ty.clone(),
+                _ => panic!("closure should only have tuple as input")
+            };
+            info!("closure inputs {:#?}", fn_inputs);
+            let fn_output = fn_sig.skip_binder().output();
+            let fn_name = format!("fn{}{}", fn_sig.unsafety(), fn_inputs.len());
+
+            ty_map.insert(fn_name.clone(), rust_ty);
+
+            let mut term_acc = Var(fn_name.clone());
+            let mut term_kind = Type::Star;
+
+            for input_ty in fn_inputs {
+                let term_opt = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, input_ty.clone());
+
+                if let Some((term, _)) = term_opt {
+                    term_kind = Type::Arrow(
+                        Box::new(Type::Star),
+                        Box::new(term_kind)
+                    );
+                    term_acc = App(
+                        Box::new(term_acc),
+                        Box::new(term)
+                    );
+                }
+            }
+
+            let output_term_opt = map_rust_ty_to_huet_ty(tcx, ctxt, ty_map, fn_output.clone());
+            if let Some((term, _)) = output_term_opt {
+                term_kind = Type::Arrow(
+                    Box::new(Type::Star),
+                    Box::new(term_kind)
+                );
+                term_acc = App(
+                    Box::new(term_acc),
+                    Box::new(term)
+                );
+            }
+
+            ctxt.typing_context.insert(fn_name.clone(), term_kind.clone());
+            ty_map.insert(fn_name.clone(), rust_ty);
+            Some((term_acc, term_kind))
+
         }
         ty::HKT(did, _, substs) => {
             let hkt_name = format!("{:?}", did);
@@ -496,7 +633,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &
             let fn_inputs = sig.skip_binder().inputs();
             let fn_output = sig.skip_binder().output();
 
-            let fn_name = format!("fn{}", fn_inputs.len());
+            let fn_name = format!("fn{}{}", sig.unsafety(), fn_inputs.len());
             ty_map.insert(fn_name.clone(), rust_ty);
 
             let mut term_acc = Var(fn_name.clone());

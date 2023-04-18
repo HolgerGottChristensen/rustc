@@ -976,6 +976,20 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
                 self.tcx.mk_fn_ptr(new_poly)
             }
+            /*
+            ty::Closure(defid, inner) => {
+                let closure_subst = ClosureSubsts { substs: inner.clone()};
+                closure_subst.sig_as_fn_ptr_ty().fn_sig(self.tcx).map_bound(|ty::FnSig{ inputs_and_output, c_variadic, unsafety, abi }| {
+                    ty::FnSig {
+                        inputs_and_output: self.tcx.mk_type_list(inputs_and_output.into_iter().map(|t| self.ty_kind_substitution(t, with, def_id, index))),
+                        c_variadic,
+                        unsafety,
+                        abi,
+                    }
+                });
+                self.tcx.mk_closure(defid.clone(), closure_subst.substs)
+            }
+            */
             _ => {
                 todo!("here: {:#?} with {:#?}, def_id: {:?}:{:?}", ty.kind(), with.kind(), def_id, index)
             }

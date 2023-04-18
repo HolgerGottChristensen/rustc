@@ -4,10 +4,11 @@ use std::rc::Rc;
 use std::str::FromStr;
 use std::string::ToString;
 use std::sync::atomic::{AtomicU32, Ordering};
-use rustc_data_structures::fx::FxHashMap;
-use crate::huets::datatype::Term::{Abs, App, Var};
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use crate::huets::datatype::Term::{Abs, App, Meta, Var};
 use crate::huets::datatype::Type::Star;
 use crate::huets::substs::{beta_reduce, term_substitution};
+use crate::huets::util::amount_of_swaps_to_sort;
 
 const PLACEHOLDER: &'static str = "placeholder";
 
@@ -127,6 +128,110 @@ impl Term {
         }
         last_seen_index.map(|index| depth - index)
     }
+
+    pub fn number_of_constants(&self, bounded: FxHashSet<String>) -> usize {
+
+        match self {
+            Var(s) => {
+                if bounded.contains(s) {
+                    0
+                } else {
+                    1
+                }
+            }
+            Abs(s, _, inner) => {
+                let mut new_bounded = bounded.clone();
+                new_bounded.insert(s.clone());
+                inner.number_of_constants(new_bounded)
+            }
+            App(a, call_arg) if matches!(**a, Var(_)) => {
+                call_arg.number_of_constants(bounded)
+            }
+            App(callee, call_arg) => {
+                callee.number_of_constants(bounded.clone()) + call_arg.number_of_constants(bounded)
+            }
+            Meta(..) => 0
+        }
+    }
+
+    pub fn number_of_unique_params(&self, bounded: FxHashSet<String>) -> FxHashSet<String> {
+
+        match self {
+            Var(s) => {
+                if bounded.contains(s) {
+                    let mut set = FxHashSet::default();
+                    set.insert(s.clone());
+                    set
+                } else {
+                    FxHashSet::default()
+                }
+            }
+            Abs(s, _, inner) => {
+                let mut new_bounded = bounded.clone();
+                new_bounded.insert(s.clone());
+                inner.number_of_unique_params(new_bounded)
+            }
+            App(a, call_arg) if matches!(**a, Var(_)) => {
+                call_arg.number_of_unique_params(bounded)
+            }
+            App(callee, call_arg) => {
+                &callee.number_of_unique_params(bounded.clone()) | &call_arg.number_of_unique_params(bounded)
+            }
+            Meta(..) => FxHashSet::default()
+        }
+    }
+
+    pub fn number_of_params(&self, bounded: FxHashSet<String>) -> usize {
+
+        match self {
+            Var(s) => {
+                if bounded.contains(s) {
+                    1
+                } else {
+                    0
+                }
+            }
+            Abs(s, _, inner) => {
+                let mut new_bounded = bounded.clone();
+                new_bounded.insert(s.clone());
+                inner.number_of_params(new_bounded)
+            }
+            App(a, call_arg) if matches!(**a, Var(_)) => {
+                call_arg.number_of_params(bounded)
+            }
+            App(callee, call_arg) => {
+                &callee.number_of_params(bounded.clone()) + &call_arg.number_of_params(bounded)
+            }
+            Meta(..) => 0
+        }
+    }
+
+    pub fn number_of_swaps(&self, bounded: FxHashSet<String>) -> Vec<usize> {
+
+        match self {
+            Var(s) => {
+                if bounded.contains(s) {
+                    Vec::from([s.parse::<usize>().unwrap()])
+                } else {
+                    Vec::new()
+                }
+            }
+            Abs(s, _, inner) => {
+                let mut new_bounded = bounded.clone();
+                new_bounded.insert(s.clone());
+                inner.number_of_swaps(new_bounded)
+            }
+            App(a, call_arg) if matches!(**a, Var(_)) => {
+                call_arg.number_of_swaps(bounded)
+            }
+            App(callee, call_arg) => {
+                let mut first = callee.number_of_swaps(bounded.clone());
+                first.append(&mut call_arg.number_of_swaps(bounded));
+                first
+            }
+            Meta(..) => Vec::new()
+        }
+    }
 }
 
 impl Constraint {
@@ -173,6 +278,41 @@ impl Solution {
         }
 
         Solution(originals)
+    }
+
+    pub fn number_of_constants(&self) -> usize {
+        self.0.iter().map(|a| a.number_of_constants()).sum()
+    }
+
+    pub fn number_of_unique_params(&self) -> usize {
+        self.0.iter().map(|a| a.number_of_unique_params()).sum()
+    }
+
+    pub fn number_of_params(&self) -> usize {
+        self.0.iter().map(|a| a.number_of_params()).sum()
+    }
+
+    pub fn number_of_swaps(&self) -> usize {
+        self.0.iter().map(|a| a.number_of_swaps()).sum()
+    }
+}
+
+impl Substitution {
+    pub fn number_of_unique_params(&self) -> usize {
+        self.with.number_of_unique_params(FxHashSet::default()).len()
+    }
+
+    pub fn number_of_params(&self) -> usize {
+        self.with.number_of_params(FxHashSet::default())
+    }
+
+    pub fn number_of_constants(&self) -> usize {
+        self.with.number_of_constants(FxHashSet::default())
+    }
+
+    pub fn number_of_swaps(&self) -> usize {
+        let list = self.with.number_of_swaps(FxHashSet::default());
+        amount_of_swaps_to_sort(list)
     }
 }
 

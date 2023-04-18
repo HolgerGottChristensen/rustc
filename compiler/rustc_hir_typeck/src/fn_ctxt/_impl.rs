@@ -35,7 +35,7 @@ use std::collections::hash_map::Entry;
 use std::hash::BuildHasherDefault;
 use std::slice;
 use rustc_index::vec::Idx;
-use crate::huets::{create_constraints_from_rust_tys, main_huet, solution_as_ty};
+use crate::huets::{create_constraints_from_rust_tys, get_solution_from_solution_set, main_huet, solution_as_ty};
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Produces warning on the given node, if the current point in the
@@ -1427,12 +1427,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             main_huet(&mut new_ctxt, constraints);
             let solutions_set = new_ctxt.minimal_solutions();
             info!("solution_set: {}", solutions_set);
-            if let Some(sol) = solutions_set.0.first() {
-                let new_tys = solution_as_ty(self.tcx, &ty_map, sol.clone());
-                info!("new_tys: {:#?}", new_tys);
-                Some(new_tys)
-            } else {
-                None
+
+            match get_solution_from_solution_set(solutions_set) {
+                Ok(sol) => {
+                    let new_tys = solution_as_ty(self.tcx, &ty_map, sol.clone());
+                    info!("new_tys: {:#?}", new_tys);
+                    Some(new_tys)
+                }
+                Err(sols) => {
+                    info!("too many solutions: {}", sols);
+                    None
+                }
             }
         } else {
             None
