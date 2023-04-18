@@ -177,6 +177,10 @@ fn compute_components<'tcx>(
             out.push(Component::UnresolvedInferenceVariable(infer_ty));
         }
 
+        ty::InferHKT(infer_ty, ..) => {
+            out.push(Component::UnresolvedInferenceVariable(infer_ty));
+        }
+
         // Most types do not introduce any region binders, nor
         // involve any other subtle cases, and so the WF relation
         // simply constraints any regions referenced directly by

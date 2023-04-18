@@ -205,6 +205,7 @@ pub enum TyKind<I: Interner> {
     /// that universe is stored in the `InferCtxt` instead of directly
     /// inside of the type.
     Infer(I::InferTy),
+    InferHKT(I::InferTy, I::SubstsRef),
 
     /// A placeholder for a type which could not be computed; this is
     /// propagated to avoid useless error messages.
@@ -250,7 +251,8 @@ const fn tykind_discriminant<I: Interner>(value: &TyKind<I>) -> usize {
         Infer(_) => 24,
         Error(_) => 25,
         HKT(..) => 26,
-        Argument(..) => 27
+        Argument(..) => 27,
+        InferHKT(..) => 28
     }
 }
 
@@ -285,7 +287,8 @@ impl<I: Interner> Clone for TyKind<I> {
             Infer(t) => Infer(t.clone()),
             Error(e) => Error(e.clone()),
             HKT(did, p, s) => HKT(did.clone(), p.clone(), s.clone()),
-            Argument(s) => Argument(s.clone())
+            Argument(s) => Argument(s.clone()),
+            InferHKT(t, s) => InferHKT(t.clone(), s.clone()),
         }
     }
 }
@@ -323,6 +326,7 @@ impl<I: Interner> PartialEq for TyKind<I> {
                 (Bound(a_d, a_b), Bound(b_d, b_b)) => a_d == b_d && a_b == b_b,
                 (Placeholder(a_p), Placeholder(b_p)) => a_p == b_p,
                 (Infer(a_t), Infer(b_t)) => a_t == b_t,
+                (InferHKT(a_t, a_s), InferHKT(b_t, b_s)) => a_t == b_t && a_s == b_s,
                 (Error(a_e), Error(b_e)) => a_e == b_e,
                 (Bool, Bool) | (Char, Char) | (Str, Str) | (Never, Never) => true,
                 _ => {
@@ -459,6 +463,10 @@ impl<I: Interner> hash::Hash for TyKind<I> {
                 v.hash(state)
             }
             Bool | Char | Str | Never => (),
+            InferHKT(t, s) => {
+                t.hash(state);
+                s.hash(state)
+            }
         }
     }
 }
@@ -495,6 +503,7 @@ impl<I: Interner> fmt::Debug for TyKind<I> {
             HKT(did, d, s) => f.debug_tuple_field3_finish("HKT", did, d, s),
             Argument(v) => f.debug_tuple_field1_finish("Argument", v),
             TyKind::Error(e) => f.debug_tuple_field1_finish("Error", e),
+            InferHKT(t, s) => f.debug_tuple_field2_finish("InferHKT", t, s),
         }
     }
 }
@@ -617,7 +626,11 @@ where
             }),
             Argument(v) => e.emit_enum_variant(disc, |e| {
                 v.encode(e);
-            })
+            }),
+            InferHKT(t, s) => {
+                t.encode(e);
+                s.encode(e);
+            }
         }
     }
 }
@@ -812,6 +825,10 @@ where
             }
             Argument(v) => {
                 v.hash_stable(__hcx, __hasher);
+            }
+            InferHKT(i, s) => {
+                i.hash_stable(__hcx, __hasher);
+                s.hash_stable(__hcx, __hasher);
             }
         }
     }

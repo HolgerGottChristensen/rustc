@@ -693,6 +693,23 @@ pub trait PrettyPrinter<'tcx>:
                     if verbose { p!(write("{:?}", infer_ty)) } else { p!(write("{:?}", infer_ty)) }
                 }
             }
+            ty::InferHKT(infer_ty, substs) => {
+                let verbose = self.should_print_verbose();
+                if let ty::TyVar(ty_vid) = infer_ty {
+                    if let Some(name) = self.ty_infer_name(ty_vid) {
+                        p!(write("{}", name))
+                    } else {
+                        if verbose {
+                            p!(write("{:?}", infer_ty))
+                        } else {
+                            p!(write("{:?}", infer_ty))
+                        }
+                    }
+                } else {
+                    if verbose { p!(write("{:?}", infer_ty)) } else { p!(write("{:?}", infer_ty)) }
+                }
+                self = self.generic_delimiters(|cx| cx.comma_sep(substs.iter()))?;
+            }
             ty::Error(_) => p!("[type error]"),
             ty::Param(ref param_ty) => p!(print(param_ty)),
             ty::HKT(_, ref param_ty, substs) => {

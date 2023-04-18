@@ -65,7 +65,7 @@ fn sized_constraint_for_ty<'tcx>(
             if predicates.iter().any(|(p, _)| *p == sized_predicate) { vec![] } else { vec![ty] }
         }
 
-        Placeholder(..) | Bound(..) | Infer(..) => {
+        Placeholder(..) | Bound(..) | Infer(..) | InferHKT(..) => {
             bug!("unexpected type `{:?}` in sized_constraint_for_ty", ty)
         }
     };

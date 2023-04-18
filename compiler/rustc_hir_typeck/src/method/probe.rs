@@ -16,7 +16,7 @@ use rustc_infer::infer::{self, InferOk, TyCtxtInferExt};
 use rustc_middle::infer::unify_key::{ConstVariableOrigin, ConstVariableOriginKind};
 use rustc_middle::middle::stability;
 use rustc_middle::ty::fast_reject::{simplify_type, TreatParams};
-use rustc_middle::ty::{AssocItem, EarlyBinder, HKTSubstType, TraitRef};
+use rustc_middle::ty::{ArgumentDef, AssocItem, EarlyBinder, Generics, HKTSubstType, TraitRef};
 use rustc_middle::ty::GenericParamDefKind;
 use rustc_middle::ty::ToPredicate;
 use rustc_middle::ty::{self, ParamEnvAnd, Ty, TyCtxt, TypeFoldable, TypeVisitable};
@@ -1047,7 +1047,9 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         trait_def_id: DefId,
     ) {
         let trait_substs = self.fresh_item_substs(trait_def_id);
+        info!("Trait substs: {:?}", trait_substs);
         let trait_ref = self.tcx.mk_trait_ref(trait_def_id, trait_substs);
+        info!("Trait ref: {:#?}", trait_ref);
 
         if self.tcx.is_trait_alias(trait_def_id) {
             // For trait aliases, assume all supertraits are relevant.
@@ -1077,6 +1079,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             if self.tcx.trait_is_auto(trait_def_id) {
                 return;
             }
+
             for item in self.impl_or_trait_item(trait_def_id) {
                 // Check whether `trait_def_id` defines a method with suitable name.
                 if !self.has_applicable_self(&item) {
@@ -1085,8 +1088,8 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     continue;
                 }
 
-                let (xform_self_ty, xform_ret_ty) =
-                    self.xform_self_ty(&item, trait_ref.self_ty(), trait_substs);
+                let (xform_self_ty, xform_ret_ty) = self.xform_self_ty(&item, trait_ref.self_ty(), trait_substs);
+
                 self.push_candidate(
                     Candidate {
                         xform_self_ty,
@@ -1922,10 +1925,10 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         }
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     fn xform_method_sig(&self, method: DefId, substs: SubstsRef<'tcx>) -> ty::FnSig<'tcx> {
         let fn_sig = self.tcx.bound_fn_sig(method);
-        debug!(?fn_sig);
+        info!("Signature: {:?}", fn_sig);
 
         assert!(!substs.has_escaping_bound_vars());
 
@@ -1938,8 +1941,10 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         assert_eq!(substs.len(), generics.parent_count as usize);
 
         let xform_fn_sig = if generics.params.is_empty() {
+            info!("Generic params empty");
             fn_sig.subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType)
         } else {
+            info!("Generic params not empty");
             let substs = InternalSubsts::for_item(self.tcx, method, |param, _| {
                 let i = param.index as usize;
                 if i < substs.len() {
@@ -1959,6 +1964,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     }
                 }
             });
+
             fn_sig.subst(self.tcx, substs, HKTSubstType::SubstHKTParamWithType)
         };
 
@@ -1991,11 +1997,23 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 self.next_const_var(self.tcx.type_of(param.def_id), origin).into()
             }
             GenericParamDefKind::HKT => {
+                let generics: &Generics = self.tcx.generics_of(param.def_id);
+
+                let arguments = generics.params.iter().cloned().map(|inner_param| {
+                    self.tcx.mk_ty(ty::Argument(ArgumentDef {
+                        def_id: param.def_id,
+                        index: inner_param.index,
+                        name: inner_param.name,
+                    }))
+                });
+
+                let substs = self.tcx.mk_substs(arguments.map(ty::GenericArg::from));
+
                 // FIXMIG: what to do here?
-                self.next_ty_var(TypeVariableOrigin {
+                self.next_hkt_var(TypeVariableOrigin {
                     kind: TypeVariableOriginKind::SubstitutionPlaceholder,
                     span: self.tcx.def_span(def_id),
-                }).into()
+                }, substs).into()
             }
         })
     }

@@ -2180,6 +2180,7 @@ impl<'tcx> Ty<'tcx> {
 
             ty::Bound(..)
             | ty::Placeholder(_)
+            | ty::InferHKT(..)
             | ty::Infer(FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
                 bug!("`discriminant_ty` applied to unexpected type: {:?}", self)
             }
@@ -2237,6 +2238,7 @@ impl<'tcx> Ty<'tcx> {
 
             ty::Infer(ty::TyVar(_))
             | ty::Bound(..)
+            | ty::InferHKT(..)
             | ty::Placeholder(..)
             | ty::Infer(ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
                 bug!("`ptr_metadata_ty` applied to unexpected type: {:?} (tail = {:?})", self, tail)
@@ -2312,6 +2314,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Alias(..) | ty::Param(_) | ty::HKT(..) => false,
 
             ty::Infer(ty::TyVar(_)) => false,
+            ty::InferHKT(..) => false,
 
             ty::Argument(..) => {
                 todo!("hoch") // FIXMIG: what to do here?
@@ -2378,7 +2381,7 @@ impl<'tcx> Ty<'tcx> {
             // Needs normalization or revealing to determine, so no is the safe answer.
             ty::Alias(..) => false,
 
-            ty::HKT(..) | ty::Param(..) | ty::Infer(..) | ty::Error(..) => false,
+            ty::HKT(..) | ty::Param(..) | ty::Infer(..) | ty::InferHKT(..) | ty::Error(..) => false,
 
             ty::Bound(..) | ty::Placeholder(..) => {
                 bug!("`is_trivially_pure_clone_copy` applied to unexpected type: {:?}", self);

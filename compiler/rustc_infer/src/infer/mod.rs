@@ -30,7 +30,7 @@ use rustc_middle::ty::relate::RelateResult;
 use rustc_middle::ty::subst::{GenericArg, GenericArgKind, InternalSubsts, SubstsRef};
 use rustc_middle::ty::visit::TypeVisitable;
 pub use rustc_middle::ty::IntVarValue;
-use rustc_middle::ty::{self, GenericParamDefKind, HKTSubstType, InferConst, Ty, TyCtxt};
+use rustc_middle::ty::{self, ArgumentDef, EarlyBinder, GenericParamDefKind, Generics, HKTSubstType, InferConst, Ty, TyCtxt};
 use rustc_middle::ty::{ConstVid, FloatVid, IntVid, TyVid};
 use rustc_span::symbol::Symbol;
 use rustc_span::Span;
@@ -1028,6 +1028,10 @@ impl<'tcx> InferCtxt<'tcx> {
         self.tcx.mk_ty_var(self.next_ty_var_id(origin))
     }
 
+    pub fn next_hkt_var(&self, origin: TypeVariableOrigin, substs: SubstsRef<'tcx>) -> Ty<'tcx> {
+        self.tcx.mk_hkt_var(self.next_ty_var_id(origin), substs)
+    }
+
     pub fn next_ty_var_id_in_universe(
         &self,
         origin: TypeVariableOrigin,
@@ -1179,6 +1183,18 @@ impl<'tcx> InferCtxt<'tcx> {
                 self.tcx.mk_const(const_var_id, self.tcx.type_of(param.def_id)).into()
             }
             GenericParamDefKind::HKT => {
+                let generics: &Generics = self.tcx.generics_of(param.def_id);
+
+                let arguments = generics.params.iter().cloned().map(|inner_param| {
+                    self.tcx.mk_ty(ty::Argument(ArgumentDef {
+                        def_id: param.def_id,
+                        index: inner_param.index,
+                        name: inner_param.name,
+                    }))
+                });
+
+                let substs = self.tcx.mk_substs(arguments.map(ty::GenericArg::from));
+
                 //todo!("hoch")
                 let ty_var_id = self.inner.borrow_mut().type_variables().new_var(
                     self.universe(),
@@ -1191,7 +1207,7 @@ impl<'tcx> InferCtxt<'tcx> {
                     },
                 );
 
-                self.tcx.mk_ty_var(ty_var_id).into()
+                self.tcx.mk_hkt_var(ty_var_id, substs).into()
             }
         }
     }
@@ -1928,6 +1944,42 @@ impl<'a, 'tcx> TypeFolder<'tcx> for ShallowResolver<'a, 'tcx> {
                 // dynamic borrow errors on `self.inner`.
                 let known = self.infcx.inner.borrow_mut().type_variables().probe(v).known();
                 known.map_or(ty, |t| self.fold_ty(t))
+            }
+
+            ty::InferHKT(ty::TyVar(v), substs) => {
+                // Not entirely obvious: if `typ` is a type variable,
+                // it can be resolved to an int/float variable, which
+                // can then be recursively resolved, hence the
+                // recursion. Note though that we prevent type
+                // variables from unifying to other type variables
+                // directly (though they may be embedded
+                // structurally), and we prevent cycles in any case,
+                // so this recursion should always be of very limited
+                // depth.
+                //
+                // Note: if these two lines are combined into one we get
+                // dynamic borrow errors on `self.inner`.
+
+                let substs: SubstsRef<'tcx> = substs;
+                let new_substs = self.infcx.tcx.mk_substs(substs.iter().map(|arg| {
+                    match arg.unpack() {
+                        GenericArgKind::Lifetime(_) => arg,
+                        GenericArgKind::Type(ty) => {
+                            self.fold_ty(ty).into()
+                        }
+                        GenericArgKind::Const(_) => arg,
+                    }
+                }));
+
+                let known = self.infcx.inner.borrow_mut().type_variables().probe(v).known();
+                info!("Known for InferHKT({:?}): {:?}", ty, known);
+
+                if let Some(known) = known {
+                    let t = EarlyBinder(known).subst(self.infcx.tcx, new_substs, HKTSubstType::SubstArgumentWithinHKTParam);
+                    self.fold_ty(t)
+                } else {
+                    self.infcx.tcx.mk_ty(ty::InferHKT(ty::TyVar(v), new_substs))
+                }
             }
 
             ty::Infer(ty::IntVar(v)) => self

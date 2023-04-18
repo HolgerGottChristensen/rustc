@@ -650,6 +650,9 @@ impl<'tcx> TypeSuperFoldable<'tcx> for Ty<'tcx> {
             ty::Array(typ, sz) => ty::Array(typ.try_fold_with(folder)?, sz.try_fold_with(folder)?),
             ty::Slice(typ) => ty::Slice(typ.try_fold_with(folder)?),
             ty::Adt(tid, substs) => ty::Adt(tid, substs.try_fold_with(folder)?),
+            ty::InferHKT(tid, substs) => {
+                ty::InferHKT(tid, substs.try_fold_with(folder)?)
+            },
             ty::HKT(did, param_ty, substs) => ty::HKT(did, param_ty, substs.try_fold_with(folder)?),
             ty::Dynamic(trait_ty, region, representation) => ty::Dynamic(
                 trait_ty.try_fold_with(folder)?,
@@ -723,6 +726,7 @@ impl<'tcx> TypeSuperVisitable<'tcx> for Ty<'tcx> {
             | ty::Float(_)
             | ty::Error(_)
             | ty::Infer(_)
+            | ty::InferHKT(..)
             | ty::Bound(..)
             | ty::Placeholder(..)
             | ty::Param(..)

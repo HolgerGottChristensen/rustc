@@ -164,6 +164,19 @@ impl FlagComputation {
                 }
             }
 
+            &ty::InferHKT(infer, ..) => {
+                self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE);
+                match infer {
+                    ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_) => {
+                        self.add_flags(TypeFlags::HAS_TY_FRESH)
+                    }
+
+                    ty::TyVar(_) | ty::IntVar(_) | ty::FloatVar(_) => {
+                        self.add_flags(TypeFlags::HAS_TY_INFER)
+                    }
+                }
+            }
+
             &ty::Adt(_, substs) => {
                 self.add_substs(substs);
             }

@@ -749,6 +749,16 @@ impl<'tcx> WfPredicates<'tcx> {
                         ty::Binder::dummy(ty::PredicateKind::WellFormed(ty.into())),
                     ));
                 }
+                ty::InferHKT(..) => {
+                    let cause = self.cause(traits::WellFormed(None));
+                    self.out.push(traits::Obligation::with_depth(
+                        self.tcx(),
+                        cause,
+                        self.recursion_depth,
+                        param_env,
+                        ty::Binder::dummy(ty::PredicateKind::WellFormed(ty.into())),
+                    ));
+                }
             }
 
             debug!(?self.out);

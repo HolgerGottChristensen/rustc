@@ -1627,6 +1627,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         | ty::Bound(..)
                         | ty::Placeholder(..)
                         | ty::Infer(..)
+                        | ty::InferHKT(..)
                         | ty::Error(_) => false,
                     }
                 } else if lang_items.pointee_trait() == Some(poly_trait_ref.def_id()) {
@@ -1700,6 +1701,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         | ty::Bound(..)
                         | ty::Placeholder(..)
                         | ty::Infer(..)
+                        | ty::InferHKT(..)
                         | ty::Error(_) => {
                             if tail.has_infer_types() {
                                 candidate_set.mark_ambiguous();

@@ -947,6 +947,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Generator(..)
             | ty::GeneratorWitness(_)
             | ty::Infer(_)
+            | ty::InferHKT(..)
             | ty::Alias(..)
             | ty::Param(_)
             | ty::HKT(..)
@@ -988,6 +989,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::Generator(..)
             | ty::GeneratorWitness(_)
             | ty::Infer(_)
+            | ty::InferHKT(..)
             | ty::Alias(..)
             | ty::Param(_)
             | ty::HKT(..)
@@ -1112,7 +1114,7 @@ impl<'tcx> Ty<'tcx> {
             //
             // FIXME(ecstaticmorse): Maybe we should `bug` here? This should probably only be
             // called for known, fully-monomorphized types.
-            ty::Alias(..) | ty::Param(_) | ty::HKT(..) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) => {
+            ty::Alias(..) | ty::Param(_) | ty::HKT(..) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) | ty::InferHKT(..) => {
                 false
             }
 
@@ -1253,6 +1255,7 @@ pub fn needs_drop_components<'tcx>(
         | ty::Bound(..)
         | ty::Placeholder(..)
         | ty::Infer(_)
+        | ty::InferHKT(..)
         | ty::Closure(..)
         | ty::Generator(..) => Ok(smallvec![ty]),
 
@@ -1284,6 +1287,7 @@ pub fn is_trivially_const_drop(ty: Ty<'_>) -> bool {
         | ty::Param(_)
         | ty::HKT(..)
         | ty::Placeholder(_)
+        | ty::InferHKT(..)
         | ty::Infer(_) => false,
 
         // Not trivial because they have components, and instead of looking inside,

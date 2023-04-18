@@ -166,10 +166,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         tuple_arguments: TupleArgumentsFlag,
         fn_def_id: Option<DefId>,
     ) {
-        // debug!("fn_def_id={:#?}", fn_def_id);
+        info!("fn_def_id={:#?}", fn_def_id);
         // debug!("{:#?}", call_expr);
-        // debug!("formal_input_tys={:#?}", formal_input_tys);
-        // debug!("expected_input_tys={:#?}", expected_input_tys);
+        info!("formal_input_tys={:#?}", formal_input_tys);
+        info!("expected_input_tys={:#?}", expected_input_tys);
         // debug!("provided_args={:#?}", provided_args);
         let tcx = self.tcx;
 

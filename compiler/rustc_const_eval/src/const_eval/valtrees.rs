@@ -152,6 +152,7 @@ pub(crate) fn const_to_valtree_inner<'tcx>(
         | ty::Bound(..)
         | ty::Placeholder(..)
         | ty::Infer(_)
+        | ty::InferHKT(..)
         // FIXME(oli-obk): we can probably encode closures just like structs
         | ty::Closure(..)
         | ty::Generator(..)
@@ -317,6 +318,7 @@ pub fn valtree_to_const_value<'tcx>(
         | ty::Bound(..)
         | ty::Placeholder(..)
         | ty::Infer(_)
+        | ty::InferHKT(..)
         | ty::Closure(..)
         | ty::Generator(..)
         | ty::GeneratorWitness(..)

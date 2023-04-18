@@ -845,6 +845,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             ty::Infer(_) => {
                 candidates.ambiguous = true;
             }
+            ty::InferHKT(..) => {
+                candidates.ambiguous = true;
+            }
         }
     }
 
@@ -859,6 +862,9 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 candidates.push(BuiltinCandidate { has_nested: false });
             }
             ty::Infer(ty::TyVar(_)) => {
+                candidates.ambiguous = true;
+            }
+            ty::InferHKT(..) => {
                 candidates.ambiguous = true;
             }
             ty::Bool

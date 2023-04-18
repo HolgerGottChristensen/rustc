@@ -777,7 +777,7 @@ impl<'tcx, T: TypeFoldable<'tcx>> ty::EarlyBinder<T> {
     pub fn subst(self, tcx: TyCtxt<'tcx>, substs: &[GenericArg<'tcx>], hkt_subst_type: HKTSubstType) -> T {
         let mut folder = SubstFolder { tcx, substs, binders_passed: 0, hkt_subst_type };
         let res = self.clone().0.fold_with(&mut folder);
-        //println!("{:?} gets subst with: {:?}, substs: {:?}", self, res, substs);
+        info!("SUBST: {:?} gets subst with: {:?}, substs: {:?}", self, res, substs);
         res
     }
 }
@@ -885,7 +885,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
             _ => t.super_fold_with(self),
         };
 
-        //info!("folded type done: {}, res: {}", t, res);
+        info!("folded type done: {}, res: {}", t, res);
 
         res
     }
@@ -957,12 +957,15 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             ty::Argument(a) if *a == def_id && *a == index => {
                 with
             }
+            ty::Argument(a) => {
+                info!("a({:?}) == defid({:?}): {}, a({}) == index({}): {}", a, def_id, *a == def_id, a, index, *a == index);
+                ty
+            }
             ty::Bool
             | ty::Char
             | ty::Int(_)
             | ty::Uint(_)
             | ty::Error(_)
-            | ty::Argument(_)
             | ty::Infer(_)
             | ty::Param(_)
             | ty::Float(_) => {
@@ -990,6 +993,25 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                 }).collect::<Vec<_>>();
 
                 self.tcx.mk_ty(ty::Adt(a.clone(), self.tcx.mk_substs(new_substs.into_iter())))
+            }
+            ty::InferHKT( a, substs) => {
+                info!("InferHKT");
+                let substs: &SubstsRef<'_> = substs;
+
+                let new_substs = substs.iter().map(|a| {
+                    match a.unpack() {
+                        GenericArgKind::Const(_)
+                        | GenericArgKind::Lifetime(_) => a,
+                        GenericArgKind::Type(t) => {
+                            let res = self.ty_kind_substitution(t, with, def_id, index);
+                            info!("Subst: {:?}, with {:?}, res: {:?}", t.kind(), with.kind(), res.kind());
+
+                            res.into()
+                        }
+                    }
+                }).collect::<Vec<_>>();
+
+                self.tcx.mk_hkt_infer(*a, self.tcx.mk_substs(new_substs.into_iter()))
             }
             ty::HKT(did, a, substs) => {
                 let substs: &SubstsRef<'_> = substs;

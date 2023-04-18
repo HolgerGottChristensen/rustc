@@ -39,6 +39,7 @@ pub struct ConfirmResult<'tcx> {
 }
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
+    #[instrument(skip_all, level = "info")]
     pub fn confirm_method(
         &self,
         span: Span,
@@ -48,10 +49,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         pick: &probe::Pick<'tcx>,
         segment: &hir::PathSegment<'_>,
     ) -> ConfirmResult<'tcx> {
-        info!(
-            "confirm(unadjusted_self_ty={:?}, pick={:?}, generic_args={:?})",
-            unadjusted_self_ty, pick, segment.args,
-        );
+        info!("unadjusted_self_ty={:?}", unadjusted_self_ty);
+        info!("pick={:?}", pick);
+        info!("generic_args={:?}", segment.args);
 
         let mut confirm_cx = ConfirmContext::new(self, span, self_expr, call_expr);
         confirm_cx.confirm(unadjusted_self_ty, pick, segment)
@@ -82,10 +82,13 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
 
         let all_substs = self.instantiate_method_substs(&pick, segment, rcvr_substs);
 
-        info!("rcvr_substs={rcvr_substs:?}, all_substs={all_substs:?}");
+        info!("rcvr_substs={rcvr_substs:#?}, all_substs={all_substs:#?}");
 
         // Create the final signature for the method, replacing late-bound regions.
         let (method_sig, method_predicates) = self.instantiate_method_sig(&pick, all_substs);
+
+        info!("method_sig post instantiate: {:?}", method_sig);
+        info!("method_predicates post instantiate: {:#?}", method_predicates);
 
         // If there is a `Self: Sized` bound and `Self` is a trait object, it is possible that
         // something which derefs to `Self` actually implements the trait and the caller
@@ -97,6 +100,7 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
         // appropriate hint suggesting to import the trait.
         let filler_substs = rcvr_substs
             .extend_to(self.tcx, pick.item.def_id, |def, _| self.tcx.mk_param_from_def(def));
+
         let illegal_sized_bound = self.predicates_require_illegal_sized_bound(
             &self.tcx.predicates_of(pick.item.def_id).instantiate(self.tcx, filler_substs),
         );
@@ -151,7 +155,7 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
     ///////////////////////////////////////////////////////////////////////////
     // ADJUSTMENTS
 
-    #[instrument(skip_all, ret)]
+    #[instrument(skip(self, pick), ret)]
     fn adjust_self_ty(
         &mut self,
         unadjusted_self_ty: Ty<'tcx>,
@@ -454,12 +458,14 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
     // NOTE: this returns the *unnormalized* predicates and method sig. Because of
     // inference guessing, the predicates and method signature can't be normalized
     // until we unify the `Self` type.
+    #[instrument(skip_all)]
     fn instantiate_method_sig(
         &mut self,
         pick: &probe::Pick<'tcx>,
         all_substs: SubstsRef<'tcx>,
     ) -> (ty::FnSig<'tcx>, ty::InstantiatedPredicates<'tcx>) {
-        debug!("instantiate_method_sig(pick={:?}, all_substs={:?})", pick, all_substs);
+        info!("pick={:?}", pick);
+        info!("all_substs={:#?}", all_substs);
 
         // Instantiate the bounds on the method with the
         // type/early-bound-regions substitutions performed. There can
@@ -467,15 +473,15 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
         let def_id = pick.item.def_id;
         let method_predicates = self.tcx.predicates_of(def_id).instantiate(self.tcx, all_substs);
 
-        debug!("method_predicates after subst = {:?}", method_predicates);
+        info!("method_predicates after subst = {:?}", method_predicates);
 
         let sig = self.tcx.bound_fn_sig(def_id);
 
         let sig = sig.subst(self.tcx, all_substs, HKTSubstType::SubstHKTParamWithType);
-        debug!("type scheme substituted, sig={:?}", sig);
+        info!("type scheme substituted, sig={:?}", sig);
 
         let sig = self.replace_bound_vars_with_fresh_vars(sig);
-        debug!("late-bound lifetimes from method instantiated, sig={:?}", sig);
+        info!("late-bound lifetimes from method instantiated, sig={:?}", sig);
 
         (sig, method_predicates)
     }
@@ -527,7 +533,7 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
         // the function type must also be well-formed (this is not
         // implied by the substs being well-formed because of inherent
         // impls and late-bound regions - see issue #28609).
-        self.register_wf_obligation(fty.into(), self.span, traits::WellFormed(None));
+        self.register_wf_obligation_with_param_env(fty.into(), self.span, traits::WellFormed(None), param_env);
     }
 
     ///////////////////////////////////////////////////////////////////////////

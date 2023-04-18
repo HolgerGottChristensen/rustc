@@ -2182,6 +2182,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             },
             ty::Alias(..) | ty::Param(_) => None,
             ty::Infer(ty::TyVar(_)) => Ambiguous,
+            ty::InferHKT(..) => todo!("hoch"),
 
             ty::Placeholder(..)
             | ty::Bound(..)
@@ -2293,6 +2294,13 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 Ambiguous
             }
 
+            ty::InferHKT(..) => {
+                // Unbound type variable. Might or might not have
+                // applicable impls and so forth, depending on what
+                // those type variables wind up being bound to.
+                Ambiguous
+            }
+
             ty::Placeholder(..)
             | ty::Bound(..)
             | ty::Infer(ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
@@ -2341,6 +2349,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Foreign(..)
             | ty::Alias(ty::Projection, ..)
             | ty::Bound(..)
+            | ty::InferHKT(..)
             | ty::Infer(ty::TyVar(_) | ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
                 bug!("asked to assemble constituent types of unexpected type: {:?}", t);
             }

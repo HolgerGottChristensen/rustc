@@ -280,6 +280,7 @@ impl<'tcx> LowerInto<'tcx, chalk_ir::Ty<RustInterner<'tcx>>> for Ty<'tcx> {
 
         match *self.kind() {
             ty::Argument(..) => todo!("hoch"),
+            ty::InferHKT(..) => todo!("hoch"),
             ty::Bool => chalk_ir::TyKind::Scalar(chalk_ir::Scalar::Bool),
             ty::Char => chalk_ir::TyKind::Scalar(chalk_ir::Scalar::Char),
             ty::Int(ty) => match ty {

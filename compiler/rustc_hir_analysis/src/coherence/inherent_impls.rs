@@ -245,6 +245,7 @@ impl<'tcx> InherentCollect<'tcx> {
             | ty::Generator(..)
             | ty::GeneratorWitness(..)
             | ty::Bound(..)
+            | ty::InferHKT(..)
             | ty::Placeholder(_)
             | ty::Infer(_) => {
                 bug!("unexpected impl self type of impl: {:?} {:?}", item.owner_id, self_ty);

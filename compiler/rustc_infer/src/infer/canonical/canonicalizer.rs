@@ -380,6 +380,33 @@ impl<'cx, 'tcx> TypeFolder<'tcx> for Canonicalizer<'cx, 'tcx> {
 
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
         match *t.kind() {
+            ty::InferHKT(ty::TyVar(vid), _) => {
+                match self.infcx.probe_ty_var(vid) {
+                    // `t` could be a float / int variable; canonicalize that instead.
+                    Ok(t) => {
+                        debug!("(resolved to {:?})", t);
+                        self.fold_ty(t)
+                    }
+
+                    // `TyVar(vid)` is unresolved, track its universe index in the canonicalized
+                    // result.
+                    Err(mut ui) => {
+                        if !self.canonicalize_mode.preserve_universes() {
+                            // FIXME: perf problem described in #55921.
+                            ui = ty::UniverseIndex::ROOT;
+                        }
+                        self.canonicalize_ty_var(
+                            CanonicalVarInfo {
+                                kind: CanonicalVarKind::Ty(CanonicalTyVarKind::General(ui)),
+                            },
+                            t,
+                        )
+                    }
+                }
+            }
+            ty::InferHKT(..) => {
+                todo!("hoch2")
+            }
             ty::Infer(ty::TyVar(vid)) => {
                 debug!("canonical: type var found with vid {:?}", vid);
                 match self.infcx.probe_ty_var(vid) {

@@ -137,7 +137,7 @@ pub fn simplify_type<'tcx>(
             TreatParams::AsPlaceholder | TreatParams::AsInfer => None,
         },
         ty::Foreign(def_id) => Some(ForeignSimplifiedType(def_id)),
-        ty::Bound(..) | ty::Infer(_) | ty::Error(_) => None,
+        ty::Bound(..) | ty::Infer(_) | ty::InferHKT(..) | ty::Error(_) => None,
     }
 }
 
@@ -219,6 +219,7 @@ impl DeepRejectCtxt {
             | ty::GeneratorWitness(..)
             | ty::Placeholder(..)
             | ty::Bound(..)
+            | ty::InferHKT(..)
             | ty::Infer(_) => bug!("unexpected impl_ty: {impl_ty}"),
             ty::Argument(..) => {
                 return true // FIXMIG: what to do here?
@@ -314,6 +315,7 @@ impl DeepRejectCtxt {
             },
 
             ty::Infer(_) => true,
+            ty::InferHKT(..) => true,
 
             // As we're walking the whole type, it may encounter projections
             // inside of binders and what not, so we're just going to assume that

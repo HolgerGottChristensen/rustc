@@ -1473,6 +1473,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     Param,
                     HKT,
                     Infer,
+                    InferHKT,
                     Alias,
                     Foreign
                 )?;
@@ -1974,6 +1975,11 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     #[inline]
+    pub fn mk_hkt_var(self, v: TyVid, substs: SubstsRef<'tcx>) -> Ty<'tcx> {
+        self.mk_hkt_infer(TyVar(v), substs)
+    }
+
+    #[inline]
     pub fn mk_const(self, kind: impl Into<ty::ConstKind<'tcx>>, ty: Ty<'tcx>) -> Const<'tcx> {
         self.mk_const_internal(ty::ConstData { kind: kind.into(), ty })
     }
@@ -1991,6 +1997,11 @@ impl<'tcx> TyCtxt<'tcx> {
     #[inline]
     pub fn mk_ty_infer(self, it: InferTy) -> Ty<'tcx> {
         self.mk_ty(Infer(it))
+    }
+
+    #[inline]
+    pub fn mk_hkt_infer(self, it: InferTy, substs: SubstsRef<'tcx>) -> Ty<'tcx> {
+        self.mk_ty(InferHKT(it, substs))
     }
 
     #[inline]
