@@ -184,21 +184,15 @@ impl Term {
     pub fn number_of_params(&self, bounded: FxHashSet<String>) -> usize {
 
         match self {
-            Var(s) => {
-                if bounded.contains(s) {
-                    1
-                } else {
-                    0
-                }
+            Var(_) => {
+                1
             }
             Abs(s, _, inner) => {
                 let mut new_bounded = bounded.clone();
                 new_bounded.insert(s.clone());
                 inner.number_of_params(new_bounded)
             }
-            App(a, call_arg) if matches!(**a, Var(_)) => {
-                call_arg.number_of_params(bounded)
-            }
+
             App(callee, call_arg) => {
                 &callee.number_of_params(bounded.clone()) + &call_arg.number_of_params(bounded)
             }

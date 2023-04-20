@@ -4,7 +4,7 @@ use crate::rvalue_scopes;
 use crate::{BreakableCtxt, Diverges, Expectation, FnCtxt, LocalTy};
 use rustc_data_structures::captures::Captures;
 use rustc_data_structures::fx::{FxHasher, FxHashMap, FxHashSet};
-use rustc_errors::{Applicability, Diagnostic, ErrorGuaranteed, MultiSpan};
+use rustc_errors::{Applicability, Diagnostic, ErrorGuaranteed, MultiSpan, struct_span_err};
 use rustc_hir as hir;
 use rustc_hir::def::{CtorOf, DefKind, Res};
 use rustc_hir::def_id::DefId;
@@ -1297,7 +1297,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         info!("gen_kind: {:#?}", param);
                         //info!("arg_types: {:#?}", self.arg_types);
                         //info!("hkt_param_types: {:#?}", self.hkt_param_types);
-                        let new_tys_opt = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id);
+                        let new_tys_opt = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id, self.span);
                         if let Some(new_tys) = new_tys_opt {
                             if let Some(new_ty) = new_tys.get(param.index.index()) {
                                 let x = new_ty.clone().into();
@@ -1373,7 +1373,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         (ty_substituted, res)
     }
 
-    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId) -> Option<Vec<Ty<'tcx>>> {
+    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId, span: Span) -> Option<Vec<Ty<'tcx>>> {
         let mut args_ty = Vec::new();
         if let Some(args) = args {
             for arg in args.clone() {
@@ -1435,7 +1435,16 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     Some(new_tys)
                 }
                 Err(sols) => {
-                    info!("too many solutions: {}", sols);
+                    if sols.0.len() > 0 {
+                        info!("too many solutions: {}", sols);
+                        struct_span_err!(self.tcx.sess, span, E10000, "too many possible types to infer hkt parameters")
+                            .span_help(self.tcx.def_span(def_id), &format!("try annotating the function call"))
+                            .emit();
+                    } else {
+                        info!("no solutions");
+                        struct_span_err!(self.tcx.sess, span, E10001, "cannot infer hkt parameters").emit();
+                    }
+
                     None
                 }
             }
