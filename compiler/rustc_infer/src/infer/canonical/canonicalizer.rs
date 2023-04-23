@@ -395,7 +395,7 @@ impl<'cx, 'tcx> TypeFolder<'tcx> for Canonicalizer<'cx, 'tcx> {
                             // FIXME: perf problem described in #55921.
                             ui = ty::UniverseIndex::ROOT;
                         }
-                        self.canonicalize_ty_var(
+                        self.canonicalize_hkt_var(
                             CanonicalVarInfo {
                                 kind: CanonicalVarKind::Ty(CanonicalTyVarKind::General(ui)),
                             },
@@ -787,6 +787,27 @@ impl<'cx, 'tcx> Canonicalizer<'cx, 'tcx> {
         } else {
             let var = self.canonical_var(info, ty_var.into());
             self.tcx().mk_ty(ty::Bound(self.binder_index, var.into()))
+        }
+    }
+
+    fn canonicalize_hkt_var(&mut self, info: CanonicalVarInfo<'tcx>, hkt_var: Ty<'tcx>) -> Ty<'tcx> {
+        let infcx = self.infcx;
+        let bound_to = infcx.shallow_resolve(hkt_var);
+
+        if bound_to != hkt_var {
+            self.fold_ty(bound_to)
+        } else {
+            let var = self.canonical_var(info, hkt_var.into());
+
+            bound_to.super_fold_with(self);
+
+            match bound_to.kind() {
+                ty::InferHKT(_, substs) => {
+                    self.tcx().mk_ty(ty::BoundHKT(self.binder_index, var.into(), *substs))
+                }
+                _ => unreachable!()
+            }
+
         }
     }
 

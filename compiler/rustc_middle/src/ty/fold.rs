@@ -42,7 +42,7 @@
 //!     - ty.super_fold_with(folder)
 //! - u.fold_with(folder)
 //! ```
-use crate::ty::{self, Binder, BoundTy, Ty, TyCtxt, TypeVisitable};
+use crate::ty::{self, Binder, BoundTy, Ty, TyCtxt, TyKind, TypeVisitable};
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_hir::def_id::DefId;
 
@@ -409,6 +409,18 @@ where
                 let ty = self.delegate.replace_ty(bound_ty);
                 debug_assert!(!ty.has_vars_bound_above(ty::INNERMOST));
                 ty::fold::shift_vars(self.tcx, ty, self.current_index.as_u32())
+            }
+            ty::BoundHKT(debruijn, bound_ty, substs) if debruijn == self.current_index => {
+                let ty = self.delegate.replace_ty(bound_ty);
+                debug_assert!(!ty.has_vars_bound_above(ty::INNERMOST));
+                let ty = ty::fold::shift_vars(self.tcx, ty, self.current_index.as_u32());
+
+                match ty.kind() {
+                    TyKind::Infer(infer_ty) => {
+                        self.tcx.mk_ty(ty::InferHKT(*infer_ty, substs.fold_with(self)))
+                    }
+                    _ => unreachable!()
+                }
             }
             _ if t.has_vars_bound_at_or_above(self.current_index) => t.super_fold_with(self),
             _ => t,

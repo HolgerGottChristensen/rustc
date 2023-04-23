@@ -578,7 +578,7 @@ where
         Ok(r)
     }
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info", ret)]
     fn tys(&mut self, a: Ty<'tcx>, mut b: Ty<'tcx>) -> RelateResult<'tcx, Ty<'tcx>> {
         let infcx = self.infcx;
 
@@ -608,7 +608,20 @@ where
                 }
             }
 
+            (_, &ty::InferHKT(ty::TyVar(vid), _)) => {
+                if D::forbid_inference_vars() {
+                    // Forbid inference variables in the RHS.
+                    bug!("unexpected inference var {:?}", b)
+                } else {
+                    self.relate_ty_var((a, vid))
+                }
+            }
+
             (&ty::Infer(ty::TyVar(vid)), _) => self.relate_ty_var((vid, b)),
+
+            (&ty::InferHKT(ty::TyVar(vid), _), _) => {
+                self.relate_ty_var((vid, b))
+            }
 
             (
                 &ty::Alias(ty::Opaque, ty::AliasTy { def_id: a_def_id, .. }),

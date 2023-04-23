@@ -39,7 +39,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
 
         let TypeOpOutput { output, constraints, error_info } = op.fully_perform(self.infcx)?;
 
-        debug!(?output, ?constraints);
+        info!(?output, ?constraints);
 
         if let Some(data) = constraints {
             self.push_region_constraints(locations, category, data);

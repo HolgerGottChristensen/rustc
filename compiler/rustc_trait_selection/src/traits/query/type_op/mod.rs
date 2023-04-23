@@ -102,7 +102,7 @@ pub trait QueryTypeOp<'tcx>: fmt::Debug + Copy + TypeFoldable<'tcx> + 'tcx {
             infcx.canonicalize_query_keep_static(query_key, &mut canonical_var_values);
 
         let canonical_result = Self::perform_query(infcx.tcx, canonical_self)?;
-        debug!("post canonical_result");
+        info!("post canonical_result");
 
         let InferOk { value, obligations } = infcx
             .instantiate_nll_query_response_and_region_obligations(
@@ -129,6 +129,8 @@ where
         let (output, error_info, mut obligations, _) =
             Q::fully_perform_into(self, infcx, &mut region_constraints)?;
 
+
+        info!("post - Fully perform into");
         // Typically, instantiating NLL query results does not
         // create obligations. However, in some cases there
         // are unresolved type variables, and unify them *can*
@@ -155,6 +157,7 @@ where
                 }
             }
             if !progress {
+                info!("No progress on any obligations: {:?}", obligations);
                 return Err(NoSolution);
             }
         }

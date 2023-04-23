@@ -62,10 +62,12 @@ impl<'tcx> InferCtxt<'tcx> {
         T: Debug + TypeFoldable<'tcx>,
         Canonical<'tcx, QueryResponse<'tcx, T>>: ArenaAllocatable<'tcx>,
     {
+        info!("inference_vars: {:#?}, answer: {:?}, obligations: {:#?}", inference_vars, answer, fulfill_cx.pending_obligations());
+
         let query_response = self.make_query_response(inference_vars, answer, fulfill_cx)?;
-        debug!("query_response = {:#?}", query_response);
+        info!("query_response = {:#?}", query_response);
         let canonical_result = self.canonicalize_response(query_response);
-        debug!("canonical_result = {:#?}", canonical_result);
+        info!("canonical_result = {:#?}", canonical_result);
 
         Ok(self.tcx.arena.alloc(canonical_result))
     }
@@ -236,6 +238,7 @@ impl<'tcx> InferCtxt<'tcx> {
     ///   are propagated back in the return value.
     /// - Finally, the query result (of type `R`) is propagated back,
     ///   after applying the substitution `S`.
+    #[instrument(skip_all, level = "info")]
     pub fn instantiate_nll_query_response_and_region_obligations<R>(
         &self,
         cause: &ObligationCause<'tcx>,
@@ -243,12 +246,16 @@ impl<'tcx> InferCtxt<'tcx> {
         original_values: &OriginalQueryValues<'tcx>,
         query_response: &Canonical<'tcx, QueryResponse<'tcx, R>>,
         output_query_region_constraints: &mut QueryRegionConstraints<'tcx>,
-    ) -> InferResult<'tcx, R>
-    where
-        R: Debug + TypeFoldable<'tcx>,
-    {
+    ) -> InferResult<'tcx, R> where R: Debug + TypeFoldable<'tcx> {
+        info!("original_values: {:#?}", original_values);
+        info!("query_response: {:#?}", query_response);
+        info!("output_query_region_constraints: {:#?}", output_query_region_constraints);
+
         let InferOk { value: result_subst, mut obligations } = self
             .query_response_substitution_guess(cause, param_env, original_values, query_response)?;
+
+        info!("result_subst: {:#?}", result_subst);
+        info!("obligations: {:#?}", obligations);
 
         // Compute `QueryOutlivesConstraint` values that unify each of
         // the original values `v_o` that was canonicalized into a
@@ -256,11 +263,17 @@ impl<'tcx> InferCtxt<'tcx> {
 
         let constraint_category = cause.to_constraint_category();
 
+        info!("constraint_category: {:?}", constraint_category);
+
         for (index, original_value) in original_values.var_values.iter().enumerate() {
             // ...with the value `v_r` of that variable from the query.
             let result_value = query_response.substitute_projected(self.tcx, &result_subst, |v| {
                 v.var_values[BoundVar::new(index)]
             });
+
+            info!("{}: original_value: {:?}", index, original_value);
+            info!("{}: result_value: {:?}", index, result_value);
+
             match (original_value.unpack(), result_value.unpack()) {
                 (GenericArgKind::Lifetime(re1), GenericArgKind::Lifetime(re2))
                     if re1.is_erased() && re2.is_erased() =>
@@ -315,6 +328,8 @@ impl<'tcx> InferCtxt<'tcx> {
                 }
             }
         }
+
+        info!("post obligations: {:#?}", obligations);
 
         // ...also include the other query region constraints from the query.
         output_query_region_constraints.outlives.extend(
