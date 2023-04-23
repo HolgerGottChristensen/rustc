@@ -469,7 +469,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     pub fn to_ty_saving_user_provided_ty(&self, ast_ty: &hir::Ty<'_>) -> Ty<'tcx> {
         let ty = self.to_ty(ast_ty);
-        println!("to_ty_saving_user_provided_ty: ty={:?}", ty);
+        info!("to_ty_saving_user_provided_ty: ty={:?}", ty);
 
         if Self::can_contain_user_lifetime_bounds(ty) {
             let c_ty = self.canonicalize_response(UserType::Ty(ty));

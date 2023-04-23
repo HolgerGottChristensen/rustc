@@ -802,7 +802,7 @@ impl<'tcx> TypeFolder<'tcx> for ReplacerFolder<'tcx> {
     }
 
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
-        println!("Replace: {:?} with {:?} in {:?}", self.replace, self.with, t);
+        info!("Replace: {:?} with {:?} in {:?}", self.replace, self.with, t);
         if t == self.replace {
             return self.with
         }

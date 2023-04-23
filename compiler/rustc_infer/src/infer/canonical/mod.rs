@@ -109,7 +109,6 @@ impl<'tcx> InferCtxt<'tcx> {
             CanonicalVarKind::Ty(ty_kind) => {
                 let ty = match ty_kind {
                     CanonicalTyVarKind::General(ui) => {
-                        println!("Wdawdawdawdawdawd");
                         self.next_ty_var_in_universe(
                             TypeVariableOrigin { kind: TypeVariableOriginKind::MiscVariable, span },
                             universe_map(ui),
