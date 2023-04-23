@@ -653,6 +653,9 @@ impl<'tcx> TypeSuperFoldable<'tcx> for Ty<'tcx> {
             ty::InferHKT(tid, substs) => {
                 ty::InferHKT(tid, substs.try_fold_with(folder)?)
             },
+            ty::BoundHKT(debruijn, v, substs) => {
+                ty::BoundHKT(debruijn, v, substs.try_fold_with(folder)?)
+            },
             ty::HKT(did, param_ty, substs) => ty::HKT(did, param_ty, substs.try_fold_with(folder)?),
             ty::Dynamic(trait_ty, region, representation) => ty::Dynamic(
                 trait_ty.try_fold_with(folder)?,
@@ -728,6 +731,7 @@ impl<'tcx> TypeSuperVisitable<'tcx> for Ty<'tcx> {
             | ty::Infer(_)
             | ty::InferHKT(..)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::Placeholder(..)
             | ty::Param(..)
             | ty::HKT(..) // FIXMIG: is this correct?

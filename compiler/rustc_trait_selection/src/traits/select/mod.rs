@@ -2186,6 +2186,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
             ty::Placeholder(..)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::Infer(ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
                 bug!("asked to assemble builtin bounds of unexpected type: {:?}", self_ty);
             }
@@ -2303,6 +2304,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
 
             ty::Placeholder(..)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::Infer(ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
                 bug!("asked to assemble builtin bounds of unexpected type: {:?}", self_ty);
             }
@@ -2349,6 +2351,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Foreign(..)
             | ty::Alias(ty::Projection, ..)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::InferHKT(..)
             | ty::Infer(ty::TyVar(_) | ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
                 bug!("asked to assemble constituent types of unexpected type: {:?}", t);

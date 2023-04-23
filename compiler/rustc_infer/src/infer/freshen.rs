@@ -220,7 +220,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for TypeFreshener<'a, 'tcx> {
             | ty::Closure(..)
             | ty::GeneratorWitness(..) => t.super_fold_with(self),
 
-            ty::Placeholder(..) | ty::Bound(..) => bug!("unexpected type {:?}", t),
+            ty::Placeholder(..) | ty::Bound(..) | ty::BoundHKT(..) => bug!("unexpected type {:?}", t),
         }
     }
 

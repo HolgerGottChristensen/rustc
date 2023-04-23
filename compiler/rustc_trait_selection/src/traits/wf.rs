@@ -466,7 +466,7 @@ impl<'tcx> WfPredicates<'tcx> {
         let param_env = self.param_env;
         let depth = self.recursion_depth;
         while let Some(arg) = walker.next() {
-            info!(?arg, ?self.out);
+            //info!(?arg, ?self.out);
             let ty = match arg.unpack() {
                 GenericArgKind::Type(ty) => ty,
 
@@ -538,7 +538,7 @@ impl<'tcx> WfPredicates<'tcx> {
                 }
             };
 
-            info!("wf bounds for ty={:?} ty.kind={:#?}", ty, ty.kind());
+            //info!("wf bounds for ty={:?} ty.kind={:#?}", ty, ty.kind());
 
             match *ty.kind() {
                 ty::Bool
@@ -552,6 +552,7 @@ impl<'tcx> WfPredicates<'tcx> {
                 | ty::Never
                 | ty::Param(_)
                 | ty::Bound(..)
+                | ty::BoundHKT(..)
                 | ty::Placeholder(..)
                 | ty::Foreign(..) => {
                     // WfScalar, WfParameter, etc

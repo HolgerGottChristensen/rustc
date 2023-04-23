@@ -241,7 +241,7 @@ impl<'a, 'tcx> At<'a, 'tcx> {
 impl<'a, 'tcx> Trace<'a, 'tcx> {
     /// Makes `a <: b` where `a` may or may not be expected (if
     /// `a_is_expected` is true, then `a` is expected).
-    #[instrument(skip(self), level = "info")]
+    #[instrument(skip(self), level = "debug")]
     pub fn sub<T>(self, a: T, b: T) -> InferResult<'tcx, ()>
     where
         T: Relate<'tcx>,

@@ -272,7 +272,7 @@ where
             | ty::HKT(..) // TODO(hoch)
             | ty::Error(_)
             | ty::GeneratorWitness(..) => {}
-            ty::Bound(..) | ty::Placeholder(..) | ty::Infer(..) | ty::InferHKT(..) => {
+            ty::Bound(..) | ty::BoundHKT(..) | ty::Placeholder(..) | ty::Infer(..) | ty::InferHKT(..) => {
                 bug!("unexpected type: {:?}", ty)
             }
         }

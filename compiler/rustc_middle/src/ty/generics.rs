@@ -353,7 +353,14 @@ impl<'tcx> GenericPredicates<'tcx> {
     ) -> InstantiatedPredicates<'tcx> {
         let mut instantiated = InstantiatedPredicates::empty();
         self.instantiate_into(tcx, &mut instantiated, substs);
-        instantiated
+        let mut instantiated2 = InstantiatedPredicates::empty();
+        self.instantiate_into2(tcx, &mut instantiated2, substs);
+
+        if instantiated.predicates != instantiated2.predicates {
+            info!("Instantiate Old != New: {:#?}, New: {:#?}", instantiated.predicates, instantiated2.predicates);
+        }
+
+        instantiated2
     }
 
     pub fn instantiate_own(
@@ -366,9 +373,22 @@ impl<'tcx> GenericPredicates<'tcx> {
                 .predicates
                 .iter()
                 .map(|(p, _)| {
-                    let subst_result = EarlyBinder(*p).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
+
+                    use crate::ty::{ReplacerFolder, TypeFoldable};
+                    let mut map = FxHashMap::default();
+                    let subst_result = EarlyBinder(*p).subst(tcx, substs, HKTSubstType::InstantiateHKT(&mut map));
+
+                    let mut after = subst_result;
+
+                    for (k, v) in map.iter() {
+                        after = after.fold_with(&mut ReplacerFolder::new(*k, *v, tcx));
+                    }
+                    info!("InstantiateOwn: {}, into: {}, map: {:#?}, with substs: {:#?}", p, after, map, substs);
+                    after
+
+                    /*let subst_result = EarlyBinder(*p).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
                     info!("InstantiateOwn: {}, into: {}, with substs: {:#?}", p, subst_result, substs);
-                    subst_result
+                    subst_result*/
                 })
                 .collect(),
             spans: self.predicates.iter().map(|(_, sp)| *sp).collect(),
@@ -385,12 +405,56 @@ impl<'tcx> GenericPredicates<'tcx> {
         if let Some(def_id) = self.parent {
             tcx.predicates_of(def_id).instantiate_into(tcx, instantiated, substs);
         }
+
         instantiated
             .predicates
             .extend(self.predicates.iter().map(|(p, _)| {
+
+                /*use crate::ty::{ReplacerFolder, TypeFoldable};
+                let mut map = FxHashMap::default();
+                let subst_result = EarlyBinder(*p).subst(tcx, substs, HKTSubstType::InstantiateHKT(&mut map));
+
+                let mut after = subst_result;
+
+                for (k, v) in map.iter() {
+                    after = after.fold_with(&mut ReplacerFolder::new(*k, *v, tcx));
+                }
+                info!("Instantiate: {}, into: {}, map: {:#?}, with substs: {:#?}", p, after, map, substs);
+                after*/
+
                 let subst_result = EarlyBinder(*p).subst(tcx, substs, HKTSubstType::SubstHKTParamWithType);
                 info!("Instantiate: {}, into: {}, with substs: {:#?}", p, subst_result, substs);
                 subst_result
+            }));
+
+        instantiated.spans.extend(self.predicates.iter().map(|(_, sp)| *sp));
+    }
+
+    #[instrument(level = "info", skip(self, tcx))]
+    fn instantiate_into2(
+        &self,
+        tcx: TyCtxt<'tcx>,
+        instantiated: &mut InstantiatedPredicates<'tcx>,
+        substs: SubstsRef<'tcx>,
+    ) {
+        if let Some(def_id) = self.parent {
+            tcx.predicates_of(def_id).instantiate_into2(tcx, instantiated, substs);
+        }
+
+        instantiated
+            .predicates
+            .extend(self.predicates.iter().map(|(p, _)| {
+                use crate::ty::{ReplacerFolder, TypeFoldable};
+                let mut map = FxHashMap::default();
+                let subst_result = EarlyBinder(*p).subst(tcx, substs, HKTSubstType::InstantiateHKT(&mut map));
+
+                let mut after = subst_result;
+
+                for (k, v) in map.iter() {
+                    after = after.fold_with(&mut ReplacerFolder::new(*k, *v, tcx));
+                }
+                info!("Instantiate: {}, into: {}, map: {:#?}, with substs: {:#?}", p, after, map, substs);
+                after
             }));
 
         instantiated.spans.extend(self.predicates.iter().map(|(_, sp)| *sp));

@@ -129,6 +129,7 @@ impl<'tcx> CanonicalVarInfo<'tcx> {
 pub enum CanonicalVarKind<'tcx> {
     /// Some kind of type inference variable.
     Ty(CanonicalTyVarKind),
+    //HKT(CanonicalTyVarKind),
 
     /// A "placeholder" that represents "any type".
     PlaceholderTy(ty::PlaceholderType),

@@ -791,6 +791,7 @@ where
                 | ty::Param(_)
                 | ty::Infer(_)
                 | ty::InferHKT(..)
+                | ty::BoundHKT(..)
                 | ty::Error(_) => bug!("TyAndLayout::field: unexpected type `{}`", this.ty),
             }
         }

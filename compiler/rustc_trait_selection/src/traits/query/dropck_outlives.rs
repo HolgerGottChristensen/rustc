@@ -70,6 +70,7 @@ pub fn trivial_dropck_outlives<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
         | ty::Infer(_)
         | ty::InferHKT(..)
         | ty::Bound(..)
+        | ty::BoundHKT(..)
         | ty::Generator(..) => false,
     }
 }

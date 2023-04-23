@@ -1493,7 +1493,6 @@ fn check_where_clauses<'tcx>(wfcx: &WfCheckingCtxt<'_, 'tcx>, span: Span, def_id
     assert_eq!(predicates.predicates.len(), predicates.spans.len());
     let wf_obligations =
         iter::zip(&predicates.predicates, &predicates.spans).flat_map(|(&p, &sp)| {
-            info!("HHHHHEHEEERERERR");
             let param_env = tcx.param_env_with_hkt((def_id.to_def_id(), wfcx.param_env.without_const()));
             traits::wf::predicate_obligations(
                 infcx,

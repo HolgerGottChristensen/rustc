@@ -1089,6 +1089,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                             user_substs,
                         )),
                     ) {
+                        println!("OADIAWJDOAIWDj");
                         span_mirbug!(
                             self,
                             user_annotation,

@@ -637,6 +637,7 @@ fn encode_ty<'tcx>(
 
         // Unexpected types
         ty::Bound(..)
+        | ty::BoundHKT(..)
         | ty::Error(..)
         | ty::GeneratorWitness(..)
         | ty::Infer(..)
@@ -794,6 +795,7 @@ fn transform_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, options: TransformTyOptio
         }
 
         ty::Bound(..)
+        | ty::BoundHKT(..)
         | ty::Error(..)
         | ty::GeneratorWitness(..)
         | ty::Infer(..)

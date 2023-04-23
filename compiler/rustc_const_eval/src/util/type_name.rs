@@ -56,7 +56,7 @@ impl<'tcx> Printer<'tcx> for AbsolutePathPrinter<'tcx> {
                 Ok(self)
             }
             // Placeholders (all printed as `_` to uniformize them).
-            ty::Param(_) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) | ty::InferHKT(..) | ty::Error(_) => {
+            ty::Param(_) | ty::Bound(..) | ty::BoundHKT(..) | ty::Placeholder(_) | ty::Infer(_) | ty::InferHKT(..) | ty::Error(_) => {
                 write!(self, "_")?;
                 Ok(self)
             }

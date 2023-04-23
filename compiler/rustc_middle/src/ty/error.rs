@@ -343,7 +343,8 @@ impl<'tcx> Ty<'tcx> {
             ty::HKT(_, ref p, _) => format!("hkt parameter `{}`", p).into(),
             ty::Alias(ty::Opaque, ..) => "opaque type".into(),
             ty::Error(_) => "type error".into(),
-            ty::InferHKT(..) => "hkt infer".into()
+            ty::InferHKT(..) => "hkt infer".into(),
+            ty::BoundHKT(..) => "bound hkt".into()
         }
     }
 
@@ -384,6 +385,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Argument(..) => "type argument".into(),
             ty::Alias(ty::Opaque, ..) => "opaque type".into(),
             ty::InferHKT(..) => "hkt infer".into(),
+            ty::BoundHKT(..) => "bound hkt".into(),
         }
     }
 }

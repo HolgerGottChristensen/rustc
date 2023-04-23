@@ -204,6 +204,7 @@ fn compute_components<'tcx>(
         ty::Dynamic(..) |     // OutlivesObject, OutlivesFragment (*)
         ty::Placeholder(..) |
         ty::Bound(..) |
+        ty::BoundHKT(..) |
         ty::Error(_) => {
             // (*) Function pointers and trait objects are both binders.
             // In the RFC, this means we would add the bound regions to

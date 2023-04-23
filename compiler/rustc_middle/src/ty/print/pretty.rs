@@ -723,6 +723,15 @@ pub trait PrettyPrinter<'tcx>:
                 ty::BoundTyKind::Anon => self.pretty_print_bound_var(debruijn, bound_ty.var)?,
                 ty::BoundTyKind::Param(p) => p!(write("{}", p)),
             },
+            ty::BoundHKT(debruijn, bound_ty, substs) => {
+
+                match bound_ty.kind {
+                    ty::BoundTyKind::Anon => self.pretty_print_bound_var(debruijn, bound_ty.var)?,
+                    ty::BoundTyKind::Param(p) => p!(write("{}", p)),
+                }
+
+                self = self.generic_delimiters(|cx| cx.comma_sep(substs.iter()))?;
+            }
             ty::Adt(def, substs) => {
                 p!(print_def_path(def.did(), substs));
             }

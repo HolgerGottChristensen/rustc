@@ -150,6 +150,7 @@ fn push_inner<'tcx>(stack: &mut TypeWalkerStack<'tcx>, parent: GenericArg<'tcx>)
             | ty::Error(_)
             | ty::Placeholder(..)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::Foreign(..) => {}
 
             ty::Argument(..) => {},

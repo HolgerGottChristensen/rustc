@@ -2181,6 +2181,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Bound(..)
             | ty::Placeholder(_)
             | ty::InferHKT(..)
+            | ty::BoundHKT(..)
             | ty::Infer(FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
                 bug!("`discriminant_ty` applied to unexpected type: {:?}", self)
             }
@@ -2238,6 +2239,7 @@ impl<'tcx> Ty<'tcx> {
 
             ty::Infer(ty::TyVar(_))
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::InferHKT(..)
             | ty::Placeholder(..)
             | ty::Infer(ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
@@ -2321,6 +2323,7 @@ impl<'tcx> Ty<'tcx> {
             }
 
             ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::Placeholder(..)
             | ty::Infer(ty::FreshTy(_) | ty::FreshIntTy(_) | ty::FreshFloatTy(_)) => {
                 bug!("`is_trivially_sized` applied to unexpected type: {:?}", self)
@@ -2383,7 +2386,7 @@ impl<'tcx> Ty<'tcx> {
 
             ty::HKT(..) | ty::Param(..) | ty::Infer(..) | ty::InferHKT(..) | ty::Error(..) => false,
 
-            ty::Bound(..) | ty::Placeholder(..) => {
+            ty::Bound(..) | ty::BoundHKT(..) | ty::Placeholder(..) => {
                 bug!("`is_trivially_pure_clone_copy` applied to unexpected type: {:?}", self);
             }
         }

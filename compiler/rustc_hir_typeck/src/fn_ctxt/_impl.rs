@@ -157,7 +157,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.typeck_results.borrow_mut().type_dependent_defs_mut().insert(hir_id, r);
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[instrument(level = "info", skip(self))]
     pub fn write_method_call(&self, hir_id: hir::HirId, method: MethodCallee<'tcx>) {
         self.write_resolution(hir_id, Ok((DefKind::AssocFn, method.def_id)));
         self.write_substs(hir_id, method.substs);
@@ -198,7 +198,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     ))
                 });
 
-                debug!("write_method_call: user_type_annotation={:?}", user_type_annotation);
+                info!("write_method_call: user_type_annotation={:?}", user_type_annotation);
                 self.write_user_type_annotation(hir_id, user_type_annotation);
             }
         }
@@ -219,7 +219,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// This should be invoked **before any unifications have
     /// occurred**, so that annotations like `Vec<_>` are preserved
     /// properly.
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     pub fn write_user_type_annotation_from_substs(
         &self,
         hir_id: hir::HirId,
@@ -234,17 +234,18 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 def_id,
                 UserSubsts { substs, user_self_ty },
             ));
-            debug!(?canonicalized);
+            info!(?canonicalized);
             self.write_user_type_annotation(hir_id, canonicalized);
         }
     }
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self, canonical_user_type_annotation), level = "info")]
     pub fn write_user_type_annotation(
         &self,
         hir_id: hir::HirId,
         canonical_user_type_annotation: CanonicalUserType<'tcx>,
     ) {
+        info!("{:#?}", canonical_user_type_annotation);
         debug!("fcx {}", self.tag());
 
         if !canonical_user_type_annotation.is_identity() {
@@ -468,11 +469,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
     pub fn to_ty_saving_user_provided_ty(&self, ast_ty: &hir::Ty<'_>) -> Ty<'tcx> {
         let ty = self.to_ty(ast_ty);
-        debug!("to_ty_saving_user_provided_ty: ty={:?}", ty);
+        println!("to_ty_saving_user_provided_ty: ty={:?}", ty);
 
         if Self::can_contain_user_lifetime_bounds(ty) {
             let c_ty = self.canonicalize_response(UserType::Ty(ty));
-            debug!("to_ty_saving_user_provided_ty: c_ty={:?}", c_ty);
+            info!("to_ty_saving_user_provided_ty: c_ty={:?}", c_ty);
             self.typeck_results.borrow_mut().user_provided_types_mut().insert(ast_ty.hir_id, c_ty);
         }
 

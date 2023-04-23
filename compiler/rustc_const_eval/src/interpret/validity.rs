@@ -602,6 +602,7 @@ impl<'rt, 'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> ValidityVisitor<'rt, 'mir, '
             | ty::InferHKT(..)
             | ty::Placeholder(..)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::Param(..)
             | ty::HKT(..)
             | ty::Alias(..)

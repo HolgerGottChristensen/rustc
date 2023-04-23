@@ -1470,6 +1470,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     Closure,
                     Tuple,
                     Bound,
+                    BoundHKT,
                     Param,
                     HKT,
                     Infer,

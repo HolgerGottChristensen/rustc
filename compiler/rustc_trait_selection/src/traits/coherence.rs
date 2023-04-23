@@ -665,7 +665,7 @@ impl<'tcx> TypeVisitor<'tcx> for OrphanChecker<'tcx> {
             ty::HKT(..) => todo!("hoch"), // FIXMIG: what to do here?
             ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
 
-            ty::Placeholder(..) | ty::Bound(..) | ty::Infer(..) | ty::InferHKT(..) => match self.in_crate {
+            ty::Placeholder(..) | ty::Bound(..) | ty::BoundHKT(..) | ty::Infer(..) | ty::InferHKT(..) => match self.in_crate {
                 InCrate::Local => self.found_non_local_ty(ty),
                 // The inference variable might be unified with a local
                 // type in that remote crate.

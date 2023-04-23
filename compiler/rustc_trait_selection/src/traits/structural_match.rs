@@ -171,7 +171,7 @@ impl<'tcx> TypeVisitor<'tcx> for Search<'tcx> {
                 // First check all contained types and then tell the caller to continue searching.
                 return ty.super_visit_with(self);
             }
-            ty::Infer(_) | ty::InferHKT(..) | ty::Placeholder(_) | ty::Bound(..) => {
+            ty::Infer(_) | ty::InferHKT(..) | ty::Placeholder(_) | ty::Bound(..) | ty::BoundHKT(..) => {
                 bug!("unexpected type during structural-match checking: {:?}", ty);
             }
             ty::Error(_) => {

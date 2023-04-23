@@ -443,7 +443,7 @@ pub fn super_relate_tys<'tcx, R: TypeRelation<'tcx>>(
         (ty::Param(a_p), ty::Param(b_p)) if a_p.index() == b_p.index() => Ok(a),
 
         (ty::HKT(a_did, a_p, a_substs), ty::HKT(_, b_p, b_substs)) if a_p.index() == b_p.index() => {
-            info!("Trying to relate HKTs. a: {:#?}, b: {:#?}", a.kind(), b.kind());
+            //info!("Trying to relate HKTs. a: {:#?}, b: {:#?}", a.kind(), b.kind());
             // FIXMIG(hoch): Handle substs like adt
             let substs = relation.relate_item_substs(*a_did, a_substs, b_substs)?;
             Ok(tcx.mk_hkt_param(*a_did, a_p.index(), a_p.name(), substs))

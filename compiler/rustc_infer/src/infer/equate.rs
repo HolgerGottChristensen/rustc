@@ -74,13 +74,13 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
         self.relate(a, b)
     }
 
-    #[instrument(skip(self), level = "info")]
+    #[instrument(skip(self), level = "debug")]
     fn tys(&mut self, a: Ty<'tcx>, b: Ty<'tcx>) -> RelateResult<'tcx, Ty<'tcx>> {
         if a == b {
             return Ok(a);
         }
 
-        info!("a={:?}, b={:?}", a.kind(), b.kind());
+        debug!("a={:?}, b={:?}", a.kind(), b.kind());
         //info!("a={:?}, b={:?}, stack: {}", a.kind(), b.kind(), std::backtrace::Backtrace::capture());
         //info!(a = ?a.kind(), b = ?b.kind(), stack = );
 

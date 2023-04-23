@@ -395,7 +395,7 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
             ty::Tuple(_) if ty.is_unit() => unreachable!(),
 
             // Placeholders, also handled as part of basic types.
-            ty::HKT(..) | ty::Param(_) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) | ty::InferHKT(..) | ty::Error(_) => {
+            ty::HKT(..) | ty::Param(_) | ty::Bound(..) | ty::BoundHKT(..) | ty::Placeholder(_) | ty::Infer(_) | ty::InferHKT(..) | ty::Error(_) => {
                 unreachable!()
             }
 

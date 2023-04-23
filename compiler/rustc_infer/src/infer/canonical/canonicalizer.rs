@@ -452,6 +452,10 @@ impl<'cx, 'tcx> TypeFolder<'tcx> for Canonicalizer<'cx, 'tcx> {
                 t,
             ),
 
+            ty::BoundHKT(..) => {
+                todo!("hoch")
+            }
+
             ty::Bound(debruijn, _) => {
                 if debruijn >= self.binder_index {
                     bug!("escaping bound type during canonicalization")

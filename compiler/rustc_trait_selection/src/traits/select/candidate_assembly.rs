@@ -791,6 +791,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::Dynamic(..)
             | ty::Error(_)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::Param(_)
             | ty::HKT(..) // FIXMIG: what to do here?
             | ty::Argument(..) // FIXMIG: what to do here?
@@ -891,6 +892,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             | ty::HKT(..)
             | ty::Argument(..)
             | ty::Bound(_, _)
+            | ty::BoundHKT(..)
             | ty::Error(_)
             | ty::Infer(_)
             | ty::Placeholder(_) => {}

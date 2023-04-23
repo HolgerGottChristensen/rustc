@@ -476,7 +476,7 @@ fn layout_of_uncached<'tcx>(
         ty::HKT(..) => {
             return Err(LayoutError::Unknown(ty));
         }
-        ty::Bound(..) | ty::Param(_) | ty::Error(_) => {
+        ty::Bound(..) | ty::BoundHKT(..) | ty::Param(_) | ty::Error(_) => {
             return Err(LayoutError::Unknown(ty));
         }
     })

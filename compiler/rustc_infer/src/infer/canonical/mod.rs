@@ -108,10 +108,13 @@ impl<'tcx> InferCtxt<'tcx> {
         match cv_info.kind {
             CanonicalVarKind::Ty(ty_kind) => {
                 let ty = match ty_kind {
-                    CanonicalTyVarKind::General(ui) => self.next_ty_var_in_universe(
-                        TypeVariableOrigin { kind: TypeVariableOriginKind::MiscVariable, span },
-                        universe_map(ui),
-                    ),
+                    CanonicalTyVarKind::General(ui) => {
+                        println!("Wdawdawdawdawdawd");
+                        self.next_ty_var_in_universe(
+                            TypeVariableOrigin { kind: TypeVariableOriginKind::MiscVariable, span },
+                            universe_map(ui),
+                        )
+                    },
 
                     CanonicalTyVarKind::Int => self.next_int_var(),
 

@@ -206,6 +206,7 @@ pub enum TyKind<I: Interner> {
     /// inside of the type.
     Infer(I::InferTy),
     InferHKT(I::InferTy, I::SubstsRef),
+    BoundHKT(DebruijnIndex, I::BoundTy, I::SubstsRef),
 
     /// A placeholder for a type which could not be computed; this is
     /// propagated to avoid useless error messages.
@@ -252,7 +253,8 @@ const fn tykind_discriminant<I: Interner>(value: &TyKind<I>) -> usize {
         Error(_) => 25,
         HKT(..) => 26,
         Argument(..) => 27,
-        InferHKT(..) => 28
+        InferHKT(..) => 28,
+        BoundHKT(..) => 29,
     }
 }
 
@@ -289,6 +291,7 @@ impl<I: Interner> Clone for TyKind<I> {
             HKT(did, p, s) => HKT(did.clone(), p.clone(), s.clone()),
             Argument(s) => Argument(s.clone()),
             InferHKT(t, s) => InferHKT(t.clone(), s.clone()),
+            BoundHKT(a, b, c) => BoundHKT(*a, b.clone(), c.clone()),
         }
     }
 }
@@ -324,6 +327,7 @@ impl<I: Interner> PartialEq for TyKind<I> {
                 (HKT(a_did, a_p, a_s), HKT(b_did, b_p, b_s)) => a_did == b_did && a_p == b_p && a_s == b_s,
                 (Argument(a_s), Argument(b_s)) => a_s == b_s,
                 (Bound(a_d, a_b), Bound(b_d, b_b)) => a_d == b_d && a_b == b_b,
+                (BoundHKT(a_a, a_b, a_c), BoundHKT(b_a, b_b, b_c)) => a_a == b_a && a_b == b_b && a_c == b_c,
                 (Placeholder(a_p), Placeholder(b_p)) => a_p == b_p,
                 (Infer(a_t), Infer(b_t)) => a_t == b_t,
                 (InferHKT(a_t, a_s), InferHKT(b_t, b_s)) => a_t == b_t && a_s == b_s,
@@ -384,6 +388,7 @@ impl<I: Interner> Ord for TyKind<I> {
                 (HKT(a_did, a_p, a_s), HKT(b_did, b_p, b_s)) => a_did.cmp(b_did).then_with(|| a_p.cmp(b_p).then_with(|| a_s.cmp(b_s))),
                 (Argument(a_p), Argument(b_p)) => a_p.cmp(b_p),
                 (Bound(a_d, a_b), Bound(b_d, b_b)) => a_d.cmp(b_d).then_with(|| a_b.cmp(b_b)),
+                (BoundHKT(a_a, a_b, a_c), BoundHKT(b_a, b_b, b_c)) => a_a.cmp(b_a).then_with(|| a_b.cmp(b_b)).then_with(|| a_c.cmp(b_c)),
                 (Placeholder(a_p), Placeholder(b_p)) => a_p.cmp(b_p),
                 (Infer(a_t), Infer(b_t)) => a_t.cmp(b_t),
                 (Error(a_e), Error(b_e)) => a_e.cmp(b_e),
@@ -467,6 +472,11 @@ impl<I: Interner> hash::Hash for TyKind<I> {
                 t.hash(state);
                 s.hash(state)
             }
+            BoundHKT(a, b, c) => {
+                a.hash(state);
+                b.hash(state);
+                c.hash(state)
+            }
         }
     }
 }
@@ -504,6 +514,7 @@ impl<I: Interner> fmt::Debug for TyKind<I> {
             Argument(v) => f.debug_tuple_field1_finish("Argument", v),
             TyKind::Error(e) => f.debug_tuple_field1_finish("Error", e),
             InferHKT(t, s) => f.debug_tuple_field2_finish("InferHKT", t, s),
+            BoundHKT(a, b, c) => f.debug_tuple_field3_finish("BoundHKT", a, b, c),
         }
     }
 }
@@ -631,6 +642,11 @@ where
                 t.encode(e);
                 s.encode(e);
             }
+            BoundHKT(a, b, c) => {
+                a.encode(e);
+                b.encode(e);
+                c.encode(e);
+            }
         }
     }
 }
@@ -692,6 +708,8 @@ where
             25 => Error(Decodable::decode(d)),
             26 => HKT(Decodable::decode(d), Decodable::decode(d), Decodable::decode(d)),
             27 => Argument(Decodable::decode(d)),
+            28 => InferHKT(Decodable::decode(d), Decodable::decode(d)),
+            29 => BoundHKT(Decodable::decode(d), Decodable::decode(d), Decodable::decode(d)),
             _ => panic!(
                 "{}",
                 format!(
@@ -829,6 +847,11 @@ where
             InferHKT(i, s) => {
                 i.hash_stable(__hcx, __hasher);
                 s.hash_stable(__hcx, __hasher);
+            }
+            BoundHKT(a, b, c) => {
+                a.hash_stable(__hcx, __hasher);
+                b.hash_stable(__hcx, __hasher);
+                c.hash_stable(__hcx, __hasher);
             }
         }
     }

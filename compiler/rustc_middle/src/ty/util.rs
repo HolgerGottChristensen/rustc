@@ -941,6 +941,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Slice(elem_ty) | ty::Array(elem_ty, _) => elem_ty.is_trivially_freeze(),
             ty::Adt(..)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::Closure(..)
             | ty::Dynamic(..)
             | ty::Foreign(_)
@@ -983,6 +984,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Slice(elem_ty) | ty::Array(elem_ty, _) => elem_ty.is_trivially_unpin(),
             ty::Adt(..)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::Closure(..)
             | ty::Dynamic(..)
             | ty::Foreign(_)
@@ -1114,7 +1116,7 @@ impl<'tcx> Ty<'tcx> {
             //
             // FIXME(ecstaticmorse): Maybe we should `bug` here? This should probably only be
             // called for known, fully-monomorphized types.
-            ty::Alias(..) | ty::Param(_) | ty::HKT(..) | ty::Bound(..) | ty::Placeholder(_) | ty::Infer(_) | ty::InferHKT(..) => {
+            ty::Alias(..) | ty::Param(_) | ty::HKT(..) | ty::Bound(..) | ty::BoundHKT(..) | ty::Placeholder(_) | ty::Infer(_) | ty::InferHKT(..) => {
                 false
             }
 
@@ -1253,6 +1255,7 @@ pub fn needs_drop_components<'tcx>(
         | ty::Param(_)
         | ty::HKT(..)
         | ty::Bound(..)
+        | ty::BoundHKT(..)
         | ty::Placeholder(..)
         | ty::Infer(_)
         | ty::InferHKT(..)
@@ -1284,6 +1287,7 @@ pub fn is_trivially_const_drop(ty: Ty<'_>) -> bool {
         | ty::Dynamic(..)
         | ty::Error(_)
         | ty::Bound(..)
+        | ty::BoundHKT(..)
         | ty::Param(_)
         | ty::HKT(..)
         | ty::Placeholder(_)

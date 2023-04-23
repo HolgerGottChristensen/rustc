@@ -1227,7 +1227,7 @@ impl<'tcx> Progress<'tcx> {
 ///
 /// IMPORTANT:
 /// - `obligation` must be fully normalized
-#[instrument(level = "info", skip(selcx))]
+#[instrument(level = "debug", skip(selcx))]
 fn project<'cx, 'tcx>(
     selcx: &mut SelectionContext<'cx, 'tcx>,
     obligation: &ProjectionTyObligation<'tcx>,
@@ -1625,6 +1625,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         | ty::HKT(..) // TODO(hoch) // FIXMIG: what to do here?
                         | ty::Alias(..)
                         | ty::Bound(..)
+                        | ty::BoundHKT(..)
                         | ty::Placeholder(..)
                         | ty::Infer(..)
                         | ty::InferHKT(..)
@@ -1699,6 +1700,7 @@ fn assemble_candidates_from_impls<'cx, 'tcx>(
                         ty::Param(_)
                         | ty::Alias(..)
                         | ty::Bound(..)
+                        | ty::BoundHKT(..)
                         | ty::Placeholder(..)
                         | ty::Infer(..)
                         | ty::InferHKT(..)

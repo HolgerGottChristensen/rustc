@@ -145,7 +145,7 @@ pub(super) fn compare_impl_method<'tcx>(
 ///
 /// Finally we register each of these predicates as an obligation and check that
 /// they hold.
-#[instrument(level = "info", skip_all, ret)]
+#[instrument(level = "info", fields(id = ?trait_method.def_id), skip_all, ret)]
 fn compare_method_predicate_entailment<'tcx>(
     tcx: TyCtxt<'tcx>,
     impl_method: &ty::AssocItem,
@@ -175,7 +175,7 @@ fn compare_method_predicate_entailment<'tcx>(
 
     // Create mapping from impl to placeholder.
     let impl_to_placeholder_substs = InternalSubsts::identity_for_item(tcx, impl_method.def_id);
-    info!("impl_to_placeholder_substs={:?}", impl_to_placeholder_substs);
+    info!("impl_to_placeholder_substs={:#?}", impl_to_placeholder_substs);
 
 
     // Create mapping from trait to placeholder.
@@ -186,7 +186,7 @@ fn compare_method_predicate_entailment<'tcx>(
         //impl_to_placeholder_substs.rebase_onto(tcx, impl_method.container_id(tcx), trait_to_impl_substs)
     };
 
-    info!("trait_to_placeholder_substs={:?}", trait_to_placeholder_substs);
+    info!("trait_to_placeholder_substs={:#?}", trait_to_placeholder_substs);
 
     let impl_method_predicates = tcx.predicates_of(impl_method.def_id);
     let trait_method_predicates: GenericPredicates<'tcx> = tcx.predicates_of(trait_method.def_id);
@@ -199,8 +199,8 @@ fn compare_method_predicate_entailment<'tcx>(
         })),
     };
 
-    info!("Predicates of impl_method_predicates({:?}) = {:#?}", impl_method.def_id, impl_method_predicates);
-    info!("Predicates of trait_method_predicates({:?}) = {:#?}", trait_method.def_id, trait_method_predicates);
+    info!("Predicates of impl_method_predicates({:?}) = {:#?}", impl_method.def_id, impl_method_predicates.predicates.iter().map(|a| a.0).collect::<Vec<_>>());
+    info!("Predicates of trait_method_predicates({:?}) = {:#?}", trait_method.def_id, trait_method_predicates.predicates.iter().map(|a| a.0).collect::<Vec<_>>());
 
 
     // Check region bounds.

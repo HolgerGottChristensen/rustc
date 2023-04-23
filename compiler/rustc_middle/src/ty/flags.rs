@@ -146,6 +146,10 @@ impl FlagComputation {
                 self.add_bound_var(debruijn);
             }
 
+            &ty::BoundHKT(debruijn, ..) => {
+                self.add_bound_var(debruijn);
+            }
+
             &ty::Placeholder(..) => {
                 self.add_flags(TypeFlags::HAS_TY_PLACEHOLDER);
                 self.add_flags(TypeFlags::STILL_FURTHER_SPECIALIZABLE);

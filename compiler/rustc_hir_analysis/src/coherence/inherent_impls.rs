@@ -245,6 +245,7 @@ impl<'tcx> InherentCollect<'tcx> {
             | ty::Generator(..)
             | ty::GeneratorWitness(..)
             | ty::Bound(..)
+            | ty::BoundHKT(..)
             | ty::InferHKT(..)
             | ty::Placeholder(_)
             | ty::Infer(_) => {
