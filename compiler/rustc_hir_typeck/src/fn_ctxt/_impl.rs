@@ -1297,14 +1297,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         info!("gen_kind: {:#?}", param);
                         //info!("arg_types: {:#?}", self.arg_types);
                         //info!("hkt_param_types: {:#?}", self.hkt_param_types);
-                        let new_tys_opt = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id, self.span);
-                        if let Some(new_tys) = new_tys_opt {
-                            if let Some(new_ty) = new_tys.get(param.index.index()) {
-                                let x = new_ty.clone().into();
-                                return x;
-                            }
-                        }
-                        self.fcx.var_for_def(self.span, param)
+                        let new_ty = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id, self.span, param.index.index());
+                        new_ty.into()
                     }
                 }
             }
@@ -1373,7 +1367,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         (ty_substituted, res)
     }
 
-    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId, span: Span) -> Option<Vec<Ty<'tcx>>> {
+    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId, span: Span, index: usize) -> Ty<'tcx> {
         let mut args_ty = Vec::new();
         if let Some(args) = args {
             for arg in args.clone() {
@@ -1418,7 +1412,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             (None, None)
         };
 
-        let new_tys = if let (Some(l), Some(r)) = (left, right) {
+        if let (Some(l), Some(r)) = (left, right) {
             let mut ty_map: FxHashMap<String, Ty<'tcx>> = FxHashMap::with_hasher(BuildHasherDefault::<FxHasher>::default());
             let (ctxt, constraints) = create_constraints_from_rust_tys(self.tcx, &mut ty_map, l, r);
             let mut new_ctxt = ctxt.clone();
@@ -1432,26 +1426,29 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 Ok(sol) => {
                     let new_tys = solution_as_ty(self.tcx, &ty_map, sol.clone());
                     info!("new_tys: {:#?}", new_tys);
-                    Some(new_tys)
+                    new_tys[index]
                 }
                 Err(sols) => {
-                    if sols.0.len() > 0 {
+
+                    let e = if sols.0.len() > 0 {
                         info!("too many solutions: {}", sols);
-                        struct_span_err!(self.tcx.sess, span, E10000, "too many possible types to infer hkt parameters")
+
+                        struct_span_err!(self.tcx.sess, span, E10000, "too many possible types to infer HKT parameters")
                             .span_help(self.tcx.def_span(def_id), &format!("try annotating the function call"))
-                            .emit();
+                            .emit()
+
                     } else {
                         info!("no solutions");
-                        struct_span_err!(self.tcx.sess, span, E10001, "cannot infer hkt parameters").emit();
-                    }
+                        struct_span_err!(self.tcx.sess, span, E10001, "cannot infer HKT parameters").emit()
+                    };
 
-                    None
+                    self.tcx.ty_error_with_guaranteed(e)
                 }
             }
         } else {
-            None
-        };
-        new_tys
+            let e = struct_span_err!(self.tcx.sess, span, E10002, "cannot make inference if it is not a function using HKT parameters").emit();
+            self.tcx.ty_error_with_guaranteed(e)
+        }
     }
 
     /// Add all the obligations that are required, substituting and normalized appropriately.
