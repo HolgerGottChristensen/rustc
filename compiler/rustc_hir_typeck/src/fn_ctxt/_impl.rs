@@ -21,7 +21,7 @@ use rustc_middle::ty::adjustment::{Adjust, Adjustment, AutoBorrow, AutoBorrowMut
 use rustc_middle::ty::error::TypeError;
 use rustc_middle::ty::fold::TypeFoldable;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, AdtKind, CanonicalUserType, DefIdTree, GenericParamDefKind, HKTSubstType, ParamEnv, Ty, UserType};
+use rustc_middle::ty::{self, AdtKind, CanonicalUserType, DefIdTree, GenericParamDef, GenericParamDefKind, HKTSubstType, ParamEnv, Ty, UserType};
 use rustc_middle::ty::{GenericArgKind, InternalSubsts, SubstsRef, UserSelfTy, UserSubsts};
 use rustc_session::lint;
 use rustc_span::def_id::LocalDefId;
@@ -1297,7 +1297,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         info!("gen_kind: {:#?}", param);
                         //info!("arg_types: {:#?}", self.arg_types);
                         //info!("hkt_param_types: {:#?}", self.hkt_param_types);
-                        let new_ty = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id, self.span, param.index.index());
+                        let new_ty = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id, self.span, param.index.index(), param);
                         new_ty.into()
                     }
                 }
@@ -1367,7 +1367,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         (ty_substituted, res)
     }
 
-    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId, span: Span, index: usize) -> Ty<'tcx> {
+    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId, span: Span, index: usize, param: &GenericParamDef) -> Ty<'tcx> {
         let mut args_ty = Vec::new();
         if let Some(args) = args {
             for arg in args.clone() {
@@ -1429,12 +1429,12 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     new_tys[index]
                 }
                 Err(sols) => {
-
                     let e = if sols.0.len() > 0 {
                         info!("too many solutions: {}", sols);
-
+                        let candidate_solution = solution_as_ty(self.tcx, &ty_map,sols.0[0].clone())[0];
                         struct_span_err!(self.tcx.sess, span, E10000, "too many possible types to infer HKT parameters")
-                            .span_help(self.tcx.def_span(def_id), &format!("try annotating the function call"))
+                            .span_label(span, &format!("cannot infer for HKT param `{:?}`", param.name.clone()))
+                            .span_suggestion(span, &format!("try annotating the function call with type"), &format!("{:?}", candidate_solution), Applicability::Unspecified)
                             .emit()
 
                     } else {
