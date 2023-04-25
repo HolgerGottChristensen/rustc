@@ -67,7 +67,7 @@ impl<'tcx> TypeVisitor<'tcx> for ParameterCollector {
                 self.parameters.push(Parameter::from(data.clone()));
             }
             ty::HKT(_, ref _data, _) => {
-                todo!("hoch"); // FIXMIG: what to do here?
+                //todo!("hoch"); // FIXMIG: what to do here?
                 //self.parameters.push(Parameter::from(data));
             }
             _ => {}

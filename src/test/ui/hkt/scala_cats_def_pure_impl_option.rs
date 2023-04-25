@@ -11,6 +11,22 @@ trait Applicative<T, I<%K>>: Functor<T, I<%J>> {
     fn product<U>(self, other: I<U>) -> I<(T, U)>;
 }
 
+trait FlatMap<T, I<%L>> {
+    fn flatmap<U>(self, f: impl Fn(T)->I<U>) -> I<U>;
+}
+
+trait Monad<T, I<%M>>: Functor<T, I<%J>> + FlatMap<T, I<%L>> {}
+
+trait Foldable<T, I<%N>> {
+    fn foldleft<U>(self, state: U, f: impl Fn(U, T)->U) -> U;
+
+    fn foldright<U>(self, state: U, f: impl Fn(T, U)->U) -> U;
+}
+
+trait Traverse<T, I<%O>>: Functor<T, I<%J>> + Foldable<T, I<%N>> {
+    fn traverse<G<%P>: Applicative<%P, G<%K>>, U>(self, f: impl Fn(T)->G<U>) -> G<I<U>>;
+}
+
 impl<T> Functor<T, Option<%J>> for Option<T> {
     fn map<U>(self, f: impl Fn(T)->U) -> Option<U> {
         match self {
@@ -31,22 +47,6 @@ impl<T> Applicative<T, Option<%K>> for Option<T> {
             _ => None,
         }
     }
-}
-
-trait FlatMap<T, I<%L>> {
-    fn flatmap<U>(self, f: impl Fn(T)->I<U>) -> I<U>;
-}
-
-trait Monad<T, I<%M>>: Functor<T, I<%J>> + FlatMap<T, I<%L>> {}
-
-trait Foldable<T, I<%N>> {
-    fn foldleft<U>(self, state: U, f: impl Fn(U, T)->U) -> U;
-
-    fn foldright<U>(self, state: U, f: impl Fn(T, U)->U) -> U;
-}
-
-trait Traverse<T, I<%O>>: Functor<T, I<%J>> + Foldable<T, I<%N>> {
-    fn traverse<G<%P>: Applicative<%P, G<%K>>, U>(self, f: impl Fn(T)->G<U>) -> G<I<U>>;
 }
 
 
