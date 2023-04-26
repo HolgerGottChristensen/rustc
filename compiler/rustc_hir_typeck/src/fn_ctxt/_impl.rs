@@ -1439,7 +1439,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
                     } else {
                         info!("no solutions");
-                        struct_span_err!(self.tcx.sess, span, E10001, "cannot infer HKT parameters").emit()
+                        struct_span_err!(self.tcx.sess, span, E10001, "cannot infer HKT parameters")
+                            .span_help(span, &format!("try annotating the function call"))
+                            .emit()
                     };
 
                     self.tcx.ty_error_with_guaranteed(e)

@@ -1,5 +1,5 @@
 //check-fail
-fn test<I<%J>, L<%K>>(input: I<u32>, i2: I<bool>) {
+fn test<I<%J>>(input: I<u32>, i2: I<bool>) {
 }
 
 fn main() {
