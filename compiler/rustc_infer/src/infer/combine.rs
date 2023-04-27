@@ -320,7 +320,7 @@ impl<'infcx, 'tcx> CombineFields<'infcx, 'tcx> {
     /// will first instantiate `b_vid` with a *generalized* version
     /// of `a_ty`. Generalization introduces other inference
     /// variables wherever subtyping could occur.
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     pub fn instantiate(
         &mut self,
         a_ty: Ty<'tcx>,
@@ -386,7 +386,7 @@ impl<'infcx, 'tcx> CombineFields<'infcx, 'tcx> {
     /// Preconditions:
     ///
     /// - `for_vid` is a "root vid"
-    #[instrument(skip(self), level = "debug", ret)]
+    #[instrument(skip(self), level = "info", ret)]
     fn generalize(
         &self,
         ty: Ty<'tcx>,

@@ -43,7 +43,7 @@ trait Functor<T, I<%J>> {
     // def ifF[A](fb: F[Boolean])(ifTrue: => A, ifFalse: => A): F[A] = map(fb)(x => if (x) ifTrue else ifFalse)
 }
 
-trait Applicative<T, I<%K>>: Functor<T, I<%J>> {
+trait Applicative<T, I<%K>: Functor<%K, I<%J>>>: Functor<T, I<%J>> {
     fn pure(t: T) -> I<T>;
 
     fn product<U>(self, other: I<U>) -> I<(T, U)>;
@@ -55,18 +55,18 @@ trait Applicative<T, I<%K>>: Functor<T, I<%J>> {
     }*/
 
     fn map2<U, V>(self, other: I<U>, f: impl Fn(T, U)->V) -> I<V> where Self: Sized {
-        todo!()
-        //self.product(other).map(f)
+        let r: I<(T, U)> = self.product::<U>(other);
+        r.map(|(t, u)| f(t, u))
     }
 }
 
-trait Monad<T, I<%M>>: Functor<T, I<%J>> {
+trait Monad<T, I<%M>: Functor<%M, I<%J>>>: Functor<T, I<%J>> {
     fn flatmap<U>(self, f: impl Fn(T)->I<U>) -> I<U>;
 
     //def flatten[A](ffa: F[F[A]]): F[A] = flatMap(ffa)(fa => fa)
 
     /*fn mproduct<U>(self, f: impl Fn(&T)->I<U>) -> I<(T, U)> where Self: Sized {
-        self.flatmap(|t| f(&t).map(|u| (t, u)))
+        self.flatmap(|t| -> I<U> { f(&t).map(|u| (t, u)) })
     }*/
 }
 
@@ -359,8 +359,11 @@ fn main() {
     let res = val.product_all();
     println!("product_all: {:?}", res);
 
-    /*let val = vec!["1", "2", "3"];
-    let res = val.product_all();
-    println!("product_all: {:?}", res);*/
+    /*let val = Some(32);
+    //let val = vec!["1", "2", "3"];
+    let res: Option<u32> = val.traverse(|t| {
+        Some(42)
+    });
+    println!("traverse: {:?}", res);*/
 }
 
