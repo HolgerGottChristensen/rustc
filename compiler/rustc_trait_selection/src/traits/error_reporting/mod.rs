@@ -2138,7 +2138,7 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         Obligation::new(self.tcx, ObligationCause::dummy(), param_env, trait_pred)
     }
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "info")]
     fn maybe_report_ambiguity(
         &self,
         obligation: &PredicateObligation<'tcx>,
@@ -2156,6 +2156,8 @@ impl<'tcx> InferCtxtPrivExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
 
         // Ambiguity errors are often caused as fallout from earlier errors.
         // We ignore them if this `infcx` is tainted in some cases below.
+
+        info!("failed obligation: {:#?}", obligation);
 
         let bound_predicate = predicate.kind();
         let mut err = match bound_predicate.skip_binder() {

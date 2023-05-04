@@ -447,7 +447,7 @@ fn encode_ty<'tcx>(
             typeid.push('b');
         }
 
-        ty::Argument(..) => todo!("hoch"),
+        ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
 
         ty::Int(..) | ty::Uint(..) | ty::Float(..) => {
             // u<length><type-name> as vendor extended type
@@ -644,7 +644,7 @@ fn encode_ty<'tcx>(
         | ty::InferHKT(..)
         | ty::Alias(..)
         | ty::Param(..)
-        | ty::HKT(..) // TODO(hoch)
+        | ty::HKT(..) // FIXMIG: what to do here?
         | ty::Placeholder(..) => {
             bug!("encode_ty: unexpected `{:?}`", ty.kind());
         }
@@ -673,7 +673,7 @@ fn transform_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, options: TransformTyOptio
 
         _ if ty.is_unit() => {}
 
-        ty::Argument(..) => todo!("hoch"),
+        ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
 
         ty::Tuple(tys) => {
             ty = tcx.mk_tup(tys.iter().map(|ty| transform_ty(tcx, ty, options)));
@@ -802,7 +802,7 @@ fn transform_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, options: TransformTyOptio
         | ty::InferHKT(..)
         | ty::Alias(..)
         | ty::Param(..)
-        | ty::HKT(..) // TODO(hoch)
+        | ty::HKT(..) // FIXMIG: what to do here?
         | ty::Placeholder(..) => {
             bug!("transform_ty: unexpected `{:?}`", ty.kind());
         }

@@ -954,6 +954,7 @@ impl<'tcx> Ty<'tcx> {
             | ty::HKT(..)
             | ty::Argument(..)
             | ty::Placeholder(_) => false,
+
         }
     }
 
@@ -1262,7 +1263,7 @@ pub fn needs_drop_components<'tcx>(
         | ty::Closure(..)
         | ty::Generator(..) => Ok(smallvec![ty]),
 
-        ty::Argument(..) => todo!("hoch") // FIXMIG: what to do here?
+        ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
     }
 }
 
@@ -1302,7 +1303,7 @@ pub fn is_trivially_const_drop(ty: Ty<'_>) -> bool {
 
         ty::Tuple(tys) => tys.iter().all(|ty| is_trivially_const_drop(ty)),
 
-        ty::Argument(..) => todo!("hoch") // FIXMIG: what to do here?
+        ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
     }
 }
 

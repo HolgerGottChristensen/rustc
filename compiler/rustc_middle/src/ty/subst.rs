@@ -22,6 +22,7 @@ use std::num::NonZeroUsize;
 use std::ops::{ControlFlow, Deref};
 use std::slice;
 use rustc_data_structures::fx::FxHashMap;
+use rustc_middle::ty::PolyFnSig;
 use rustc_span::Symbol;
 
 /// An entity in the Rust type system, which can be one of
@@ -891,6 +892,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
         }
     }
 
+    #[instrument(level="info", skip(self))]
     fn fold_ty(&mut self, t: Ty<'tcx>) -> Ty<'tcx> {
         if !t.needs_subst() && !matches!(t.kind(), ty::HKT(..)) {
             info!("just return: {}", t);
@@ -943,6 +945,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for SubstFolder<'a, 'tcx> {
 }
 
 impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
+    #[instrument(level="info", skip(self))]
     fn ty_for_param(&self, p: ty::ParamTy, source_ty: Ty<'tcx>) -> Ty<'tcx> {
         // Look up the type in the substitutions. It really should be in there.
         let opt_ty = self.substs.get(p.index() as usize).map(|k| k.unpack());
@@ -953,7 +956,7 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
             Some(kind) => self.type_param_expected(p, source_ty, kind),
             None => self.type_param_out_of_range(p, source_ty),
         };
-
+        //info!("ty_kind: {:#?}", ty.kind());
         self.shift_vars_through_binders(ty)
     }
 
@@ -1270,6 +1273,18 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
                 self.tcx.mk_hkt_infer(*a, self.tcx.mk_substs(new_substs.into_iter()))
             }
+            ty::TyKind::Tuple(ty_list) => {
+                let ty_list: &'tcx List<Ty<'tcx>> = ty_list;
+
+                let new_ty_list = ty_list.iter().map(|a| {
+                    self.ty_kind_substitution(a, with, def_id, index)
+                }).collect::<Vec<_>>();
+                self.tcx.mk_tup(new_ty_list.into_iter())
+            }
+            ty::TyKind::Array(ty, size) => {
+                let new_inner = self.ty_kind_substitution(*ty, with, def_id, index);
+                self.tcx.mk_ty(ty::TyKind::Array(new_inner, *size))
+            }
             ty::HKT(did, a, substs) => {
                 let substs: &SubstsRef<'_> = substs;
 
@@ -1285,6 +1300,49 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
 
                 self.tcx.mk_ty(ty::HKT(*did, *a, self.tcx.mk_substs(new_substs.into_iter())))
             }
+            ty::FnDef(defid, substs) => {
+                let substs: &SubstsRef<'_> = substs;
+
+                let new_substs = substs.iter().map(|a| {
+                    match a.unpack() {
+                        GenericArgKind::Const(_)
+                        | GenericArgKind::Lifetime(_) => a,
+                        GenericArgKind::Type(t) => {
+                            self.ty_kind_substitution(t, with, def_id, index).into()
+                        }
+                    }
+                }).collect::<Vec<_>>();
+
+                self.tcx.mk_ty(ty::TyKind::FnDef(defid.clone(), self.tcx.mk_substs(new_substs.into_iter())))
+            }
+            ty::FnPtr(polyfnsig) => {
+                let poly: PolyFnSig<'tcx> = *polyfnsig;
+
+                let new_poly = poly.map_bound(|ty::FnSig{ inputs_and_output, c_variadic, unsafety, abi }| {
+                    ty::FnSig {
+                       inputs_and_output: self.tcx.mk_type_list(inputs_and_output.into_iter().map(|t| self.ty_kind_substitution(t, with, def_id, index))),
+                       c_variadic,
+                       unsafety,
+                       abi,
+                   }
+                });
+
+                self.tcx.mk_fn_ptr(new_poly)
+            }
+            /*
+            ty::Closure(defid, inner) => {
+                let closure_subst = ClosureSubsts { substs: inner.clone()};
+                closure_subst.sig_as_fn_ptr_ty().fn_sig(self.tcx).map_bound(|ty::FnSig{ inputs_and_output, c_variadic, unsafety, abi }| {
+                    ty::FnSig {
+                        inputs_and_output: self.tcx.mk_type_list(inputs_and_output.into_iter().map(|t| self.ty_kind_substitution(t, with, def_id, index))),
+                        c_variadic,
+                        unsafety,
+                        abi,
+                    }
+                });
+                self.tcx.mk_closure(defid.clone(), closure_subst.substs)
+            }
+            */
             _ => {
                 todo!("here: {:#?} with {:#?}, def_id: {:?}:{:?}", ty.kind(), with.kind(), def_id, index)
             }

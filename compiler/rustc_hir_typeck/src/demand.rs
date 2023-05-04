@@ -135,6 +135,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.demand_eqtype_with_origin(&self.misc(sp), expected, actual)
     }
 
+    #[instrument(skip(self), level="info")]
     pub fn demand_eqtype_with_origin(
         &self,
         cause: &ObligationCause<'tcx>,
@@ -146,7 +147,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 self.register_predicates(obligations);
                 None
             }
-            Err(e) => Some(self.err_ctxt().report_mismatched_types(cause, expected, actual, e)),
+            Err(e) => {
+                info!("actual: {:#?}, expected: {:#?}", actual, expected);
+                Some(self.err_ctxt().report_mismatched_types(cause, expected, actual, e))
+            },
         }
     }
 

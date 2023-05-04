@@ -242,6 +242,7 @@ fn get_path_containing_arg_in_pat<'hir>(
     arg_path
 }
 
+#[instrument(level="info", skip(tcx, def_id))]
 pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> Ty<'_> {
     let def_id = def_id.expect_local();
     use rustc_hir::*;
@@ -331,6 +332,9 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> Ty<'_> {
                 },
                 ItemKind::Fn(..) => {
                     let substs = InternalSubsts::identity_for_item(tcx, def_id.to_def_id());
+                    substs.to_vec().iter().for_each(|i| {
+                        info!("printing substs before creating fn: {:#?}", i);
+                    });
                     let res = tcx.mk_fn_def(def_id.to_def_id(), substs);
                     info!("return: {:#?}", res);
                     res

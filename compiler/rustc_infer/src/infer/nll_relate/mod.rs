@@ -319,7 +319,7 @@ where
         &mut self,
         pair: PAIR,
     ) -> RelateResult<'tcx, Ty<'tcx>> {
-        debug!("relate_ty_var({:?})", pair);
+        info!("relate_ty_var({:?})", pair);
 
         let vid = pair.vid();
         let value_ty = pair.value_ty();
@@ -345,7 +345,7 @@ where
         }
 
         let generalized_ty = self.generalize_value(value_ty, vid)?;
-        debug!("relate_ty_var: generalized_ty = {:?}", generalized_ty);
+        info!("relate_ty_var: generalized_ty = {:#?}", generalized_ty);
 
         if D::forbid_inference_vars() {
             // In NLL, we don't have type inference variables

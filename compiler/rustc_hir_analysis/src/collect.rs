@@ -564,6 +564,7 @@ fn get_new_lifetime_name<'tcx>(
     (1..).flat_map(a_to_z_repeat_n).find(|lt| !existing_lifetimes.contains(lt.as_str())).unwrap()
 }
 
+#[instrument(level="info", skip(tcx, item_id))]
 fn convert_item(tcx: TyCtxt<'_>, item_id: hir::ItemId) {
     let it = tcx.hir().item(item_id);
     debug!("convert: item {} with id {}", it.ident, it.hir_id());
@@ -1111,7 +1112,9 @@ fn fn_sig(tcx: TyCtxt<'_>, def_id: DefId) -> ty::PolyFnSig<'_> {
             ..
         })
         | Item(hir::Item { kind: ItemKind::Fn(sig, generics, _), .. }) => {
-            infer_return_ty_for_fn_sig(tcx, sig, generics, def_id, &icx)
+            let x = infer_return_ty_for_fn_sig(tcx, sig, generics, def_id, &icx);
+            info!("converted fn_sig: {:#?}", x);
+            x
         }
 
         ImplItem(hir::ImplItem { kind: ImplItemKind::Fn(sig, _), generics, .. }) => {
@@ -1187,6 +1190,7 @@ fn fn_sig(tcx: TyCtxt<'_>, def_id: DefId) -> ty::PolyFnSig<'_> {
     }
 }
 
+#[instrument(level="info", skip(tcx, sig, generics, def_id, icx))]
 fn infer_return_ty_for_fn_sig<'tcx>(
     tcx: TyCtxt<'tcx>,
     sig: &hir::FnSig<'_>,

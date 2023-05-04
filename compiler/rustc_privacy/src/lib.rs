@@ -21,7 +21,7 @@ use rustc_hir as hir;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{DefId, LocalDefId, LocalDefIdSet, CRATE_DEF_ID};
 use rustc_hir::intravisit::{self, Visitor};
-use rustc_hir::{AssocItemKind, HirIdSet, ItemId, Node, PatKind, WherePredicate};
+use rustc_hir::{AssocItemKind, HirIdSet, ItemId, Node, PatKind};
 use rustc_middle::bug;
 use rustc_middle::hir::nested_filter;
 use rustc_middle::middle::privacy::{EffectiveVisibilities, Level};
@@ -1682,7 +1682,7 @@ impl<'a, 'tcx> Visitor<'tcx> for ObsoleteVisiblePrivateTypesVisitor<'a, 'tcx> {
                 hir::WherePredicate::EqPredicate(eq_pred) => {
                     self.visit_ty(eq_pred.rhs_ty);
                 }
-                WherePredicate::SelfConstraint { .. } => {
+                hir::WherePredicate::SelfConstraint { .. } => {
                     todo!() // FIXMIG: what to do here?
                 }
             }

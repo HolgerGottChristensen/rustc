@@ -88,6 +88,7 @@ impl FlagComputation {
             | &ty::Str
             | &ty::Foreign(..) => {}
 
+
             &ty::Error(_) => self.add_flags(TypeFlags::HAS_ERROR),
 
             &ty::Param(_) => {

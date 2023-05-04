@@ -224,7 +224,9 @@ impl<'tcx> TypeVariableTable<'_, 'tcx> {
     /// Instantiates `vid` with the type `ty`.
     ///
     /// Precondition: `vid` must not have been previously instantiated.
+    #[instrument(level="info", skip(self))]
     pub fn instantiate(&mut self, vid: ty::TyVid, ty: Ty<'tcx>) {
+        info!("instantiate with: {:#?}", ty);
         let vid = self.root_var(vid);
         debug_assert!(self.probe(vid).is_unknown());
         debug_assert!(

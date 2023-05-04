@@ -3,13 +3,13 @@ use crate::method::{self, MethodCallee, SelfSource};
 use crate::rvalue_scopes;
 use crate::{BreakableCtxt, Diverges, Expectation, FnCtxt, LocalTy};
 use rustc_data_structures::captures::Captures;
-use rustc_data_structures::fx::FxHashSet;
-use rustc_errors::{Applicability, Diagnostic, ErrorGuaranteed, MultiSpan};
+use rustc_data_structures::fx::{FxHasher, FxHashMap, FxHashSet};
+use rustc_errors::{Applicability, Diagnostic, ErrorGuaranteed, MultiSpan, struct_span_err};
 use rustc_hir as hir;
 use rustc_hir::def::{CtorOf, DefKind, Res};
 use rustc_hir::def_id::DefId;
 use rustc_hir::lang_items::LangItem;
-use rustc_hir::{ExprKind, GenericArg, Node, QPath};
+use rustc_hir::{Expr, ExprKind, GenericArg, Node, QPath};
 use rustc_hir_analysis::astconv::{
     AstConv, CreateSubstsForGenericArgsCtxt, ExplicitLateBound, GenericArgCountMismatch,
     GenericArgCountResult, IsMethodCall, PathSeg,
@@ -21,7 +21,7 @@ use rustc_middle::ty::adjustment::{Adjust, Adjustment, AutoBorrow, AutoBorrowMut
 use rustc_middle::ty::error::TypeError;
 use rustc_middle::ty::fold::TypeFoldable;
 use rustc_middle::ty::visit::TypeVisitable;
-use rustc_middle::ty::{self, AdtKind, CanonicalUserType, DefIdTree, GenericParamDefKind, HKTSubstType, ParamEnv, Ty, UserType};
+use rustc_middle::ty::{self, AdtKind, CanonicalUserType, DefIdTree, GenericParamDef, GenericParamDefKind, HKTSubstType, ParamEnv, Ty, UserType};
 use rustc_middle::ty::{GenericArgKind, InternalSubsts, SubstsRef, UserSelfTy, UserSubsts};
 use rustc_session::lint;
 use rustc_span::def_id::LocalDefId;
@@ -32,7 +32,10 @@ use rustc_trait_selection::traits::error_reporting::TypeErrCtxtExt as _;
 use rustc_trait_selection::traits::{self, NormalizeExt, ObligationCauseCode, ObligationCtxt};
 
 use std::collections::hash_map::Entry;
+use std::hash::BuildHasherDefault;
 use std::slice;
+use rustc_index::vec::Idx;
+use crate::huets::{create_constraints_from_rust_tys, get_solution_from_solution_set, main_huet, solution_as_ty};
 
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Produces warning on the given node, if the current point in the
@@ -307,6 +310,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         ],
                     ) => {
                         // A reborrow has no effect before a dereference.
+                    },
+                    (
+                        &[
+                            Adjustment{kind: Adjust::Borrow(AutoBorrow::Ref(..)), ..}
+                        ],
+                        &[
+                            Adjustment{kind: Adjust::Borrow(AutoBorrow::Ref(..)), ..}
+                        ]
+                    ) => {
+                        // FIXMIG: Currently we overwrite the first adjustment with the second one,
+                        // could cause problems
                     }
                     // FIXME: currently we never try to compose autoderefs
                     // and ReifyFnPointer/UnsafeFnPointer, but we could.
@@ -1054,6 +1068,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         &self,
         segments: &[hir::PathSegment<'_>],
         self_ty: Option<Ty<'tcx>>,
+        args: Option<&'tcx [hir::Expr<'tcx>]>,
         res: Res,
         span: Span,
         hir_id: hir::HirId,
@@ -1119,7 +1134,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }),
             |_| {},
         );
-
         if let Res::Local(hid) = res {
             info!("local: {:?}", hid);
             let ty = self.local_ty(span, hid).decl_ty;
@@ -1229,6 +1243,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             path_segs: &'a [PathSeg],
             infer_args_for_err: &'a FxHashSet<usize>,
             segments: &'a [hir::PathSegment<'a>],
+            fn_def_id: DefId,
+            fn_args: Option<&'tcx [hir::Expr<'tcx>]>
         }
         impl<'tcx, 'a> CreateSubstsForGenericArgsCtxt<'a, 'tcx> for CreateCtorSubstsContext<'a, 'tcx> {
             fn args_for_def_id(
@@ -1327,7 +1343,11 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     }
                     GenericParamDefKind::HKT => {
                         //todo!("hoch")
-                        self.fcx.var_for_def(self.span, param)
+                        info!("gen_kind: {:#?}", param);
+                        //info!("arg_types: {:#?}", self.arg_types);
+                        //info!("hkt_param_types: {:#?}", self.hkt_param_types);
+                        let new_ty = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id, self.span, param.index.index(), param);
+                        new_ty.into()
                     }
                 }
             }
@@ -1349,6 +1369,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                     path_segs: &path_segs,
                     infer_args_for_err: &infer_args_for_err,
                     segments,
+                    fn_def_id: def_id,
+                    fn_args: args
                 },
             )
         });
@@ -1397,6 +1419,92 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         self.write_substs(hir_id, substs);
 
         (ty_substituted, res)
+    }
+
+    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId, span: Span, index: usize, param: &GenericParamDef) -> Ty<'tcx> {
+        let mut args_ty = Vec::new();
+        if let Some(args) = args {
+            for arg in args.clone() {
+
+                // select only the arguments using the HKT
+                let arg_ty = self.check_expr(arg);
+                args_ty.push(arg_ty);
+            }
+        }
+
+        let (is_function, is_hkt) = match self.tcx.type_of(def_id).kind() {
+            ty::FnDef(..) => {
+                let fn_signature = self.tcx.bound_fn_sig(def_id);
+                let mut hkt = false;
+                for t in fn_signature.skip_binder().inputs().skip_binder().iter() {
+                    match t.kind() {
+                        ty::HKT(..) => {
+                            hkt = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+                (true, hkt)
+            },
+            _ => (false, false),
+        };
+
+        let (left, right) = if is_function && is_hkt {
+            let mut lefties = Vec::new();
+            let mut righties = Vec::new();
+            let fn_signature = self.tcx.bound_fn_sig(def_id);
+            for l in fn_signature.skip_binder().inputs().skip_binder().iter() {
+                lefties.push(l.clone());
+            }
+
+            for i in 0..lefties.len() {
+                righties.push(args_ty[i].clone());
+            }
+            (Some(lefties), Some(righties))
+        } else {
+            (None, None)
+        };
+
+        if let (Some(l), Some(r)) = (left, right) {
+            let mut ty_map: FxHashMap<String, Ty<'tcx>> = FxHashMap::with_hasher(BuildHasherDefault::<FxHasher>::default());
+            let (ctxt, constraints) = create_constraints_from_rust_tys(self.tcx, &mut ty_map, l, r);
+            let mut new_ctxt = ctxt.clone();
+            info!("constraint_set: {}", constraints);
+            info!("context in solution: {:#?}", new_ctxt);
+            main_huet(&mut new_ctxt, constraints);
+            let solutions_set = new_ctxt.minimal_solutions();
+            info!("solution_set: {}", solutions_set);
+
+            match get_solution_from_solution_set(solutions_set) {
+                Ok(sol) => {
+                    let new_tys = solution_as_ty(self.tcx, &ty_map, sol.clone());
+                    info!("new_tys: {:#?}", new_tys);
+                    new_tys[index]
+                }
+                Err(sols) => {
+                    let e = if sols.0.len() > 0 {
+                        info!("too many solutions: {}", sols);
+                        let candidate_solution = solution_as_ty(self.tcx, &ty_map,sols.0[0].clone())[0];
+                        struct_span_err!(self.tcx.sess, span, E10000, "too many possible types to infer HKT parameters")
+                            .span_label(span, &format!("cannot infer for HKT param `{:?}`", param.name.clone()))
+                            .span_suggestion(span, &format!("try annotating the function call with type"), &format!("{:?}", candidate_solution), Applicability::Unspecified)
+                            .emit()
+
+                    } else {
+                        info!("no solutions");
+                        struct_span_err!(self.tcx.sess, span, E10001, "cannot infer HKT parameters")
+                            .span_help(span, &format!("try annotating the function call"))
+                            .emit()
+                    };
+
+                    self.tcx.ty_error_with_guaranteed(e)
+                }
+            }
+        } else {
+            let e = struct_span_err!(self.tcx.sess, span, E10002, "cannot make inference if it is not a function using HKT parameters").emit();
+            self.tcx.ty_error_with_guaranteed(e)
+        }
     }
 
     /// Add all the obligations that are required, substituting and normalized appropriately.

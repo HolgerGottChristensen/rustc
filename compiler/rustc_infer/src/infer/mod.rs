@@ -1138,7 +1138,9 @@ impl<'tcx> InferCtxt<'tcx> {
         self.next_region_var_in_universe(RegionVariableOrigin::Nll(origin), universe)
     }
 
+    //#[instrument(level="info", skip(self))]
     pub fn var_for_def(&self, span: Span, param: &ty::GenericParamDef) -> GenericArg<'tcx> {
+        //info!("stacktrace:\n{}", std::backtrace::Backtrace::capture());
         match param.kind {
             GenericParamDefKind::Lifetime => {
                 // Create a region inference variable for the given
@@ -1942,6 +1944,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for ShallowResolver<'a, 'tcx> {
                 //
                 // Note: if these two lines are combined into one we get
                 // dynamic borrow errors on `self.inner`.
+                //info!("its a TyVar with ID {:#?}", v);
                 let known = self.infcx.inner.borrow_mut().type_variables().probe(v).known();
                 known.map_or(ty, |t| self.fold_ty(t))
             }

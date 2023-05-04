@@ -148,7 +148,7 @@ impl<'a, 'tcx> TypeFolder<'tcx> for TypeFreshener<'a, 'tcx> {
         let tcx = self.infcx.tcx;
 
         match *t.kind() {
-            ty::Argument(..) => todo!("hoch"),
+            ty::Argument(..) => todo!("hoch"), // FIXMIG: what to do here?
             ty::InferHKT(ty::TyVar(v), _) => {
                 let opt_ty = self.infcx.inner.borrow_mut().type_variables().probe(v).known();
                 self.freshen_ty(opt_ty, ty::TyVar(v), ty::FreshTy).super_fold_with(self)

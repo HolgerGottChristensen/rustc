@@ -272,7 +272,7 @@ impl<'tcx> Generics {
         match param.kind {
             GenericParamDefKind::Type { .. } => param,
             GenericParamDefKind::HKT { .. } => param,
-            _ => bug!("expected type parameter, but found another generic parameter"),
+            _ => bug!("expected type parameter, but found another generic parameter {:#?} with stacktrace: {}", param, std::backtrace::Backtrace::capture()),
         }
     }
 

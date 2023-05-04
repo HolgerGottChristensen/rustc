@@ -469,7 +469,9 @@ fn layout_of_uncached<'tcx>(
             return Err(LayoutError::Unknown(ty));
         }
 
-        ty::Placeholder(..) | ty::GeneratorWitness(..) | ty::Infer(_) | ty::InferHKT(..) => {
+        ty::Placeholder(..)
+        | ty::GeneratorWitness(..)
+        | ty::Infer(_) | ty::InferHKT(..) => {
             bug!("Layout::compute: unexpected type `{}`", ty)
         }
 

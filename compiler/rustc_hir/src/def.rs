@@ -68,7 +68,7 @@ pub enum DefKind {
     AssocTy,
     /// Type parameter: the `T` in `struct Vec<T> { ... }`
     TyParam,
-    /// HKT parameter: the `T<?1>` in `struct Vec<T<?1>> { ... }`
+    /// HKT parameter: the `T<%J>` in `struct Vec<T<%J>> { ... }`
     HKTParam,
 
     // Value namespace

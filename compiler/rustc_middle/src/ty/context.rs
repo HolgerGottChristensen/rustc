@@ -1897,12 +1897,15 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     #[inline]
+    #[instrument(level = "info", skip(self, substs))]
     pub fn mk_fn_def(
         self,
         def_id: DefId,
         substs: impl IntoIterator<Item = impl Into<GenericArg<'tcx>>>,
     ) -> Ty<'tcx> {
         let substs = self.check_substs(def_id, substs);
+        info!("creating function with substs: {:#?}", substs);
+        //info!("stacktrace: {:#?}", std::backtrace::Backtrace::capture());
         self.mk_ty(FnDef(def_id, substs))
     }
 
