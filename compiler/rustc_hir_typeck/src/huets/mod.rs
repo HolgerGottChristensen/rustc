@@ -520,7 +520,7 @@ fn map_rust_ty_to_huet_ty<'tcx>(tcx: TyCtxt<'tcx>, ctxt: &mut Context, ty_map: &
             let param_name = param_ty.name().to_string();
             ctxt.typing_context.insert(param_name.clone(), Type::Star);
             ty_map.insert(param_name.clone(), rust_ty);
-            Some((Meta(param_name), Type::Star))
+            Some((Var(param_name), Type::Star))
         }
         ty::FnPtr(polysig) => {
             // FIXMIG: We need to take account for unsafety field in PolyFnSig
