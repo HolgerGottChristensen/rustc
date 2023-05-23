@@ -1,0 +1,14 @@
+error[E10001]: cannot infer HKT parameters
+  --> $DIR/inference_no_solution_error.rs:7:5
+   |
+LL |     test(Some(32u32), Some("dff".to_string()));
+   |     ^^^^
+   |
+help: try annotating the function call
+  --> $DIR/inference_no_solution_error.rs:7:5
+   |
+LL |     test(Some(32u32), Some("dff".to_string()));
+   |     ^^^^
+
+error: aborting due to previous error
+

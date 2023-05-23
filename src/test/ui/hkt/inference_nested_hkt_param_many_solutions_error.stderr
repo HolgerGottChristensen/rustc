@@ -1,0 +1,20 @@
+error[E10000]: too many possible types to infer HKT parameters
+  --> $DIR/inference_nested_hkt_param_many_solutions_error.rs:7:5
+   |
+LL |     test(Some(Some(5u32)));
+   |     ^^^^
+   |     |
+   |     cannot infer for HKT param `"I"`
+   |     help: try annotating the function call with type: `std::option::Option<std::option::Option<%K>>`
+
+error[E10000]: too many possible types to infer HKT parameters
+  --> $DIR/inference_nested_hkt_param_many_solutions_error.rs:7:5
+   |
+LL |     test(Some(Some(5u32)));
+   |     ^^^^
+   |     |
+   |     cannot infer for HKT param `"L"`
+   |     help: try annotating the function call with type: `std::option::Option<std::option::Option<%K>>`
+
+error: aborting due to 2 previous errors
+
