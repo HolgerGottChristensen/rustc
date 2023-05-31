@@ -1081,9 +1081,6 @@ impl<'a, 'tcx> SubstFolder<'a, 'tcx> {
                 // Find all arguments with the same def_id as the p.def_id()
                 // For all arguments, replace with the replaced_to n'th argument?
 
-
-
-
                 //self.ty_kind_substitution2(source_ty, ty)
                 //let mut current = source_ty;
                 let mut current = ty;

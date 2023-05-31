@@ -1346,8 +1346,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         info!("gen_kind: {:#?}", param);
                         //info!("arg_types: {:#?}", self.arg_types);
                         //info!("hkt_param_types: {:#?}", self.hkt_param_types);
-                        let new_ty = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id, self.span, param.index.index(), param);
-                        new_ty.into()
+                        info!("substs1: {:#?}", substs);
+
+                        if let Some(new_ty) = self.fcx.infer_hkt_params(self.fn_args, self.fn_def_id, self.span, param.index.index(), param) {
+                            if true { // Switches between inference and scala cats examples.
+                                new_ty.into()
+                            } else {
+                                self.fcx.var_for_def(self.span, param)
+                            }
+                        } else {
+                            self.fcx.var_for_def(self.span, param)
+                        }
                     }
                 }
             }
@@ -1421,7 +1430,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         (ty_substituted, res)
     }
 
-    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId, span: Span, index: usize, param: &GenericParamDef) -> Ty<'tcx> {
+    fn infer_hkt_params(&self, args: Option<&'tcx [Expr<'tcx>]>, def_id: DefId, span: Span, index: usize, param: &GenericParamDef) -> Option<Ty<'tcx>> {
         let mut args_ty = Vec::new();
         if let Some(args) = args {
             for arg in args.clone() {
@@ -1432,9 +1441,15 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         }
 
+        if self.tcx.def_kind(def_id) == DefKind::AssocFn {
+            return None;
+        }
+
         let (is_function, is_hkt) = match self.tcx.type_of(def_id).kind() {
-            ty::FnDef(..) => {
+            ty::FnDef(_, substs) => {
                 let fn_signature = self.tcx.bound_fn_sig(def_id);
+                info!("fn_signature: {:?}", fn_signature);
+                info!("substs: {:?}", substs);
                 let mut hkt = false;
                 for t in fn_signature.skip_binder().inputs().skip_binder().iter() {
                     match t.kind() {
@@ -1454,6 +1469,9 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             let mut lefties = Vec::new();
             let mut righties = Vec::new();
             let fn_signature = self.tcx.bound_fn_sig(def_id);
+            let fn_signature2 = self.tcx.fn_sig(def_id);
+            info!("fn_signature: {:?}", fn_signature);
+            info!("fn_signature2: {:?}", fn_signature2);
             for l in fn_signature.skip_binder().inputs().skip_binder().iter() {
                 lefties.push(l.clone());
             }
@@ -1480,7 +1498,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 Ok(sol) => {
                     let new_tys = solution_as_ty(self.tcx, &ty_map, sol.clone());
                     info!("new_tys: {:#?}", new_tys);
-                    new_tys[index]
+                    Some(new_tys[index])
                 }
                 Err(sols) => {
                     let e = if sols.0.len() > 0 {
@@ -1498,12 +1516,31 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                             .emit()
                     };
 
-                    self.tcx.ty_error_with_guaranteed(e)
+                    Some(self.tcx.ty_error_with_guaranteed(e))
                 }
             }
         } else {
-            let e = struct_span_err!(self.tcx.sess, span, E10002, "cannot make inference if it is not a function using HKT parameters").emit();
-            self.tcx.ty_error_with_guaranteed(e)
+            /*if !is_function {
+                let e = struct_span_err!(
+                    self.tcx.sess,
+                    span,
+                    E10002,
+                    "cannot make inference if it is not a function"
+                ).emit();
+
+                self.tcx.ty_error_with_guaranteed(e)
+            } else {
+                let e = struct_span_err!(
+                    self.tcx.sess,
+                    span,
+                    E10003,
+                    "cannot make inference if it is not a function using HKT parameters"
+                ).emit();
+
+                self.tcx.ty_error_with_guaranteed(e)
+            }*/
+
+            None
         }
     }
 

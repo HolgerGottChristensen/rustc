@@ -214,6 +214,9 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 }
             }
 
+            info!("current_substs1: {:?}", substs);
+
+
             // `Self` is handled first, unless it's been handled in `parent_substs`.
             if has_self {
                 if let Some(&param) = params.peek() {
@@ -229,6 +232,8 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                     }
                 }
             }
+
+            info!("current_substs2: {:?}", substs);
 
             // Check whether this segment takes generic arguments and the user has provided any.
             let (generic_args, infer_args) = ctx.args_for_def_id(def_id);
@@ -247,6 +252,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 // provided, matching them with the generic parameters we expect.
                 // Mismatches can occur as a result of elided lifetimes, or for malformed
                 // input. We try to handle both sensibly.
+                info!("args_peek: {:?}, params_peek: {:?}, current_substs: {:#?}", args.peek(), params.peek(), substs);
                 match (args.peek(), params.peek()) {
                     (Some(&arg), Some(&param)) => {
                         match (arg, &param.kind, arg_count.explicit_late_bound) {
@@ -276,6 +282,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                             // If we expect a HKT, the user is allowed to provide either a type
                             // or a HKTVar. Currently infer variables are not supported for HKT.
                             (GenericArg::Type(_), GenericParamDefKind::HKT { .. },  _) => {
+
                                 substs.push(ctx.provided_kind(param, arg));
                                 args.next();
                                 params.next();
@@ -365,6 +372,8 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                     (None, Some(&param)) => {
                         // If there are fewer arguments than parameters, it means
                         // we're inferring the remaining arguments.
+                        info!("Pushing the real param: {:?}, s: {:?}, arg: {:?}, subst: {:#?}", param, substs, infer_args, ctx.inferred_kind(Some(&substs), param, infer_args));
+
                         substs.push(ctx.inferred_kind(Some(&substs), param, infer_args));
                         params.next();
                     }

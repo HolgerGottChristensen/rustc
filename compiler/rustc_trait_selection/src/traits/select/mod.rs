@@ -1233,12 +1233,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
     /// Further evaluates `candidate` to decide whether all type parameters match and whether nested
     /// obligations are met. Returns whether `candidate` remains viable after this further
     /// scrutiny.
-    #[instrument(
-        level = "info",
-        skip(self, stack),
-        fields(depth = stack.obligation.recursion_depth),
-        ret
-    )]
+    #[instrument(level = "info", skip(self, stack), fields(depth = stack.obligation.recursion_depth), ret)]
     fn evaluate_candidate<'o>(
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,

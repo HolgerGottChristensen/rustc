@@ -1,7 +1,9 @@
-//check-fail
+// HKT test
+// check-fail
+
 fn test<I<%J>>(input: I<u32>, i2: I<bool>) {
 }
 
 fn main() {
-    test(Some(32u32), Some("dff".to_string()));
+    test(Some(32u32), Some("dff".to_string())); //~ERROR: cannot infer HKT parameters
 }
